@@ -6,8 +6,13 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Add empty turbopack config to silence the warning about webpack config
-  turbopack: {},
+  experimental: {
+    serverExternalPackages: [
+      "pino",
+      "thread-stream",
+      "@walletconnect/universal-provider",
+    ],
+  },
 }
 
 export default nextConfig

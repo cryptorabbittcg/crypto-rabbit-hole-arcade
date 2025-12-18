@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build",
+    "build": "next build --webpack",
     "dev": "next dev",
     "lint": "eslint .",
     "start": "next start"
@@ -78,6 +78,7 @@
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "thirdweb": "latest",
+    "thread-stream": "^4.0.0",
     "use-sync-external-store": "latest",
     "vaul": "^1.1.2",
     "viem": "2.38.5",
