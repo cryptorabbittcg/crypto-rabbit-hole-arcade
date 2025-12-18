@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { useArcade } from "@/components/providers"
 import Image from "next/image"
 import Link from "next/link"
-import { WalletConnect } from "./wallet-connect"
+import { ProfileMenu } from "./profile-menu"
 
 export default function Topbar() {
   const { tickets, points } = useArcade()
@@ -63,7 +63,7 @@ export default function Topbar() {
             <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
           </Button>
 
-          <WalletConnect />
+          <ProfileMenu />
         </div>
       </div>
     </div>
