@@ -64,8 +64,6 @@ type ArcadeContextType = {
 
 const ArcadeContext = createContext<ArcadeContextType | null>(null)
 
-const metamaskWallet = createWallet("io.metamask")
-
 export function Providers({ children }: { children: ReactNode }) {
   const [tickets, setTickets] = useState(0)
   const [points, setPoints] = useState(0) // Will be loaded from profile storage

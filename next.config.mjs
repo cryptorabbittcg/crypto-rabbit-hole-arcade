@@ -6,12 +6,11 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  experimental: {
-    serverExternalPackages: [
-      "pino",
-      "thread-stream",
-      "@walletconnect/universal-provider",
-    ],
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals.push("pino-pretty", "encoding", "thread-stream")
+    }
+    return config
   },
 }
 
