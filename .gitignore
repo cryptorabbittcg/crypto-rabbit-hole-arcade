@@ -30,3 +30,9 @@ yarn.lock
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# Local logs
+npm-install.log
+*.log
+
+git
+
