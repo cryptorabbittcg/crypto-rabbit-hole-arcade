@@ -3,7 +3,6 @@
 import { Bell, Rocket, Users } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { useArcade } from "@/components/providers"
-import Image from "next/image"
 import Link from "next/link"
 import { ProfileMenu } from "./profile-menu"
 
@@ -13,17 +12,8 @@ export default function Topbar() {
   return (
     <div className="sticky top-0 z-40 backdrop-blur-xl bg-background/80 border-b border-border/50">
       <div className="flex items-center justify-between gap-2 md:gap-4 px-4 md:px-6 py-3">
-        {/* Left: logo */}
+        {/* Left: empty space */}
         <div className="flex items-center gap-3 min-w-0">
-          <Link href="/" className="md:hidden flex items-center gap-2">
-            <div className="relative w-8 h-8 rounded-lg overflow-hidden shadow-[0_0_15px_hsl(var(--neon-cyan)/0.3)]">
-              <Image src="/images/design-mode/Artboard-1.png" alt="Crypto Rabbit" fill className="object-cover" />
-            </div>
-            <span className="font-display text-sm font-bold bg-gradient-to-r from-neon-cyan to-neon-pink bg-clip-text text-transparent">
-              CRA
-            </span>
-          </Link>
-
         </div>
 
         {/* Center: Ciphers & Sentinels Mint CTA */}

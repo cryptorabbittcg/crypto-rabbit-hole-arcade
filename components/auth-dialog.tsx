@@ -22,10 +22,10 @@ import {
 interface AuthDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onAuthSuccess: (result: AuthResult) => void
+  onAuthSuccess?: (result: AuthResult) => void
 }
 
-export function AuthDialog({ open, onOpenChange, onAuthSuccess }: AuthDialogProps) {
+export function AuthDialog({ open, onOpenChange, onAuthSuccess = () => {} }: AuthDialogProps) {
   const account = useActiveAccount()
   const wallet = useActiveWallet()
   const { disconnect: disconnectWallet } = useDisconnect()
@@ -119,7 +119,11 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess }: AuthDialogProp
                 walletAddress: account.address,
               }
               setHasProcessedAuth(true)
-              onAuthSuccess(result)
+              if (typeof onAuthSuccess === "function") {
+                onAuthSuccess(result)
+              } else {
+                console.warn("onAuthSuccess missing; continuing without callback")
+              }
               onOpenChange(false)
               return
             } catch (e) {
@@ -151,7 +155,11 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess }: AuthDialogProp
         
         // The Providers component will handle the wallet connection
         setHasProcessedAuth(true)
-        onAuthSuccess(result)
+        if (typeof onAuthSuccess === "function") {
+          onAuthSuccess(result)
+        } else {
+          console.warn("onAuthSuccess missing; continuing without callback")
+        }
         onOpenChange(false)
       }
     } catch (error) {
@@ -191,6 +199,8 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess }: AuthDialogProp
         <div className="mt-6 space-y-4">
           <div className="flex flex-col items-center gap-3">
             {/* Use ConnectEmbed with autoConnect disabled to require fresh sign-in each time */}
+            {/* Note: If you see "Unrecognized chain ID" errors, MetaMask needs to add ApeChain.
+                The chain will be automatically added if possible, otherwise add it manually in MetaMask. */}
             <div className="w-full">
               <ConnectEmbed
                 client={thirdwebClient}

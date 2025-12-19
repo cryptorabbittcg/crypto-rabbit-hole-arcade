@@ -4,6 +4,7 @@ import Image from "next/image"
 import { PackageOpen, Swords, Zap, Trophy, Users2 } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { useArcade } from "@/components/providers"
+import { logger } from "@/lib/logger"
 import { useEffect, useState } from "react"
 import { GameModal } from "@/components/game-modal"
 import { AuthDialog } from "@/components/auth-dialog"
@@ -17,12 +18,12 @@ export default function ArcadeHub() {
   // Show auth dialog on mount - always show on page load for security
   useEffect(() => {
     // Always show dialog on initial mount to require fresh sign-in
-    console.log("🔍 Showing auth dialog - fresh sign-in required")
+    logger.log("🔍 Showing auth dialog - fresh sign-in required")
     setShowAuthDialog(true)
     
     // Close dialog when user becomes authenticated
     if (isAuthenticated) {
-      console.log("✅ Authenticated, hiding auth dialog")
+      logger.log("✅ Authenticated, hiding auth dialog")
       setShowAuthDialog(false)
     }
   }, [isAuthenticated])
@@ -30,7 +31,7 @@ export default function ArcadeHub() {
   // Listen for show auth dialog event from profile menu
   useEffect(() => {
     const handleShowAuthDialog = () => {
-      console.log("🔍 Profile menu requested auth dialog")
+      logger.log("🔍 Profile menu requested auth dialog")
       setShowAuthDialog(true)
     }
     window.addEventListener("showAuthDialog", handleShowAuthDialog)
@@ -79,12 +80,51 @@ export default function ArcadeHub() {
         />
 
         <div className="relative z-10 text-center space-y-4">
-          <h1 className="font-display text-5xl md:text-6xl font-bold bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent animate-pulse">
-            THE CRYPTO RABBIT HOLE ARCADE
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Insert APECoin • Play Games • Collect Cards • Dominate Leaderboards
-          </p>
+          {/* Building on ApeChain */}
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <Image
+              src="/images/design-mode/ApeCoin.png"
+              alt="ApeCoin"
+              width={24}
+              height={24}
+              className="object-contain"
+            />
+            <p className="text-xl md:text-2xl font-bold text-blue-400 drop-shadow-[0_0_10px_rgba(59,130,246,0.8)]">
+              Building on ApeChain
+            </p>
+          </div>
+
+          {/* Banner Logo with glow */}
+          <div className="flex justify-center mb-4 relative">
+            <div className="absolute inset-0 flex justify-center blur-2xl opacity-50">
+              <Image
+                src="/1500x500 Banner Logo Transparent BG.png"
+                alt="The Crypto Rabbit Hole Arcade"
+                width={480}
+                height={160}
+                className="max-w-full h-auto opacity-30"
+                priority
+              />
+            </div>
+            <Image
+              src="/1500x500 Banner Logo Transparent BG.png"
+              alt="The Crypto Rabbit Hole Arcade"
+              width={480}
+              height={160}
+              className="max-w-full h-auto relative z-10 drop-shadow-[0_0_30px_rgba(255,255,255,0.5)]"
+              priority
+            />
+          </div>
+
+          {/* Catchphrase with glass effect */}
+          <div className="relative inline-block px-5 py-2 rounded-lg backdrop-blur-md bg-white/10 border border-white/20 shadow-[0_0_30px_rgba(255,255,255,0.3)]">
+            <p className="text-xl md:text-2xl font-bold uppercase tracking-wider text-white" style={{
+              textShadow: '0 0 10px rgba(255,255,255,0.6), 0 0 20px rgba(255,255,255,0.4), 0 0 30px rgba(255,255,255,0.3), 0 0 40px rgba(59,130,246,0.5)',
+              WebkitTextStroke: '0.5px rgba(255,255,255,0.4)',
+            }}>
+              COLLECT - LEARN - PLAY - TRADE
+            </p>
+          </div>
 
         </div>
       </div>
@@ -101,14 +141,14 @@ export default function ArcadeHub() {
           <ArcadeCabinet
             title="Ape In!"
             subtitle="ACTION • ARCADE"
-            description="Fast paced competitive push-your-luck card and dice game"
+            description="Fast paced competitive push-your-luck card and dice game built for ApeChain."
             url="https://ape-in-game.vercel.app"
             players={38}
             color="pink"
             onPlay={setActiveGame}
           />
           <ArcadeCabinet
-            title="CRYPTOKU!"
+            title="Cryptoku!"
             subtitle="PUZZLE • STRATEGY"
             description="Solve crypto-themed Sudoku puzzles and climb the leaderboard"
             url="https://cryptoku.vercel.app"
@@ -116,6 +156,51 @@ export default function ArcadeHub() {
             color="cyan"
             onPlay={setActiveGame}
           />
+        </div>
+      </div>
+
+      <div className="mb-8">
+        <h2 className="font-display text-3xl font-bold mb-6 flex items-center gap-3">
+          <PackageOpen className="w-8 h-8 text-secondary animate-pulse" />
+          THE CRYPTO RABBIT HOLE® OFFICIAL TRADING CARD GAME
+        </h2>
+
+        <div className="bg-gradient-to-br from-purple-950/50 to-pink-950/30 border-4 border-purple-500/50 rounded-2xl p-8 shadow-[0_0_40px_hsl(var(--neon-purple)/0.4)]">
+          <div className="aspect-video w-full max-w-4xl mx-auto mb-4">
+            <iframe
+              width="100%"
+              height="100%"
+              src="https://www.youtube.com/embed/iA1bBbV7GtM"
+              title="The Crypto Rabbit Hole Trading Card Game"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              className="rounded-lg"
+            />
+          </div>
+          <div className="text-center">
+            <Link
+              href="https://tabletopia.com/games/the-crypto-rabbit-hole-rgcbmc/play-now"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-cyan-400 hover:text-cyan-300 font-semibold text-lg transition-colors underline decoration-cyan-400/50 hover:decoration-cyan-300"
+            >
+              Test out our sandbox game on TableTopia now
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                />
+              </svg>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -154,30 +239,6 @@ export default function ArcadeHub() {
               <CardDisplay src="/cards/50.png" alt="Card 3" rarity="rare" />
             </div>
           </div>
-        </div>
-      </div>
-
-      <div className="mb-8">
-        <h2 className="font-display text-3xl font-bold mb-6 flex items-center gap-3">
-          <PackageOpen className="w-8 h-8 text-secondary animate-pulse" />
-          THE CRYPTO RABBIT HOLE(R) OFFICIAL TRADING CARD GAME
-        </h2>
-
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <CardDisplay src="/cards/33.png" alt="Indy" rarity="rare" />
-          <CardDisplay src="/cards/59.png" alt="Dex Swap Sushi" rarity="epic" />
-          <CardDisplay src="/cards/50.png" alt="Rug Pull" rarity="rare" />
-          <CardDisplay src="/cards/72.png" alt="De-Fy!" rarity="legendary" />
-          <CardDisplay src="/cards/12.png" alt="Lana 3.0" rarity="epic" />
-        </div>
-
-        <div className="flex gap-4">
-          <Button asChild variant="outline" size="lg" className="flex-1 text-lg font-bold bg-transparent">
-            <Link href="/inventory">
-              <Swords className="w-5 h-5 mr-2" />
-              VIEW COLLECTION
-            </Link>
-          </Button>
         </div>
       </div>
 
@@ -286,19 +347,14 @@ function ArcadeCabinet({ title, subtitle, description, url, color, onPlay }: any
     <div
       className={`relative group overflow-hidden bg-gradient-to-br from-black/90 to-${color}-950/20 border-4 ${borderColors[color as keyof typeof borderColors]} rounded-2xl p-6 transition-all hover:scale-105 ${glowColors[color as keyof typeof glowColors]}`}
     >
-      <div
-        className={`absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r ${buttonColors[color as keyof typeof buttonColors]} px-6 py-1 rounded-full text-xs font-bold text-white shadow-lg`}
-      >
-        INSERT APECOIN
-      </div>
-
-      {title === "Cryptoku!" && (
-        <div className="pointer-events-none absolute inset-0 opacity-60 mix-blend-screen">
+      {(title === "Cryptoku!" || title === "Ape In!") && (
+        <div className="pointer-events-none absolute inset-0 z-0">
           <Image
-            src="/CryptokuBanner.png"
-            alt="CRYPTOKU banner"
+            src={title === "Cryptoku!" ? "/CryptokuBanner.png" : "/ApeInBanner.png"}
+            alt={`${title} banner`}
             fill
-            className="object-cover"
+            className="object-cover opacity-60"
+            priority={title === "Ape In!"}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent" />
         </div>

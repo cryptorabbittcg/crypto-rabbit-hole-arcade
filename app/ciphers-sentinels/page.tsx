@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Lock, Twitter, Unlock } from "@/components/icons"
 
-const WAITLIST_FORM_URL = "https://forms.gle/REPLACE_ME"
-
 const DISCORD_URL = "https://discord.gg/GJBbZHHUtY"
 const X_PRIMARY_URL = "https://x.com/CryptoRabbitTCG"
 const X_SECONDARY_URL = "https://x.com/CryptoRabitHole"
@@ -62,7 +60,7 @@ function CtaStrip() {
               Ready to drop into the Ciphers & Sentinels founder wave?
             </p>
             <p className="text-xs md:text-sm text-muted-foreground">
-              Join the Discord to get the whitelist role and hop on the waitlist so you don’t miss the mint window.
+              Join the Discord to get the whitelist role so you don't miss the mint window.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -73,16 +71,6 @@ function CtaStrip() {
             >
               <a href={DISCORD_URL} target="_blank" rel="noreferrer">
                 Join Discord (Get Whitelist Role)
-              </a>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="border-pink-500/60 bg-black/20 text-sm md:text-base font-semibold hover:bg-pink-500/10"
-            >
-              <a href={WAITLIST_FORM_URL} target="_blank" rel="noreferrer">
-                Join Waitlist Form
               </a>
             </Button>
           </div>
@@ -130,16 +118,6 @@ export default function CiphersSentinelsPage() {
               >
                 <a href={DISCORD_URL} target="_blank" rel="noreferrer">
                   Join Discord (Get Whitelist Role)
-                </a>
-              </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="border-cyan-400/60 bg-black/30 text-sm md:text-base font-semibold hover:bg-cyan-500/10"
-              >
-                <a href={WAITLIST_FORM_URL} target="_blank" rel="noreferrer">
-                  Join Waitlist Form
                 </a>
               </Button>
             </div>

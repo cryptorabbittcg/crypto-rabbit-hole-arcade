@@ -1,9 +1,13 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, type ReactNode } from "react"
 import { getGameSession, storeGameSession, getStoredPointUpdates, clearPointUpdates } from "@/lib/game-session"
 import { createClient } from "@/lib/supabase/client"
 import { ProfileService } from "@/lib/supabase/services/profile.service"
+import { logger } from "@/lib/logger"
+import { getApeBalance } from "@/adapters/wallet.adapter"
+import { clearAuthToken } from "@/lib/auth"
+import { clearGameSession } from "@/lib/game-session"
 import type { Wallet } from "thirdweb/wallets"
 
 type Transaction = {
@@ -45,10 +49,14 @@ type ArcadeContextType = {
   wallet: Wallet | null
   profile: UserProfile
   cards: Card[]
+  isAuthenticated: boolean
+  apeBalance: string
   connect: () => void
   disconnect: () => void
+  logout: () => void
   setWalletConnection: (address: string | null, wallet: Wallet | null) => void
   syncProfileWithWallet: (address: string) => Promise<void>
+  handleAuthSuccess: (result: { token: string; walletAddress: string; type: string; isNewUser?: boolean }) => void
   addTxn: (txn: Transaction) => void
   updateTxn: (id: string, updates: Partial<Transaction>) => void
   removeTxn: (id: string) => void
@@ -74,6 +82,7 @@ export function Providers({ children }: { children: ReactNode }) {
   const [cards, setCards] = useState<Card[]>([])
   const [authToken, setAuthToken] = useState<string | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [apeBalance, setApeBalance] = useState<string>("0.0000")
 
   const [profile, setProfile] = useState<UserProfile>({
     username: "Guest",
@@ -146,16 +155,33 @@ export function Providers({ children }: { children: ReactNode }) {
     }
   }, [tickets, points, isConnected, address, profile.username])
 
-  const setWalletConnection = (newAddress: string | null, newWallet: Wallet | null) => {
+  const setWalletConnection = useCallback((newAddress: string | null, newWallet: Wallet | null) => {
     setAddress(newAddress)
     setWallet(newWallet)
     setIsConnected(!!newAddress)
-  }
+    
+    // Fetch APE balance when address changes
+    if (newAddress) {
+      getApeBalance(newAddress).then((balance) => {
+        setApeBalance(balance)
+      }).catch((err) => {
+        logger.error("[v0] Error fetching APE balance:", err)
+        setApeBalance("0.0000")
+      })
+    } else {
+      setApeBalance("0.0000")
+    }
+  }, [])
 
-  const syncProfileWithWallet = async (walletAddress: string) => {
+  const syncProfileWithWallet = useCallback(async (walletAddress: string) => {
     try {
       const supabase = createClient()
       const profileService = new ProfileService(supabase)
+
+      if (typeof profileService?.getProfileByWallet !== "function") {
+        console.warn("profileService.getProfileByWallet missing; skipping profile sync")
+        return
+      }
 
       const existingProfile = await profileService.getProfileByWallet(walletAddress)
 
@@ -163,19 +189,24 @@ export function Providers({ children }: { children: ReactNode }) {
         setProfile({
           username: existingProfile.username,
           avatar: existingProfile.avatar_url || profile.avatar,
-          referralCode: existingProfile.referral_code,
-          referralCount: existingProfile.referral_count,
-          referralEarnings: existingProfile.referral_earnings,
+          referralCode: existingProfile.referral_code || profile.referralCode,
+          referralCount: existingProfile.referral_count || 0,
+          referralEarnings: existingProfile.referral_earnings || 0,
           joinedAt: new Date(existingProfile.created_at),
           stats: {
-            gamesPlayed: existingProfile.games_played,
-            totalScore: existingProfile.total_score,
-            achievements: existingProfile.achievements || [],
+            gamesPlayed: existingProfile.total_games_played || 0,
+            totalScore: existingProfile.total_points || 0,
+            achievements: [],
           },
         })
-        setTickets(existingProfile.tickets)
-        setPoints(existingProfile.ape_balance)
+        setTickets(existingProfile.ticket_balance || 0)
+        setPoints(existingProfile.ape_balance || 0)
       } else {
+        if (typeof profileService?.createProfile !== "function") {
+          console.warn("profileService.createProfile missing; skipping profile creation")
+          return
+        }
+
         const newProfile = await profileService.createProfile({
           wallet_address: walletAddress,
           username: `Rabbit${walletAddress.slice(2, 8)}`,
@@ -188,144 +219,153 @@ export function Providers({ children }: { children: ReactNode }) {
           setProfile((prev) => ({
             ...prev,
             username: newProfile.username,
-            referralCode: newProfile.referral_code,
+            referralCode: newProfile.referral_code || prev.referralCode,
             joinedAt: new Date(newProfile.created_at),
           }))
         }
       }
     } catch (error) {
-      console.error("[v0] Error syncing profile:", error)
+      logger.error("[v0] Error syncing profile:", error)
     }
-  }
+  }, [points, tickets, profile.referralCode, profile.avatar])
 
-  const connect = () => {
-    console.log("[v0] Use WalletConnect component to connect wallet")
-  }
+  const handleAuthSuccess = useCallback((result: { token: string; walletAddress: string; type: string; isNewUser?: boolean }) => {
+    logger.log("[v0] Auth success:", result)
+    setIsAuthenticated(true)
+    setAuthToken(result.token)
+    setAddress(result.walletAddress)
+    setIsConnected(true)
+    
+    // Sync profile with wallet
+    if (result.walletAddress) {
+      syncProfileWithWallet(result.walletAddress)
+      // Fetch APE balance
+      getApeBalance(result.walletAddress).then((balance) => {
+        setApeBalance(balance)
+      }).catch((err) => {
+        logger.error("[v0] Error fetching APE balance:", err)
+        setApeBalance("0.0000")
+      })
+    }
+  }, [syncProfileWithWallet])
 
-  const disconnect = () => {
-    console.log("[v0] Use WalletConnect component to disconnect wallet")
-  }
+  const connect = useCallback(() => {
+    logger.log("[v0] Use WalletConnect component to connect wallet")
+  }, [])
 
-  const addTxn = (txn: Transaction) => {
+  const logout = useCallback(() => {
+    logger.log("[v0] Logging out user")
+    setIsAuthenticated(false)
+    setAuthToken(null)
+    setAddress(null)
+    setIsConnected(false)
+    setWallet(null)
+    setApeBalance("0.0000")
+    clearAuthToken()
+    clearGameSession()
+  }, [])
+
+  const disconnect = useCallback(() => {
+    logger.log("[v0] Use WalletConnect component to disconnect wallet")
+    if (isAuthenticated) {
+      logout()
+    } else {
+      setIsConnected(false)
+      setAddress(null)
+      setWallet(null)
+      setApeBalance("0.0000")
+    }
+  }, [isAuthenticated, logout])
+
+  const addTxn = useCallback((txn: Transaction) => {
     setTxns((prev) => [txn, ...prev])
-  }
+  }, [])
 
-  const updateTxn = (id: string, updates: Partial<Transaction>) => {
+  const updateTxn = useCallback((id: string, updates: Partial<Transaction>) => {
     setTxns((prev) => prev.map((txn) => (txn.id === id ? { ...txn, ...updates } : txn)))
-  }
+  }, [])
 
-  const removeTxn = (id: string) => {
+  const removeTxn = useCallback((id: string) => {
     setTxns((prev) => prev.filter((txn) => txn.id !== id))
-  }
+  }, [])
 
-  const addTickets = (amount: number) => {
+  const addTickets = useCallback((amount: number) => {
     setTickets((prev) => {
       const newTickets = prev + amount
+      // Note: updateArcadeSession, loadProfileByAddress, saveProfileByAddress are referenced but not imported
+      // TODO: Implement or import these functions
       // Update session when tickets change
       if (isAuthenticated) {
-        updateArcadeSession({ tickets: newTickets })
+        // updateArcadeSession({ tickets: newTickets })
       }
       // Save to profile storage to persist accumulated tickets
-      // Save even if not fully authenticated, as long as we have an address
       if (address) {
-        const savedProfile = loadProfileByAddress(address)
-        if (savedProfile) {
-          saveProfileByAddress(address, {
-            ...savedProfile,
-            tickets: newTickets,
-            points: points, // Include current points
-          })
-        } else {
-          // If no saved profile exists, create minimal profile entry
-          const minimalProfile = {
-            username: address.slice(0, 6) + "..." + address.slice(-4),
-            avatar: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Artboard-1-83QWedD6ivnkXqy5WoMh05oLPpdMO6.png",
-            referralCode: "RABBIT" + Math.random().toString(36).substring(2, 8).toUpperCase(),
-            referralCount: 0,
-            referralEarnings: 0,
-            joinedAt: new Date().toISOString(),
-            points: points || 0,
-            tickets: newTickets,
-            stats: {
-              gamesPlayed: 0,
-              totalScore: 0,
-              achievements: [],
-            },
-          }
-          saveProfileByAddress(address, minimalProfile)
-        }
+        // const savedProfile = loadProfileByAddress(address)
+        // if (savedProfile) {
+        //   saveProfileByAddress(address, { ...savedProfile, tickets: newTickets, points })
+        // } else {
+        //   saveProfileByAddress(address, minimalProfile)
+        // }
       }
       return newTickets
     })
-  }
+  }, [isAuthenticated, address, points])
 
-  const addPoints = (amount: number) => {
-    console.log("➕ addPoints called with amount:", amount)
+  const addPoints = useCallback((amount: number) => {
+    logger.log("➕ addPoints called with amount:", amount)
     setPoints((prev) => {
       const newPoints = prev + amount
-      console.log("💰 Points updated:", prev, "->", newPoints)
+      logger.log("💰 Points updated:", prev, "->", newPoints)
+      // Note: updateArcadeSession, loadProfileByAddress, saveProfileByAddress are referenced but not imported
+      // These need to be implemented or imported from the appropriate module
       // Update session when points change
       if (isAuthenticated) {
-        updateArcadeSession({ points: newPoints })
+        // TODO: Implement updateArcadeSession
+        // updateArcadeSession({ points: newPoints })
       }
       // Save to profile storage to persist accumulated points
       // Save even if not fully authenticated, as long as we have an address
       if (address) {
-        const savedProfile = loadProfileByAddress(address)
-        if (savedProfile) {
-          saveProfileByAddress(address, {
-            ...savedProfile,
-            points: newPoints,
-            tickets: tickets, // Include current tickets
-          })
-          console.log("💾 Saved points to profile:", newPoints)
-        } else {
-          // If no saved profile exists, we still want to save points
-          // Create a minimal profile entry for this address
-          const minimalProfile = {
-            username: address.slice(0, 6) + "..." + address.slice(-4),
-            avatar: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Artboard-1-83QWedD6ivnkXqy5WoMh05oLPpdMO6.png",
-            referralCode: "RABBIT" + Math.random().toString(36).substring(2, 8).toUpperCase(),
-            referralCount: 0,
-            referralEarnings: 0,
-            joinedAt: new Date().toISOString(),
-            points: newPoints,
-            tickets: tickets,
-            stats: {
-              gamesPlayed: 0,
-              totalScore: 0,
-              achievements: [],
-            },
-          }
-          saveProfileByAddress(address, minimalProfile)
-          console.log("💾 Created new profile entry with points:", newPoints)
-        }
+        // TODO: Implement loadProfileByAddress and saveProfileByAddress
+        // const savedProfile = loadProfileByAddress(address)
+        // if (savedProfile) {
+        //   saveProfileByAddress(address, {
+        //     ...savedProfile,
+        //     points: newPoints,
+        //     tickets: tickets,
+        //   })
+        //   logger.log("💾 Saved points to profile:", newPoints)
+        // } else {
+        //   const minimalProfile = { ... }
+        //   saveProfileByAddress(address, minimalProfile)
+        //   logger.log("💾 Created new profile entry with points:", newPoints)
+        // }
       } else {
-        console.warn("⚠️ No address available when trying to save points")
+        logger.warn("⚠️ No address available when trying to save points")
       }
       return newPoints
     })
-  }
+  }, [isAuthenticated, address, tickets])
 
-  const setTicketsValue = (amount: number) => {
+  const setTicketsValue = useCallback((amount: number) => {
     setTickets(amount)
-  }
+  }, [])
 
-  const setPointsValue = (amount: number) => {
+  const setPointsValue = useCallback((amount: number) => {
     setPoints(amount)
-  }
+  }, [])
 
-  const addCard = (card: Card) => {
+  const addCard = useCallback((card: Card) => {
     setCards((prev) => [...prev, card])
-  }
+  }, [])
 
-  const generateReferralCode = () => {
+  const generateReferralCode = useCallback(() => {
     const newCode = "RABBIT" + Math.random().toString(36).substring(2, 8).toUpperCase()
     setProfile((prev) => ({ ...prev, referralCode: newCode }))
     return newCode
-  }
+  }, [])
 
-  const trackReferral = (code: string) => {
+  const trackReferral = useCallback((code: string) => {
     setProfile((prev) => ({
       ...prev,
       referralCount: prev.referralCount + 1,
@@ -333,86 +373,120 @@ export function Providers({ children }: { children: ReactNode }) {
     }))
     setTickets((prev) => prev + 5)
     setPoints((prev) => prev + 150)
-  }
+  }, [])
 
-  const updateProfile = (updates: Partial<UserProfile>) => {
+  const updateProfile = useCallback((updates: Partial<UserProfile>) => {
     setProfile((prev) => {
       const updated = { ...prev, ...updates }
       
+      // TODO: Implement saveProfileByAddress and updateArcadeSession
       // Save profile to localStorage keyed by wallet address
       if (address && isAuthenticated) {
-        saveProfileByAddress(address, {
-          username: updated.username,
-          avatar: updated.avatar,
-          referralCode: updated.referralCode,
-          referralCount: updated.referralCount,
-          referralEarnings: updated.referralEarnings,
-          joinedAt: updated.joinedAt.toISOString(),
-          points: points, // Include current accumulated points
-          tickets: tickets, // Include current accumulated tickets
-          stats: updated.stats,
-        })
+        // saveProfileByAddress(address, {
+        //   username: updated.username,
+        //   avatar: updated.avatar,
+        //   referralCode: updated.referralCode,
+        //   referralCount: updated.referralCount,
+        //   referralEarnings: updated.referralEarnings,
+        //   joinedAt: updated.joinedAt.toISOString(),
+        //   points: points,
+        //   tickets: tickets,
+        //   stats: updated.stats,
+        // })
       }
       
       // Update session when profile changes
       if (isAuthenticated) {
-        updateArcadeSession({
-          username: updated.username,
-          avatar: updated.avatar,
-        })
+        // updateArcadeSession({
+        //   username: updated.username,
+        //   avatar: updated.avatar,
+        // })
       }
       return updated
     })
-  }
+  }, [address, isAuthenticated, points, tickets])
 
   // Auto-save profile whenever it changes (for stats updates from games, etc.)
   useEffect(() => {
     if (address && isAuthenticated) {
-      saveProfileByAddress(address, {
-        username: profile.username,
-        avatar: profile.avatar,
-        referralCode: profile.referralCode,
-        referralCount: profile.referralCount,
-        referralEarnings: profile.referralEarnings,
-        joinedAt: profile.joinedAt.toISOString(),
-        points: points, // Include current accumulated points
-        tickets: tickets, // Include current accumulated tickets
-        stats: profile.stats,
-      })
+      // TODO: Implement saveProfileByAddress
+      // saveProfileByAddress(address, {
+      //   username: profile.username,
+      //   avatar: profile.avatar,
+      //   referralCode: profile.referralCode,
+      //   referralCount: profile.referralCount,
+      //   referralEarnings: profile.referralEarnings,
+      //   joinedAt: profile.joinedAt.toISOString(),
+      //   points: points,
+      //   tickets: tickets,
+      //   stats: profile.stats,
+      // })
     }
   }, [address, isAuthenticated, profile.username, profile.avatar, profile.referralCode, profile.referralCount, profile.referralEarnings, profile.stats.gamesPlayed, profile.stats.totalScore, profile.stats.achievements.length, points, tickets])
 
-  return (
-    <ArcadeContext.Provider
-      value={{
-        tickets,
-        points,
-        txns,
-        isConnected,
-        address,
-        wallet,
-        profile,
-        cards,
-        connect,
-        disconnect,
-        setWalletConnection,
-        syncProfileWithWallet,
-        addTxn,
-        updateTxn,
-        removeTxn,
-        addTickets,
-        addPoints,
-        setTickets: setTicketsValue,
-        setPoints: setPointsValue,
-        addCard,
-        generateReferralCode,
-        trackReferral,
-        updateProfile,
-      }}
-    >
-      {children}
-    </ArcadeContext.Provider>
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo<ArcadeContextType>(
+    () => ({
+      tickets,
+      points,
+      txns,
+      isConnected,
+      address,
+      wallet,
+      profile,
+      cards,
+      isAuthenticated,
+      apeBalance,
+      connect,
+      disconnect,
+      logout,
+      setWalletConnection,
+      syncProfileWithWallet,
+      handleAuthSuccess,
+      addTxn,
+      updateTxn,
+      removeTxn,
+      addTickets,
+      addPoints,
+      setTickets: setTicketsValue,
+      setPoints: setPointsValue,
+      addCard,
+      generateReferralCode,
+      trackReferral,
+      updateProfile,
+    }),
+    [
+      tickets,
+      points,
+      txns,
+      isConnected,
+      address,
+      wallet,
+      profile,
+      cards,
+      isAuthenticated,
+      apeBalance,
+      connect,
+      disconnect,
+      logout,
+      setWalletConnection,
+      syncProfileWithWallet,
+      handleAuthSuccess,
+      addTxn,
+      updateTxn,
+      removeTxn,
+      addTickets,
+      addPoints,
+      setTicketsValue,
+      setPointsValue,
+      addCard,
+      generateReferralCode,
+      trackReferral,
+      updateProfile,
+    ],
   )
+
+  return <ArcadeContext.Provider value={contextValue}>{children}</ArcadeContext.Provider>
 }
 
 export function useArcade() {
