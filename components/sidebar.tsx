@@ -7,13 +7,13 @@ import Image from "next/image"
 import { cn } from "@/lib/utils"
 
 const navItems = [
+  { href: "/ciphers-sentinels", icon: Rocket, label: "C&S Mint" },
   { href: "/", icon: Gamepad2, label: "Arcade Hub" },
   { href: "/inventory", icon: Wallet, label: "Inventory" },
   { href: "/mint", icon: Package, label: "Mint Packs" },
   { href: "/card-battle", icon: Swords, label: "Card Battle" },
   { href: "/social", icon: Users, label: "Social Raids" },
   { href: "/leaderboard", icon: Trophy, label: "Leaderboard" },
-  { href: "/ciphers-sentinels", icon: Rocket, label: "C&S Mint" },
   { href: "/profile", icon: User, label: "Profile" },
   { href: "/admin", icon: Settings, label: "Admin Panel" },
 ]
