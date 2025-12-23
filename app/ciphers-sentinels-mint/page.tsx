@@ -160,39 +160,123 @@ export default function CiphersSentinelsMintPage() {
         </div>
       </HoloPanel>
 
-      {/* SECTION 4 — FOUNDER UTILITY SNAPSHOT */}
-      <HoloPanel accent="pink" title="Founder Utility, Built to Compound">
+      {/* SECTION A — NEW: THE JOURNEY */}
+      <HoloPanel accent="purple" title="From a single comment to a playable universe">
+        <div className="space-y-4">
+          <p className="text-sm md:text-base text-muted-foreground">
+            The Crypto Rabbit Hole started with a single comment in a Discord channel. What began as an experiment in
+            on-chain mini-games and trading cards has evolved into Esoteria — a living universe where market chaos,
+            signal noise, and player skill collide.
+          </p>
+          <p className="text-sm md:text-base text-muted-foreground">
+            We've shipped arcade-ready mini-games, prototype TCG mechanics, on-chain inventory, and leaderboards that
+            already keep score across the Rabbit Hole. Under the hood lives a foundation for modular card sets, rarity
+            curves, and event-driven seasons.
+          </p>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Ciphers & Sentinels is the narrative layer that stitches those experiments into a cohesive universe. Your
+            PFPs become pilots, avatars, and keys to a growing suite of modes — raids, drafts, leagues, and beyond.
+          </p>
+          <ImagePlaceholder label="The Journey / Story Visual" aspectRatio="video" />
+        </div>
+      </HoloPanel>
+
+      {/* SECTION B — REPLACED: FOUNDER PASS VALUE STACK */}
+      <HoloPanel accent="pink" title="The Founder Pass Value Stack">
         <div className="space-y-6">
           <p className="text-sm md:text-base text-muted-foreground">
             Holding a Cipher or Sentinel unlocks access across the Crypto Rabbit Hole ecosystem. Utility is layered —
             value compounds over time as new modes and drops come online.
           </p>
-          <ul className="space-y-2 text-sm md:text-base text-muted-foreground">
-            <li className="flex gap-2">
-              <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
-              <span>Early access to games and modes</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
-              <span>Priority eligibility for Gen-1 card packs</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
-              <span>Founder-only events and leagues</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
-              <span>Participation rewards and drops</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
-              <span>Avatar utility across platforms</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
-              <span>Influence on future expansions</span>
-            </li>
-          </ul>
+
+          <div className="space-y-4">
+            <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">Founder Perks</h3>
+            <ul className="space-y-2 text-sm md:text-base text-muted-foreground">
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
+                <span>Early access to games and modes</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
+                <span>Priority eligibility for Gen-1 card packs</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
+                <span>Founder-only events and leagues</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
+                <span>Participation rewards and drops</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
+                <span>Avatar utility across platforms</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
+                <span>Influence on future expansions</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
+                <span>Early founder role in Discord with priority feedback access</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
+                <span>Day-one access to curated playtest drops, prototype decks, and experimental game modes</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
+                <span>Premium holo profile cosmetics and founder-only on-chain collectibles</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
+                <span>Private strategy channels with the design team to shape metas before they go live</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
+                <span>IRL crossovers, collab drops, and surprise digital merch packages</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
+                <span>Future on-chain governance hooks for arcade expansions and seasonal leagues</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-pink-400 via-fuchsia-400 to-rose-400" />
+                <span>Priority allowlist for upcoming partner mints across the Crypto Rabbit ecosystem</span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="space-y-4 pt-4 border-t border-white/10">
+            <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-fuchsia-300">Sentinel Elite Perks</h3>
+            <ul className="space-y-2 text-sm md:text-base text-muted-foreground">
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-fuchsia-400 via-pink-400 to-purple-400" />
+                <span>Enhanced founder role with priority access to all releases</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-fuchsia-400 via-pink-400 to-purple-400" />
+                <span>Increased reward weighting across all participation events</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-fuchsia-400 via-pink-400 to-purple-400" />
+                <span>Sentinel-exclusive content and cosmetic perks</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-fuchsia-400 via-pink-400 to-purple-400" />
+                <span>Priority across future drops and expansions</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-fuchsia-400 via-pink-400 to-purple-400" />
+                <span>Special recognition and legacy status inside Esoteria</span>
+              </li>
+            </ul>
+          </div>
+
+          <p className="text-sm md:text-base text-white font-medium pt-4 border-t border-white/10">
+            This is far more than a PFP — it is a multi-utility identity pass.
+          </p>
+
           <ImagePlaceholder label="Utility Icons / Perks Graphic" aspectRatio="video" />
         </div>
       </HoloPanel>
@@ -229,61 +313,103 @@ export default function CiphersSentinelsMintPage() {
         </div>
       </HoloPanel>
 
-      {/* SECTION 6 — WHAT UNLOCKS AFTER PFP LAUNCH */}
+      {/* SECTION C — UPDATED: WHAT UNLOCKS AFTER PFP LAUNCH */}
       <HoloPanel accent="cyan" title="What Unlocks After the PFP Launch">
         <div className="space-y-6">
           <p className="text-sm md:text-base text-muted-foreground">
             The PFP launch activates what's already built and accelerates what comes next.
           </p>
-          <ul className="space-y-2 text-sm md:text-base text-muted-foreground">
-            <li className="flex gap-2">
-              <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
-              <span>Gen-1 card pack release: 12 weeks after launch</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
-              <span>Seasonal modes and community events</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
-              <span>More arcade games and participation rewards</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
-              <span>Expansion development and deck-building options</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
-              <span>Digital beta game build: 12 months after launch</span>
-            </li>
-          </ul>
+
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-cyan-400/30 bg-black/40 p-4 space-y-3">
+              <h3 className="font-display text-lg text-cyan-300">Card packs: 12 weeks after launch</h3>
+              <p className="text-sm text-muted-foreground">
+                Gen-1 card pack release with animated pack opening experiences and wallet integration.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+                Digital Card Game Features
+              </h4>
+              <ul className="space-y-2 text-sm md:text-base text-muted-foreground">
+                <li className="flex gap-2">
+                  <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
+                  <span>Animated pack opening experiences</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
+                  <span>Full wallet integration for on-chain card ownership</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
+                  <span>Player vs Player (PvP) competitive modes</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
+                  <span>Seasonal expansions with new card sets</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
+                  <span>Trait-linked gameplay mechanics</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
+                  <span>Ranked ladders and competitive seasons</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
+                  <span>Multiplayer arenas for team-based gameplay</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="rounded-2xl border border-emerald-400/30 bg-black/40 p-4 space-y-3 mt-4">
+              <h3 className="font-display text-lg text-emerald-300">Digital beta: 12 months after launch</h3>
+              <p className="text-sm text-muted-foreground">
+                Full digital beta game build with all features integrated and live.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2 text-sm md:text-base text-muted-foreground pt-2">
+            <p>• Seasonal modes and community events</p>
+            <p>• More arcade games and participation rewards</p>
+            <p>• Expansion development and deck-building options</p>
+          </div>
+
           <ImagePlaceholder label="Roadmap / Timeline" aspectRatio="video" />
         </div>
       </HoloPanel>
 
-      {/* SECTION 7 — FOUNDER ACCESS TIERS */}
+      {/* SECTION D — SIMPLIFIED: FOUNDER ACCESS TIERS */}
       <HoloPanel accent="pink" title="Founder Access Tiers">
         <div className="space-y-6">
           <p className="text-sm md:text-base text-muted-foreground">
-            These tiers are access levels — designed for collectors, players, and long-term supporters. Exact
-            allocations will be detailed before mint.
+            Two access tiers designed for collectors, players, and long-term supporters. Exact allocations will be
+            detailed before mint.
           </p>
+
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Tier 1: Cipher Holder */}
-            <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3">
-              <h3 className="font-display text-lg text-cyan-300">Cipher Holder</h3>
+            {/* Cipher Founder Pass */}
+            <div className="rounded-2xl border border-cyan-400/30 bg-black/40 p-5 space-y-4">
+              <div className="space-y-2">
+                <h3 className="font-display text-xl text-cyan-300">Cipher Founder Pass</h3>
+                <Badge className="border border-cyan-400/60 bg-cyan-500/15 text-[0.65rem] uppercase tracking-[0.16em]">
+                  8,000 supply
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                The innovators, traders, and explorers. Agile, adaptable, and connected to the flow of the chain.
+              </p>
               <ul className="space-y-1.5 text-xs md:text-sm text-muted-foreground">
                 <li className="flex gap-2">
                   <span className="mt-1 h-1 w-3 rounded-full bg-cyan-400/70" />
-                  <span>1 Cipher PFP</span>
+                  <span>All founder perks</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="mt-1 h-1 w-3 rounded-full bg-cyan-400/70" />
-                  <span>Founder role</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1 h-1 w-3 rounded-full bg-cyan-400/70" />
-                  <span>Early access to games</span>
+                  <span>Early access to games and modes</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="mt-1 h-1 w-3 rounded-full bg-cyan-400/70" />
@@ -296,21 +422,25 @@ export default function CiphersSentinelsMintPage() {
               </ul>
             </div>
 
-            {/* Tier 2: Sentinel Holder */}
-            <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3">
-              <h3 className="font-display text-lg text-fuchsia-300">Sentinel Holder</h3>
+            {/* Sentinel Elite Pass */}
+            <div className="rounded-2xl border border-fuchsia-400/30 bg-black/40 p-5 space-y-4">
+              <div className="space-y-2">
+                <h3 className="font-display text-xl text-fuchsia-300">Sentinel Elite Pass</h3>
+                <Badge className="border border-fuchsia-400/60 bg-fuchsia-500/15 text-[0.65rem] uppercase tracking-[0.16em]">
+                  2,000 supply
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                The guardians and power players. Stronger presence, enhanced perks, elevated rarity.
+              </p>
               <ul className="space-y-1.5 text-xs md:text-sm text-muted-foreground">
                 <li className="flex gap-2">
                   <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
-                  <span>1 Sentinel PFP</span>
+                  <span>All Cipher perks plus elite benefits</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
-                  <span>Enhanced founder role</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
-                  <span>Priority access to releases</span>
+                  <span>Priority access to all releases</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
@@ -320,63 +450,21 @@ export default function CiphersSentinelsMintPage() {
                   <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
                   <span>Sentinel-exclusive content</span>
                 </li>
-              </ul>
-            </div>
-
-            {/* Tier 3: Dual Holder */}
-            <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3">
-              <h3 className="font-display text-lg text-purple-300">Dual Holder (Cipher + Sentinel)</h3>
-              <ul className="space-y-1.5 text-xs md:text-sm text-muted-foreground">
                 <li className="flex gap-2">
-                  <span className="mt-1 h-1 w-3 rounded-full bg-purple-400/70" />
-                  <span>Both identities</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1 h-1 w-3 rounded-full bg-purple-400/70" />
-                  <span>Maximum access tier</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1 h-1 w-3 rounded-full bg-purple-400/70" />
-                  <span>Highest reward weighting</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1 h-1 w-3 rounded-full bg-purple-400/70" />
-                  <span>Priority across future drops</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1 h-1 w-3 rounded-full bg-purple-400/70" />
-                  <span>Special recognition and cosmetic perks</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Tier 4: Founder Vault */}
-            <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3">
-              <h3 className="font-display text-lg text-pink-300">Founder Vault (Limited)</h3>
-              <ul className="space-y-1.5 text-xs md:text-sm text-muted-foreground">
-                <li className="flex gap-2">
-                  <span className="mt-1 h-1 w-3 rounded-full bg-pink-400/70" />
-                  <span>Multiple PFPs</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1 h-1 w-3 rounded-full bg-pink-400/70" />
-                  <span>Reserved allocations for future content</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1 h-1 w-3 rounded-full bg-pink-400/70" />
-                  <span>Physical reward eligibility (where applicable)</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1 h-1 w-3 rounded-full bg-pink-400/70" />
-                  <span>Direct feedback channel access</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1 h-1 w-3 rounded-full bg-pink-400/70" />
-                  <span>Legacy recognition inside Esoteria</span>
+                  <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
+                  <span>Special recognition and legacy status</span>
                 </li>
               </ul>
             </div>
           </div>
+
+          <div className="rounded-2xl border border-white/10 bg-black/40 p-4 mt-4">
+            <p className="text-xs md:text-sm text-muted-foreground italic">
+              Note: An alternate mint/upgrade concept may allow Cipher holders to upgrade to Sentinel status. Details
+              will be confirmed before mint.
+            </p>
+          </div>
+
           <ImagePlaceholder label="Tier Icons / Badges" aspectRatio="video" />
         </div>
       </HoloPanel>
@@ -441,25 +529,7 @@ export default function CiphersSentinelsMintPage() {
           <p className="text-sm md:text-base text-muted-foreground max-w-2xl mx-auto">
             Mint Date: TBA. Follow along, join the community, and get notified when the next announcement lands.
           </p>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
-            <Button
-              asChild
-              size="lg"
-              className="bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400 text-sm md:text-base font-semibold shadow-[0_0_24px_hsl(var(--neon-cyan)/0.45)]"
-            >
-              <a href={NOTIFY_URL}>Get Notified</a>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="border-white/20 bg-black/40 text-sm md:text-base hover:border-cyan-400/80 hover:text-cyan-300"
-            >
-              <a href={DISCORD_URL} target="_blank" rel="noreferrer">
-                Join the Community
-              </a>
-            </Button>
-          </div>
+          <CtaBlock />
           <div className="pt-4">
             <Link
               href="/ciphers-sentinels"
