@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Gamepad2, Package, Wallet, Users, Settings, Trophy, User, Swords, Rocket } from "@/components/icons"
+import { Gamepad2, Package, Wallet, Users, Settings, Trophy, User, Swords, Rocket, Sparkles } from "@/components/icons"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 
@@ -14,6 +14,7 @@ const navItems = [
   { href: "/social", icon: Users, label: "Social Raids" },
   { href: "/leaderboard", icon: Trophy, label: "Leaderboard" },
   { href: "/ciphers-sentinels", icon: Rocket, label: "C&S Mint" },
+  { href: "/ciphers-sentinels-mint", icon: Sparkles, label: "Mint Info" },
   { href: "/profile", icon: User, label: "Profile" },
   { href: "/admin", icon: Settings, label: "Admin Panel" },
 ]
@@ -39,6 +40,7 @@ export default function Sidebar() {
           const Icon = item.icon
           const isActive = pathname === item.href
           const isCSMint = item.href === "/ciphers-sentinels"
+          const isMintInfo = item.href === "/ciphers-sentinels-mint"
 
           return (
             <Link
@@ -48,11 +50,13 @@ export default function Sidebar() {
                 "flex items-center gap-3 px-4 py-3 rounded-xl transition-all",
                 isCSMint
                   ? "rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400 text-black text-sm font-semibold shadow-[0_0_25px_hsl(var(--neon-cyan)/0.7)] border border-cyan-300/70 animate-pulse hover:shadow-[0_0_30px_hsl(var(--neon-cyan)/0.9)]"
-                  : cn(
-                      "hover:bg-primary/10 hover:text-primary hover:shadow-[0_0_15px_hsl(var(--neon-cyan)/0.2)]",
-                      isActive &&
-                        "bg-primary/20 text-primary shadow-[0_0_20px_hsl(var(--neon-cyan)/0.3)] border border-primary/30",
-                    ),
+                  : isMintInfo
+                    ? "hover:bg-primary/10 hover:text-primary hover:shadow-[0_0_15px_hsl(var(--neon-cyan)/0.2)] border border-purple-400/30"
+                    : cn(
+                        "hover:bg-primary/10 hover:text-primary hover:shadow-[0_0_15px_hsl(var(--neon-cyan)/0.2)]",
+                        isActive &&
+                          "bg-primary/20 text-primary shadow-[0_0_20px_hsl(var(--neon-cyan)/0.3)] border border-primary/30",
+                      ),
               )}
             >
               <Icon className={cn("w-5 h-5", isCSMint && "text-black")} />

@@ -9,6 +9,7 @@ import { Lock, Twitter, Unlock } from "@/components/icons"
 const DISCORD_URL = "https://discord.gg/GJBbZHHUtY"
 const X_PRIMARY_URL = "https://x.com/CryptoRabbitTCG"
 const X_SECONDARY_URL = "https://x.com/CryptoRabitHole"
+const NOTIFY_URL = "/notify"
 
 const PROGRESS_PCT = 22
 
@@ -77,6 +78,80 @@ function CtaStrip() {
         </div>
       </HoloPanel>
     </div>
+  )
+}
+
+function MintInfoCta({ variant = "default" }: { variant?: "top" | "mid" | "bottom" }) {
+  if (variant === "top") {
+    return (
+      <HoloPanel accent="cyan">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="font-display text-base md:text-lg text-white">
+              Mint Date: TBA — Founder access details are live.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              asChild
+              size="lg"
+              className="bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400 text-sm md:text-base font-semibold shadow-[0_0_24px_hsl(var(--neon-cyan)/0.45)]"
+            >
+              <Link href="/ciphers-sentinels-mint">View Mint Info</Link>
+            </Button>
+          </div>
+        </div>
+      </HoloPanel>
+    )
+  }
+
+  if (variant === "mid") {
+    return (
+      <HoloPanel accent="purple">
+        <div className="space-y-4 text-center">
+          <h2 className="font-display text-xl md:text-2xl text-white">Ready for Founder Details?</h2>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Supply, tiers, timeline, and launch information live here. Mint Date: TBA.
+          </p>
+          <div className="flex justify-center">
+            <Button
+              asChild
+              size="lg"
+              className="bg-gradient-to-r from-purple-400 via-violet-400 to-indigo-400 text-sm md:text-base font-semibold shadow-[0_0_24px_hsl(var(--neon-purple)/0.45)]"
+            >
+              <Link href="/ciphers-sentinels-mint">Mint Info</Link>
+            </Button>
+          </div>
+        </div>
+      </HoloPanel>
+    )
+  }
+
+  // bottom variant
+  return (
+    <HoloPanel accent="cyan">
+      <div className="space-y-4 text-center">
+        <h2 className="font-display text-xl md:text-2xl text-white">Get Notified</h2>
+        <p className="text-sm md:text-base text-muted-foreground">Mint Date: TBA. Final pricing confirmed before mint.</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
+          <Button
+            asChild
+            size="lg"
+            className="bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400 text-sm md:text-base font-semibold shadow-[0_0_24px_hsl(var(--neon-cyan)/0.45)]"
+          >
+            <a href={NOTIFY_URL}>Get Notified</a>
+          </Button>
+          <Button
+            asChild
+            size="lg"
+            variant="outline"
+            className="border-white/20 bg-black/40 text-sm md:text-base hover:border-cyan-400/80 hover:text-cyan-300"
+          >
+            <Link href="/ciphers-sentinels-mint">Mint Info</Link>
+          </Button>
+        </div>
+      </div>
+    </HoloPanel>
   )
 }
 
@@ -193,6 +268,9 @@ export default function CiphersSentinelsPage() {
         </div>
       </HoloPanel>
 
+      {/* TOP CTA - MINT INFO */}
+      <MintInfoCta variant="top" />
+
       {/* PFP SHOWCASE */}
       <HoloPanel accent="purple">
         <div className="flex flex-col gap-8 lg:flex-row">
@@ -250,6 +328,9 @@ export default function CiphersSentinelsPage() {
           </div>
         </div>
       </HoloPanel>
+
+      {/* MID CTA - MINT INFO */}
+      <MintInfoCta variant="mid" />
 
       {/* FOUNDER PERKS ACCORDION */}
       <HoloPanel accent="purple">
@@ -402,6 +483,9 @@ export default function CiphersSentinelsPage() {
       </HoloPanel>
 
       <CtaStrip />
+
+      {/* BOTTOM CTA - MINT INFO */}
+      <MintInfoCta variant="bottom" />
 
       {/* BACK TO ARCADE */}
       <div className="flex justify-center pt-4">
