@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   description: "Founder PFP identities for The Crypto Rabbit Hole. Mint Date: TBA. Final pricing confirmed before mint.",
 }
 
+// Force Vercel rebuild - all mint page updates included
+
 const DISCORD_URL = "https://discord.gg/GJBbZHHUtY"
 const NOTIFY_URL = "/notify"
 const COMMUNITY_URL = "/community"
