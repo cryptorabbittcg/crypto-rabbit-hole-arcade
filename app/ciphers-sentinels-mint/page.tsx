@@ -154,7 +154,14 @@ export default function CiphersSentinelsMintPage() {
             </ul>
           </div>
           <div className="lg:w-1/3">
-            <ImagePlaceholder label="Character / PFP Preview" aspectRatio="square" />
+            <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-cyan-500/60 bg-gradient-to-br from-cyan-500/20 via-slate-900/90 to-sky-500/20 shadow-[0_0_40px_rgba(34,211,238,0.45)]">
+              <Image
+                src="/images/design-mode/Cipher%20Concept.png"
+                alt="Cipher PFP"
+                fill
+                className="object-cover"
+              />
+            </div>
           </div>
         </div>
       </HoloPanel>
