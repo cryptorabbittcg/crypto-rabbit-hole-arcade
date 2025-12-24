@@ -526,7 +526,165 @@ export default function CiphersSentinelsMintPage() {
               <span>Successful live events with non-crypto and non-TCG players</span>
             </li>
           </ul>
-          <ImagePlaceholder label="Tabletopia / Playmat / Cards" aspectRatio="video" />
+
+          {/* Image Gallery - 18 images in 6 rows of 3 */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-6">
+            {/* Row 1 */}
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Cards_layout2.jpg"
+                alt="Cards layout 2"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Cards_1.png"
+                alt="Cards 1"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Cards_2.png"
+                alt="Cards 2"
+                fill
+                className="object-cover"
+              />
+            </div>
+
+            {/* Row 2 */}
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Tabletopia splash.png"
+                alt="Tabletopia Splash"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Tabletopia 1.png"
+                alt="Tabletopia 1"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Tabletopia 2.png"
+                alt="Tabletopia 2"
+                fill
+                className="object-cover"
+              />
+            </div>
+
+            {/* Row 3 */}
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Tabletopia 3.png"
+                alt="Tabletopia 3"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Live01.png"
+                alt="Live event 1"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Live02.png"
+                alt="Live event 2"
+                fill
+                className="object-cover"
+              />
+            </div>
+
+            {/* Row 4 */}
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Live03.jpg"
+                alt="Live event 3"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Live04.jpg"
+                alt="Live event 4"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Live05.jpg"
+                alt="Live event 5"
+                fill
+                className="object-cover"
+              />
+            </div>
+
+            {/* Row 5 */}
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Live06.jpg"
+                alt="Live event 6"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Live07.jpg"
+                alt="Live event 7"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Live08.jpg"
+                alt="Live event 8"
+                fill
+                className="object-cover"
+              />
+            </div>
+
+            {/* Row 6 */}
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Live09.jpg"
+                alt="Live event 9"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Ape In splash.png"
+                alt="Ape In Splash"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Cryptoku splash.png"
+                alt="Cryptoku Splash"
+                fill
+                className="object-cover"
+              />
+            </div>
+          </div>
         </div>
       </HoloPanel>
 
