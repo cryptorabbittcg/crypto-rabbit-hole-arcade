@@ -260,7 +260,7 @@ export default function CiphersSentinelsMintPage() {
               </div>
               <div className="relative aspect-square w-full max-w-xs mx-auto overflow-hidden rounded-2xl border border-fuchsia-500/60 bg-gradient-to-br from-fuchsia-500/20 via-slate-900/90 to-purple-500/20 shadow-[0_0_40px_rgba(244,114,182,0.5)]">
                 <Image
-                  src="/images/design-mode/Cipher%20Concept.png"
+                  src="/images/design-mode/Sentinel%20Concept.png"
                   alt="Sentinel PFP concept"
                   fill
                   className="object-cover"
