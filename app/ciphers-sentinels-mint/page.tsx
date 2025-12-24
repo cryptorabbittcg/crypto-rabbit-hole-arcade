@@ -176,6 +176,9 @@ export default function CiphersSentinelsMintPage() {
                 Two archetypes. One shared universe.
               </p>
             </div>
+            <p className="text-sm md:text-base text-muted-foreground">
+              Every genesis avatar grants founder utility designed to compound as the ecosystem expands:
+            </p>
 
             <div className="space-y-4">
               <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">Collection Overview</h3>
@@ -249,6 +252,68 @@ export default function CiphersSentinelsMintPage() {
                   </span>
                 </div>
               </div>
+              
+              {/* Cipher Founder Benefits - Expandable */}
+              <div className="mt-4">
+                <details className="group rounded-2xl border border-white/10 bg-black/40 px-4 py-3 transition-colors hover:border-cyan-400/60">
+                  <summary className="flex cursor-pointer items-center justify-between gap-2 list-none">
+                    <div>
+                      <h4 className="font-display text-sm text-cyan-300 mb-1">Cipher Founder Benefits</h4>
+                      <p className="text-xs text-muted-foreground">All genesis avatars receive these benefits</p>
+                    </div>
+                    <span className="rounded-full border border-cyan-400/50 bg-cyan-500/15 px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.2em] text-cyan-200 group-open:hidden">
+                      Expand
+                    </span>
+                    <span className="rounded-full border border-cyan-400/50 bg-cyan-500/15 px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.2em] text-cyan-200 hidden group-open:inline-block">
+                      Collapse
+                    </span>
+                  </summary>
+                  <div className="mt-4 space-y-2 group-open:animate-in group-open:fade-in-0">
+                    <ul className="space-y-2 text-xs md:text-sm text-muted-foreground">
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-cyan-400/70" />
+                        <span>Playable Otherside-compatible rig</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-cyan-400/70" />
+                        <span>Legendary card packs (airdrop)</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-cyan-400/70" />
+                        <span>Epic card packs (airdrop)</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-cyan-400/70" />
+                        <span>Exclusive game board + dice skins</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-cyan-400/70" />
+                        <span>Physical promo pack for holders</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-cyan-400/70" />
+                        <span>Early access to future mints (guaranteed WL)</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-cyan-400/70" />
+                        <span>Founder voting rights + governance access</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-cyan-400/70" />
+                        <span>Trait-based rewards system (rarer traits → more perks)</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-cyan-400/70" />
+                        <span>Founder-only card variations</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-cyan-400/70" />
+                        <span>5–10% discount on ALL card pack purchases</span>
+                      </li>
+                    </ul>
+                  </div>
+                </details>
+              </div>
             </div>
 
             <div className="relative">
@@ -271,9 +336,62 @@ export default function CiphersSentinelsMintPage() {
                   </span>
                 </div>
               </div>
+              
+              {/* Sentinel Elite Benefits - Expandable */}
+              <div className="mt-4">
+                <details className="group rounded-2xl border border-white/10 bg-black/40 px-4 py-3 transition-colors hover:border-fuchsia-400/60">
+                  <summary className="flex cursor-pointer items-center justify-between gap-2 list-none">
+                    <div>
+                      <h4 className="font-display text-sm text-fuchsia-300 mb-1">Sentinel Elite Benefits</h4>
+                      <p className="text-xs text-muted-foreground">Everything in Cipher benefits plus:</p>
+                    </div>
+                    <span className="rounded-full border border-fuchsia-400/50 bg-fuchsia-500/15 px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.2em] text-fuchsia-200 group-open:hidden">
+                      Expand
+                    </span>
+                    <span className="rounded-full border border-fuchsia-400/50 bg-fuchsia-500/15 px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.2em] text-fuchsia-200 hidden group-open:inline-block">
+                      Collapse
+                    </span>
+                  </summary>
+                  <div className="mt-4 space-y-2 group-open:animate-in group-open:fade-in-0">
+                    <ul className="space-y-2 text-xs md:text-sm text-muted-foreground">
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
+                        <span>Extra packs</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
+                        <span>Double voting power</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
+                        <span>Exclusive Sentinel arena content</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
+                        <span>Signed physical founder promo pack</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
+                        <span>Premium cosmetics</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
+                        <span>Priority in future CxRH drops (guaranteed WL)</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
+                        <span>15–20% discount on ALL card pack purchases</span>
+                      </li>
+                    </ul>
+                  </div>
+                </details>
+              </div>
             </div>
           </div>
         </div>
+        <p className="text-sm md:text-base text-white font-medium pt-6 mt-6 border-t border-white/10">
+          This is far more than a PFP — it is a multi-utility identity pass.
+        </p>
       </HoloPanel>
 
       {/* SECTION 4 — THE JOURNEY */}
@@ -313,132 +431,6 @@ export default function CiphersSentinelsMintPage() {
         </div>
       </HoloPanel>
 
-      {/* SECTION B — FOUNDER PASS VALUE STACK */}
-      <HoloPanel accent="pink" title="The Founder Pass Value Stack">
-        <div className="space-y-6">
-          <p className="text-sm md:text-base text-muted-foreground">
-            Every genesis avatar grants founder utility designed to compound as the ecosystem expands:
-          </p>
-
-          {/* Cipher Founder Benefits - Expandable */}
-          <div className="space-y-4">
-            <details className="group rounded-2xl border border-white/10 bg-black/40 px-4 py-3 transition-colors hover:border-pink-400/60">
-              <summary className="flex cursor-pointer items-center justify-between gap-2 list-none">
-                <div>
-                  <h3 className="font-display text-lg text-cyan-300 mb-1">Cipher Founder Benefits</h3>
-                  <p className="text-xs text-muted-foreground">All genesis avatars receive these benefits</p>
-                </div>
-                <span className="rounded-full border border-pink-400/50 bg-pink-500/15 px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.2em] text-pink-200 group-open:hidden">
-                  Expand
-                </span>
-                <span className="rounded-full border border-pink-400/50 bg-pink-500/15 px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.2em] text-pink-200 hidden group-open:inline-block">
-                  Collapse
-                </span>
-              </summary>
-              <div className="mt-4 space-y-2 group-open:animate-in group-open:fade-in-0">
-                <ul className="space-y-2 text-xs md:text-sm text-muted-foreground">
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-pink-400/70" />
-                    <span>Playable Otherside-compatible rig</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-pink-400/70" />
-                    <span>Legendary card packs (airdrop)</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-pink-400/70" />
-                    <span>Epic card packs (airdrop)</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-pink-400/70" />
-                    <span>Exclusive game board + dice skins</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-pink-400/70" />
-                    <span>Physical promo pack for holders</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-pink-400/70" />
-                    <span>Early access to future mints (guaranteed WL)</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-pink-400/70" />
-                    <span>Founder voting rights + governance access</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-pink-400/70" />
-                    <span>Trait-based rewards system (rarer traits → more perks)</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-pink-400/70" />
-                    <span>Founder-only card variations</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-pink-400/70" />
-                    <span>5–10% discount on ALL card pack purchases</span>
-                  </li>
-                </ul>
-              </div>
-            </details>
-          </div>
-
-          {/* Sentinel Elite Benefits - Expandable */}
-          <div className="space-y-4 pt-4 border-t border-white/10">
-            <details className="group rounded-2xl border border-white/10 bg-black/40 px-4 py-3 transition-colors hover:border-fuchsia-400/60">
-              <summary className="flex cursor-pointer items-center justify-between gap-2 list-none">
-                <div>
-                  <h3 className="font-display text-lg text-fuchsia-300 mb-1">Sentinel Elite Benefits</h3>
-                  <p className="text-xs text-muted-foreground">Everything in Cipher benefits plus:</p>
-                </div>
-                <span className="rounded-full border border-fuchsia-400/50 bg-fuchsia-500/15 px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.2em] text-fuchsia-200 group-open:hidden">
-                  Expand
-                </span>
-                <span className="rounded-full border border-fuchsia-400/50 bg-fuchsia-500/15 px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.2em] text-fuchsia-200 hidden group-open:inline-block">
-                  Collapse
-                </span>
-              </summary>
-              <div className="mt-4 space-y-2 group-open:animate-in group-open:fade-in-0">
-                <ul className="space-y-2 text-xs md:text-sm text-muted-foreground">
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
-                    <span>Extra packs</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
-                    <span>Double voting power</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
-                    <span>Exclusive Sentinel arena content</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
-                    <span>Signed physical founder promo pack</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
-                    <span>Premium cosmetics</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
-                    <span>Priority in future CxRH drops (guaranteed WL)</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
-                    <span>15–20% discount on ALL card pack purchases</span>
-                  </li>
-                </ul>
-              </div>
-            </details>
-          </div>
-
-          <p className="text-sm md:text-base text-white font-medium pt-4 border-t border-white/10">
-            This is far more than a PFP — it is a multi-utility identity pass.
-          </p>
-
-          <ImagePlaceholder label="Utility Icons / Perks Graphic" aspectRatio="video" />
-        </div>
-      </HoloPanel>
 
       {/* SECTION 5 — WHAT ALREADY EXISTS */}
       <HoloPanel accent="purple" title="Built, Playable, and Already Tested">
