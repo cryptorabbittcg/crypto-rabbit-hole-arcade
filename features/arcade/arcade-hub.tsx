@@ -314,7 +314,7 @@ function MintSoonDialog() {
                 className="flex-1 sm:flex-none bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400 text-xs font-semibold shadow-[0_0_20px_hsl(var(--neon-cyan)/0.5)]"
                 onClick={() => setOpen(false)}
               >
-                <Link href="/ciphers-sentinels">Show me the mint</Link>
+                <Link href="/ciphers-sentinels-mint">Show me the mint</Link>
               </Button>
             </div>
           </div>

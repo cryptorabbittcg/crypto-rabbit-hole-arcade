@@ -23,7 +23,7 @@ export default function Topbar() {
             size="sm"
             className="h-10 md:h-11 px-4 md:px-6 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400 text-cyber-dark text-xs md:text-sm font-semibold shadow-[0_0_25px_hsl(var(--neon-cyan)/0.7)] border border-cyan-300/70 animate-pulse"
           >
-            <Link href="/ciphers-sentinels" className="flex items-center gap-2">
+            <Link href="/ciphers-sentinels-mint" className="flex items-center gap-2">
               <Rocket className="w-4 h-4 md:w-5 md:h-5" />
               <span className="hidden sm:inline">Ciphers &amp; Sentinels Mint</span>
               <span className="sm:hidden">C&S Mint</span>

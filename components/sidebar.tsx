@@ -7,7 +7,7 @@ import Image from "next/image"
 import { cn } from "@/lib/utils"
 
 const navItems = [
-  { href: "/ciphers-sentinels", icon: Rocket, label: "C&S Mint" },
+  { href: "/ciphers-sentinels-mint", icon: Rocket, label: "C&S Mint" },
   { href: "/", icon: Gamepad2, label: "Arcade Hub" },
   { href: "/inventory", icon: Wallet, label: "Inventory" },
   { href: "/mint", icon: Package, label: "Mint Packs" },
@@ -38,7 +38,7 @@ export default function Sidebar() {
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
-          const isCSMint = item.href === "/ciphers-sentinels"
+          const isCSMint = item.href === "/ciphers-sentinels-mint"
 
           return (
             <Link
