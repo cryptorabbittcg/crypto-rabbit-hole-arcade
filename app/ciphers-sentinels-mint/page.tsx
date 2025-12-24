@@ -424,9 +424,75 @@ export default function CiphersSentinelsMintPage() {
 
           {/* Image Gallery - Full Width, Multiple Images */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-6">
-            <ImagePlaceholder label="Journey Image 1" aspectRatio="video" />
-            <ImagePlaceholder label="Journey Image 2" aspectRatio="video" />
-            <ImagePlaceholder label="Journey Image 3" aspectRatio="video" />
+            {/* Row 1 */}
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Bunneary.jpg"
+                alt="Bunneary"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/SATS_ORACLE.png"
+                alt="SATS Oracle"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Cards_handmade_1.jpg"
+                alt="Handmade cards 1"
+                fill
+                className="object-cover"
+              />
+            </div>
+            
+            {/* Row 2 */}
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Cards_handmade_2.jpg"
+                alt="Handmade cards 2"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/George and Jacob playing CxRH.jpg"
+                alt="George and Jacob playing CxRH"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/Cards_Layout.jpg"
+                alt="Cards layout"
+                fill
+                className="object-cover"
+              />
+            </div>
+            
+            {/* Row 3 */}
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/CxRH-Token-Front.gif"
+                alt="CxRH Token Front"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+              <Image
+                src="/images/design-mode/CxRH-Token-Back.gif"
+                alt="CxRH Token Back"
+                fill
+                className="object-cover"
+              />
+            </div>
           </div>
         </div>
       </HoloPanel>
