@@ -8,11 +8,14 @@ import { logger } from "@/lib/logger"
 import { useEffect, useState } from "react"
 import { GameModal } from "@/components/game-modal"
 import { AuthDialog } from "@/components/auth-dialog"
+import { LeaderboardService, type LeaderboardScore } from "@/lib/supabase/services/leaderboard.service"
 
 export default function ArcadeHub() {
-  const { addTxn, updateTxn, tickets, points, isAuthenticated, handleAuthSuccess } = useArcade()
+  const { addTxn, updateTxn, tickets, points, isAuthenticated, handleAuthSuccess, address, profile } = useArcade()
   const [apeBalance] = useState("125.50")
   const [activeGame, setActiveGame] = useState<{ url: string; title: string } | null>(null)
+  const [leaderboardScores, setLeaderboardScores] = useState<LeaderboardScore[]>([])
+  const [loadingScores, setLoadingScores] = useState(true)
   const [showAuthDialog, setShowAuthDialog] = useState(false)
 
   // Show auth dialog on mount - always show on page load for security
@@ -36,6 +39,27 @@ export default function ArcadeHub() {
     }
     window.addEventListener("showAuthDialog", handleShowAuthDialog)
     return () => window.removeEventListener("showAuthDialog", handleShowAuthDialog)
+  }, [])
+
+  // Fetch leaderboard scores
+  useEffect(() => {
+    async function fetchLeaderboard() {
+      try {
+        setLoadingScores(true)
+        const leaderboardService = new LeaderboardService()
+        const scores = await leaderboardService.getTopScores(10)
+        setLeaderboardScores(scores)
+      } catch (error) {
+        console.error("[v0] Error fetching leaderboard:", error)
+      } finally {
+        setLoadingScores(false)
+      }
+    }
+
+    fetchLeaderboard()
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchLeaderboard, 30000)
+    return () => clearInterval(interval)
   }, [])
 
   async function rollEntropy() {
@@ -249,12 +273,30 @@ export default function ArcadeHub() {
         </h2>
 
         <div className="bg-black/50 border-2 border-cyan-500/30 rounded-2xl p-6 font-mono shadow-[0_0_30px_hsl(var(--neon-cyan)/0.2)]">
-          <div className="space-y-2">
-            <ScoreEntry rank={1} name="CRYPTOWHALE.ETH" score={15420} isTop />
-            <ScoreEntry rank={2} name="APEKING.ETH" score={12890} isTop />
-            <ScoreEntry rank={3} name="RABBITHOLE.ETH" score={11250} isTop />
-            <ScoreEntry rank={4} name="YOU" score={points} isPlayer />
-          </div>
+          {loadingScores ? (
+            <div className="text-center py-8 text-muted-foreground">Loading leaderboard...</div>
+          ) : leaderboardScores.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No scores yet. Be the first to play and set a high score!
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {leaderboardScores.map((entry) => {
+                const isCurrentUser = address && entry.wallet_address.toLowerCase() === address.toLowerCase()
+                const displayName = entry.username || entry.wallet_address.slice(0, 6) + "..." + entry.wallet_address.slice(-4) || "Anonymous"
+                return (
+                  <ScoreEntry
+                    key={entry.user_id}
+                    rank={entry.rank}
+                    name={isCurrentUser ? "YOU" : displayName.toUpperCase()}
+                    score={entry.score}
+                    isTop={entry.rank <= 3}
+                    isPlayer={isCurrentUser}
+                  />
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -287,25 +329,31 @@ function MintSoonDialog() {
             type="button"
             aria-label="Close mint announcement"
             onClick={() => setOpen(false)}
-            className="absolute -top-5 -right-5 flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/60 text-xl font-bold text-cyan-200 shadow-[0_0_25px_hsl(var(--neon-cyan)/0.8)] hover:scale-105 hover:text-cyan-100 transition-transform"
+            className="absolute -top-5 -right-5 flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/60 text-xl font-bold text-cyan-200 shadow-[0_0_25px_hsl(var(--neon-cyan)/0.8)] hover:scale-105 hover:text-cyan-100 transition-transform cursor-pointer"
           >
             ×
           </button>
 
           <div className="relative z-10 px-5 py-6 md:px-7 md:py-7 space-y-4">
-            <header className="space-y-2">
+            <div className="flex justify-center mb-4">
+              <div className="relative w-full max-w-[200px] aspect-[4/5] rounded-2xl overflow-hidden border border-cyan-400/40 bg-black/70 shadow-[0_0_26px_rgba(34,211,238,0.6)]">
+                <Image
+                  src="/images/design-mode/Cipher%20Concept.png"
+                  alt="Cipher concept art"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            </div>
+            <header className="space-y-2 text-center">
               <h2 className="font-display text-xl md:text-2xl bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400 bg-clip-text text-transparent text-glow">
                 Ciphers &amp; Sentinels — Mint Coming Soon
               </h2>
               <p className="text-sm text-muted-foreground">
-                Premium founder PFPs for the Crypto Rabbit Arcade. Tap into the mint page to see the roadmap, perks,
-                and milestones.
+                Premium founder PFPs for The Crypto Rabbit Hole universe. Tap into the mint page to see the roadmap,
+                benefits, and milestones.
               </p>
             </header>
-
-            <div className="mt-2 rounded-2xl border border-cyan-400/40 bg-black/40 px-4 py-3 text-xs font-mono text-cyan-100">
-              <p>Signal ping only — art, rarity tables, and mint mechanics will be revealed closer to launch.</p>
-            </div>
 
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
               <Button

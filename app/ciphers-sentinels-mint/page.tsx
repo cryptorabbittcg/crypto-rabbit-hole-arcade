@@ -6,6 +6,7 @@ import HoloPanel from "@/components/holo-panel"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ImagePlaceholder } from "@/components/image-placeholder"
+import { Lock, Unlock } from "@/components/icons"
 
 export const metadata: Metadata = {
   title: "Mint Info — Ciphers & Sentinels | The Crypto Rabbit Hole",
@@ -17,6 +18,62 @@ export const metadata: Metadata = {
 const DISCORD_URL = "https://discord.gg/GJBbZHHUtY"
 const NOTIFY_URL = "/notify"
 const COMMUNITY_URL = "/community"
+
+const PROGRESS_PCT = 0
+const MILESTONE_THRESHOLDS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+
+const MILESTONE_DATA: Record<number, { title: string; description: string; value?: string; note?: string }> = {
+  10: {
+    title: "10 Free Rare Card Packs",
+    description: "Receive 10 free rare card packs as a founder reward.",
+    value: "$120",
+  },
+  20: {
+    title: "Exclusive Kickstarter-Styled First Player Token",
+    description: "Limited edition first player token exclusive to Kickstarter backers.",
+    value: "$29",
+    note: "Kickstarter Only",
+  },
+  30: {
+    title: "Exclusive Skin for Game Board, Dice, and Card Back",
+    description: "Custom cosmetic skins for your game board, dice, and card backs.",
+    value: "$39",
+    note: "Kickstarter Only",
+  },
+  40: {
+    title: "10 Free Epic Card Packs",
+    description: "Receive 10 free epic card packs with higher rarity cards.",
+    value: "$150",
+  },
+  50: {
+    title: "Playable Otherside Avatar",
+    description: "Your PFP becomes a fully playable avatar in Otherside and compatible platforms.",
+  },
+  60: {
+    title: "10 Free Legendary Card Packs",
+    description: "Receive 10 free legendary card packs featuring the rarest cards.",
+    value: "$200",
+  },
+  70: {
+    title: "Exclusive ApeChain-Branded Skin",
+    description: "Complete ApeChain-branded cosmetic set including game board, dice, card back, and PFP imagery.",
+    value: "$59",
+    note: "Kickstarter Only",
+  },
+  80: {
+    title: "Signed Physical Founder Promo Pack",
+    description: "Physical founder promo pack signed by the team, delivered to your address.",
+    note: "Kickstarter Only",
+  },
+  90: {
+    title: "Community Milestone Unlock",
+    description: "Special community-wide unlock revealed as we approach this milestone.",
+  },
+  100: {
+    title: "Ultimate Founder Achievement",
+    description: "Complete founder status with all milestones unlocked and exclusive recognition.",
+  },
+}
 
 function CtaBlock() {
   return (
@@ -688,6 +745,76 @@ export default function CiphersSentinelsMintPage() {
         </div>
       </HoloPanel>
 
+      {/* MILESTONES / UNLOCKS ROADMAP */}
+      <HoloPanel accent="cyan">
+        <div className="space-y-5">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="font-display text-2xl text-white">Mint Milestones &amp; Unlocks</h2>
+              <p className="text-sm text-muted-foreground">
+                As the mint fills, new experiences, drops, and events unlock for Ciphers &amp; Sentinels founders.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 text-xs font-mono text-cyan-200">
+              <span className="rounded-full bg-black/50 px-3 py-1 border border-cyan-500/60">
+                Progress: <span className="font-semibold text-cyan-100">{PROGRESS_PCT}%</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {MILESTONE_THRESHOLDS.map((threshold) => {
+              const unlocked = PROGRESS_PCT >= threshold
+              const Icon = unlocked ? Unlock : Lock
+              const milestone = MILESTONE_DATA[threshold]
+
+              return (
+                <div
+                  key={threshold}
+                  className="relative overflow-hidden rounded-2xl border border-cyan-400/30 bg-black/40 px-4 py-3 shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Icon
+                        className={unlocked ? "h-4 w-4 text-emerald-300" : "h-4 w-4 text-cyan-300/70"}
+                      />
+                      <span className="text-xs font-mono uppercase tracking-[0.16em] text-cyan-100">
+                        {threshold}%{" "}
+                        <span className="opacity-60">{unlocked ? "Unlocked" : "Locked"}</span>
+                      </span>
+                    </div>
+                    <span
+                      className={
+                        unlocked
+                          ? "rounded-full bg-emerald-500/20 px-2 py-0.5 text-[0.65rem] font-semibold text-emerald-200"
+                          : "rounded-full bg-cyan-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-cyan-200/80"
+                      }
+                    >
+                      {unlocked ? "Live" : "Soon"}
+                    </span>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    <h4 className="text-sm font-semibold text-white">{milestone?.title || `Milestone ${threshold}%`}</h4>
+                    <p className="text-[0.7rem] text-muted-foreground">{milestone?.description || "Unlock details coming soon."}</p>
+                    {milestone?.value && (
+                      <p className="text-[0.7rem] font-semibold text-cyan-300">Value: {milestone.value}</p>
+                    )}
+                    {milestone?.note && (
+                      <p className="text-[0.65rem] font-mono uppercase tracking-[0.1em] text-emerald-300/80">
+                        {milestone.note}
+                      </p>
+                    )}
+                  </div>
+                  {unlocked && (
+                    <div className="mt-2 h-px w-full bg-gradient-to-r from-emerald-400/70 via-cyan-400/60 to-transparent" />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </HoloPanel>
+
       {/* SECTION C — UPDATED: WHAT UNLOCKS AFTER PFP LAUNCH */}
       <HoloPanel accent="cyan" title="What Unlocks After the PFP Launch">
         <div className="space-y-6">
@@ -718,42 +845,118 @@ export default function CiphersSentinelsMintPage() {
                 </li>
                 <li className="flex gap-2">
                   <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
-                  <span>Player vs Player (PvP) competitive modes</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
-                  <span>Seasonal expansions with new card sets</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
-                  <span>Trait-linked gameplay mechanics</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
-                  <span>Ranked ladders and competitive seasons</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
-                  <span>Multiplayer arenas for team-based gameplay</span>
+                  <span>Rarity levels for collectibility</span>
                 </li>
               </ul>
             </div>
 
-            <div className="rounded-2xl border border-emerald-400/30 bg-black/40 p-4 space-y-3 mt-4">
+            <div className="rounded-2xl border border-emerald-400/30 bg-black/40 p-4 space-y-3">
               <h3 className="font-display text-lg text-emerald-300">Digital beta: 12 months after launch</h3>
               <p className="text-sm text-muted-foreground">
                 Full digital beta game build with all features integrated and live.
               </p>
             </div>
+
+            <div className="space-y-2 text-sm md:text-base text-muted-foreground">
+              <p>• Seasonal modes and community events</p>
+              <p>• More arcade games and participation rewards</p>
+              <p>• Expansion development and deck-building options</p>
+            </div>
+
+            <ul className="space-y-2 text-sm md:text-base text-muted-foreground pt-2">
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
+                <span>Player vs Player (PvP) competitive modes</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
+                <span>Ranked ladders and competitive seasons</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
+                <span>Seasonal expansions with new card sets</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
+                <span>Trait-linked gameplay mechanics</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </HoloPanel>
+
+      {/* OTHERSIDE PLAYABLE AVATAR CONCEPT */}
+      <HoloPanel accent="cyan">
+        <div className="space-y-6">
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/20 px-3 py-1 text-xs font-mono uppercase tracking-[0.16em] text-amber-300 border border-amber-400/50">
+              <span className="inline-flex h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+              <span>Concept Only</span>
+            </div>
+            <h2 className="font-display text-2xl md:text-3xl text-white">Otherside Playable Avatar</h2>
+            <p className="text-sm md:text-base text-muted-foreground max-w-3xl mx-auto">
+              This is a concept preview of our Otherside-compatible playable avatars that will be built and unlocked for
+              Cipher and Sentinel holders. Below shows the transformation from PFP to fully rigged 3D model — the Cipher
+              body type is displayed as an example.
+            </p>
           </div>
 
-          <div className="space-y-2 text-sm md:text-base text-muted-foreground pt-2">
-            <p>• Seasonal modes and community events</p>
-            <p>• More arcade games and participation rewards</p>
-            <p>• Expansion development and deck-building options</p>
+          <div className="flex flex-col md:flex-row items-center md:items-center justify-center gap-4 md:gap-8">
+            {/* Cipher Concept Image - Centered vertically */}
+            <div className="relative aspect-square w-full max-w-[280px] overflow-hidden rounded-2xl border border-cyan-500/60 bg-gradient-to-br from-cyan-500/20 via-slate-900/90 to-sky-500/20 shadow-[0_0_40px_rgba(34,211,238,0.45)]">
+              <Image
+                src="/images/design-mode/Cipher%20Concept.png"
+                alt="Cipher PFP concept"
+                fill
+                className="object-cover"
+              />
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <span className="font-mono text-[0.6rem] md:text-xs uppercase tracking-[0.25em] text-white/80 bg-black/50 px-3 py-1 rounded-full rotate-[-22deg] shadow-[0_0_18px_rgba(0,0,0,0.9)]">
+                  PFP Concept
+                </span>
+              </div>
+            </div>
+
+            {/* Arrow/Connector */}
+            <div className="flex flex-col items-center gap-2 self-center">
+              <div className="hidden md:block w-16 h-0.5 bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
+              <div className="md:hidden w-0.5 h-16 bg-gradient-to-b from-cyan-400 via-sky-400 to-emerald-400" />
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500/30 to-emerald-500/30 border border-cyan-400/50">
+                <svg
+                  className="w-6 h-6 text-cyan-300 md:rotate-0 rotate-90"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </div>
+              <div className="hidden md:block w-16 h-0.5 bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
+              <div className="md:hidden w-0.5 h-16 bg-gradient-to-b from-cyan-400 via-sky-400 to-emerald-400" />
+            </div>
+
+            {/* 3D Model Image - Same width as PFP, full height (rectangular) */}
+            <div className="relative w-full max-w-[280px] overflow-hidden rounded-2xl border border-emerald-500/60 bg-gradient-to-br from-emerald-500/20 via-slate-900/90 to-cyan-500/20 shadow-[0_0_40px_rgba(52,211,153,0.45)]">
+              <Image
+                src="/images/design-mode/3d%20model.png"
+                alt="3D model concept"
+                width={280}
+                height={400}
+                className="w-full h-auto"
+              />
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <span className="font-mono text-[0.6rem] md:text-xs uppercase tracking-[0.25em] text-white/80 bg-black/50 px-3 py-1 rounded-full rotate-[-22deg] shadow-[0_0_18px_rgba(0,0,0,0.9)]">
+                  3D Model
+                </span>
+              </div>
+            </div>
           </div>
 
-          <ImagePlaceholder label="Roadmap / Timeline" aspectRatio="video" />
+          <div className="text-center pt-2">
+            <p className="text-xs text-muted-foreground italic">
+              Final 3D models will be fully rigged and compatible with Otherside and other compatible platforms.
+            </p>
+          </div>
         </div>
       </HoloPanel>
 
@@ -839,8 +1042,6 @@ export default function CiphersSentinelsMintPage() {
               will be confirmed before mint.
             </p>
           </div>
-
-          <ImagePlaceholder label="Tier Icons / Badges" aspectRatio="video" />
         </div>
       </HoloPanel>
 
@@ -864,7 +1065,6 @@ export default function CiphersSentinelsMintPage() {
               <span>Avatars: Otherside-ready</span>
             </li>
           </ul>
-          <ImagePlaceholder label="Clean Info Panel / Minimal Graphic" aspectRatio="video" />
         </div>
       </HoloPanel>
 
@@ -893,14 +1093,31 @@ export default function CiphersSentinelsMintPage() {
               <span>This is the founder window — it won't repeat in the same way</span>
             </li>
           </ul>
-          <ImagePlaceholder label="Community / Portal Visual" aspectRatio="video" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-cyan-500/60 bg-gradient-to-br from-cyan-500/20 via-slate-900/90 to-sky-500/20 shadow-[0_0_40px_rgba(34,211,238,0.45)]">
+              <Image
+                src="/images/design-mode/Cipher%20Concept.png"
+                alt="Cipher concept"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-fuchsia-500/60 bg-gradient-to-br from-fuchsia-500/20 via-slate-900/90 to-purple-500/20 shadow-[0_0_40px_rgba(244,114,182,0.5)]">
+              <Image
+                src="/images/design-mode/Sentinel%20Concept.png"
+                alt="Sentinel concept"
+                fill
+                className="object-cover"
+              />
+            </div>
+          </div>
         </div>
       </HoloPanel>
 
       {/* SECTION 10 — FINAL CTA */}
       <HoloPanel accent="cyan">
         <div className="space-y-6 text-center">
-          <h2 className="font-display text-2xl md:text-3xl text-white">The Rabbit Hole Is Open</h2>
+          <h2 className="font-display text-2xl md:text-3xl text-white">The Crypto Rabbit Hole is open</h2>
           <p className="text-sm md:text-base text-muted-foreground max-w-2xl mx-auto">
             Mint Date: TBA. Follow along, join the community, and get notified when the next announcement lands.
           </p>

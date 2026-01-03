@@ -22,22 +22,69 @@ export class ProfileService {
   }
 
   async getProfileByWallet(walletAddress: string): Promise<Profile | null> {
-    const { data, error } = await this.supabase
-      .from("profiles")
-      .select("*")
-      .eq("wallet_address", walletAddress.toLowerCase())
-      .single()
-
-    if (error) {
-      if (error.code === "PGRST116") {
-        // No rows returned - profile doesn't exist yet
+    try {
+      // Validate Supabase client is initialized
+      if (!this.supabase) {
+        console.error("[v0] Supabase client not initialized")
         return null
       }
-      console.error("[v0] Error fetching profile by wallet:", error)
+
+      // Test connection first
+      const testQuery = await this.supabase.from("profiles").select("id").limit(1)
+      if (testQuery.error && testQuery.error.code !== "PGRST116") {
+        console.error("[v0] Supabase connection test failed:", testQuery.error)
+      }
+
+      const normalizedWallet = walletAddress.toLowerCase()
+      console.log("[v0] Fetching profile for wallet:", normalizedWallet)
+
+      const { data, error } = await this.supabase
+        .from("profiles")
+        .select("*")
+        .eq("wallet_address", normalizedWallet)
+        .single()
+
+      if (error) {
+        if (error.code === "PGRST116") {
+          // No rows returned - profile doesn't exist yet
+          console.log("[v0] Profile not found for wallet:", normalizedWallet)
+          return null
+        }
+        // Log error in multiple ways to capture all properties
+        console.error("[v0] Error fetching profile by wallet - Raw error:", error)
+        console.error("[v0] Error fetching profile by wallet - Error type:", typeof error)
+        console.error("[v0] Error fetching profile by wallet - Error keys:", Object.keys(error))
+        console.error("[v0] Error fetching profile by wallet - Error properties:", {
+          message: error?.message,
+          code: error?.code,
+          details: error?.details,
+          hint: error?.hint,
+          name: (error as any)?.name,
+          stack: (error as any)?.stack,
+        })
+        console.error("[v0] Error fetching profile by wallet - Wallet:", normalizedWallet)
+        // Try to stringify with a replacer function
+        try {
+          console.error("[v0] Error stringified:", JSON.stringify(error, (key, value) => {
+            if (value && typeof value === 'object') {
+              return Object.getOwnPropertyNames(value).reduce((acc, prop) => {
+                acc[prop] = (value as any)[prop]
+                return acc
+              }, {} as any)
+            }
+            return value
+          }, 2))
+        } catch (e) {
+          console.error("[v0] Could not stringify error:", e)
+        }
+        return null
+      }
+
+      return data
+    } catch (err) {
+      console.error("[v0] Exception fetching profile by wallet:", err)
       return null
     }
-
-    return data
   }
 
   async createProfile(params: {
@@ -47,10 +94,18 @@ export class ProfileService {
     tickets?: number
     referral_code?: string
   }): Promise<Profile | null> {
-    const { data, error } = await this.supabase
-      .from("profiles")
-      .insert({
-        wallet_address: params.wallet_address.toLowerCase(),
+    try {
+      // Validate Supabase client is initialized
+      if (!this.supabase) {
+        console.error("[v0] Supabase client not initialized")
+        return null
+      }
+
+      const normalizedWallet = params.wallet_address.toLowerCase()
+      console.log("[v0] Creating profile for wallet:", normalizedWallet, "username:", params.username)
+
+      const insertData = {
+        wallet_address: normalizedWallet,
         username: params.username,
         ape_balance: params.ape_balance ?? 0,
         ticket_balance: params.tickets ?? 0,
@@ -63,16 +118,56 @@ export class ProfileService {
         total_points: 0,
         level: 1,
         experience: 0,
-      })
-      .select()
-      .single()
+      }
 
-    if (error) {
-      console.error("[v0] Error creating profile:", error)
+      console.log("[v0] Insert data:", insertData)
+
+      const { data, error } = await this.supabase
+        .from("profiles")
+        .insert(insertData)
+        .select()
+        .single()
+
+      if (error) {
+        // Log error in multiple ways to capture all properties
+        console.error("[v0] Error creating profile - Raw error:", error)
+        console.error("[v0] Error creating profile - Error type:", typeof error)
+        console.error("[v0] Error creating profile - Error keys:", Object.keys(error))
+        console.error("[v0] Error creating profile - Error properties:", {
+          message: error?.message,
+          code: error?.code,
+          details: error?.details,
+          hint: error?.hint,
+          name: (error as any)?.name,
+          stack: (error as any)?.stack,
+        })
+        console.error("[v0] Error creating profile - Params:", {
+          wallet_address: normalizedWallet,
+          username: params.username,
+        })
+        // Try to stringify with a replacer function
+        try {
+          console.error("[v0] Error stringified:", JSON.stringify(error, (key, value) => {
+            if (value && typeof value === 'object') {
+              return Object.getOwnPropertyNames(value).reduce((acc, prop) => {
+                acc[prop] = (value as any)[prop]
+                return acc
+              }, {} as any)
+            }
+            return value
+          }, 2))
+        } catch (e) {
+          console.error("[v0] Could not stringify error:", e)
+        }
+        return null
+      }
+
+      console.log("[v0] Profile created successfully:", data)
+      return data
+    } catch (err) {
+      console.error("[v0] Exception creating profile:", err)
       return null
     }
-
-    return data
   }
 
   async updateProfile(userId: string, updates: Partial<Profile>): Promise<boolean> {
