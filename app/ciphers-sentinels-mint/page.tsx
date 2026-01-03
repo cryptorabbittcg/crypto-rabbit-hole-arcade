@@ -960,6 +960,35 @@ export default function CiphersSentinelsMintPage() {
         </div>
       </HoloPanel>
 
+      {/* ARTIST REVEAL HINT */}
+      <HoloPanel accent="purple">
+        <div className="space-y-6 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full bg-purple-500/20 px-3 py-1 text-xs font-mono uppercase tracking-[0.16em] text-purple-300 border border-purple-400/50">
+            <span className="inline-flex h-2 w-2 rounded-full bg-purple-400 animate-pulse" />
+            <span>Super Reveal</span>
+          </div>
+          <h2 className="font-display text-2xl md:text-3xl text-white">Who Is This Amazing Artist?</h2>
+          <div className="max-w-2xl mx-auto space-y-4">
+            <p className="text-sm md:text-base text-muted-foreground">
+              Behind every great collection is an exceptional artist. The Ciphers & Sentinels PFPs are being crafted by a
+              well-known and highly regarded artist within the ApeChain community — someone whose work has shaped the
+              visual identity of some of the most respected projects in the ecosystem.
+            </p>
+            <p className="text-sm md:text-base text-muted-foreground">
+              The artist reveal will drop alongside the final mint date, pricing, and complete collection details. This
+              is one reveal you won't want to miss.
+            </p>
+          </div>
+          <div className="pt-4">
+            <div className="inline-flex items-center gap-2 rounded-full bg-black/50 px-4 py-2 border border-purple-400/30">
+              <span className="text-xs font-mono uppercase tracking-[0.2em] text-purple-300/80">
+                Reveal Coming With Mint Details
+              </span>
+            </div>
+          </div>
+        </div>
+      </HoloPanel>
+
       {/* SECTION D — SIMPLIFIED: FOUNDER ACCESS TIERS */}
       <HoloPanel accent="pink" title="Founder Access Tiers">
         <div className="space-y-6">
