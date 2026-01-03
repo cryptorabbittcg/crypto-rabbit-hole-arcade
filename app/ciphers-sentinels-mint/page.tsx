@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ImagePlaceholder } from "@/components/image-placeholder"
 import { Lock, Unlock } from "@/components/icons"
+import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
   title: "Mint Info — Ciphers & Sentinels | The Crypto Rabbit Hole",
@@ -748,21 +749,21 @@ export default function CiphersSentinelsMintPage() {
       {/* MILESTONES / UNLOCKS ROADMAP */}
       <HoloPanel accent="cyan">
         <div className="space-y-5">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="font-display text-2xl text-white">Mint Milestones &amp; Unlocks</h2>
-              <p className="text-sm text-muted-foreground">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-2">
+              <h2 className="font-display text-xl md:text-2xl text-white">Mint Milestones &amp; Unlocks</h2>
+              <p className="text-xs md:text-sm text-muted-foreground">
                 As the mint fills, new experiences, drops, and events unlock for Ciphers &amp; Sentinels founders.
               </p>
             </div>
-            <div className="flex items-center gap-3 text-xs font-mono text-cyan-200">
-              <span className="rounded-full bg-black/50 px-3 py-1 border border-cyan-500/60">
+            <div className="flex items-center gap-2 md:gap-3 text-xs font-mono text-cyan-200">
+              <span className="rounded-full bg-black/50 px-2.5 md:px-3 py-1 border border-cyan-500/60 text-[0.7rem] md:text-xs">
                 Progress: <span className="font-semibold text-cyan-100">{PROGRESS_PCT}%</span>
               </span>
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {MILESTONE_THRESHOLDS.map((threshold) => {
               const unlocked = PROGRESS_PCT >= threshold
               const Icon = unlocked ? Unlock : Lock
@@ -771,36 +772,40 @@ export default function CiphersSentinelsMintPage() {
               return (
                 <div
                   key={threshold}
-                  className="relative overflow-hidden rounded-2xl border border-cyan-400/30 bg-black/40 px-4 py-3 shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+                  className="relative overflow-hidden rounded-2xl border border-cyan-400/30 bg-black/40 px-3 py-2.5 md:px-4 md:py-3 shadow-[0_0_20px_rgba(34,211,238,0.2)]"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-1.5 md:gap-2">
+                    <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
                       <Icon
-                        className={unlocked ? "h-4 w-4 text-emerald-300" : "h-4 w-4 text-cyan-300/70"}
+                        className={cn(
+                          unlocked ? "h-3.5 w-3.5 md:h-4 md:w-4 text-emerald-300" : "h-3.5 w-3.5 md:h-4 md:w-4 text-cyan-300/70",
+                          "flex-shrink-0"
+                        )}
                       />
-                      <span className="text-xs font-mono uppercase tracking-[0.16em] text-cyan-100">
+                      <span className="text-[0.65rem] md:text-xs font-mono uppercase tracking-[0.12em] md:tracking-[0.16em] text-cyan-100 truncate">
                         {threshold}%{" "}
                         <span className="opacity-60">{unlocked ? "Unlocked" : "Locked"}</span>
                       </span>
                     </div>
                     <span
-                      className={
+                      className={cn(
+                        "rounded-full px-1.5 md:px-2 py-0.5 text-[0.6rem] md:text-[0.65rem] font-semibold flex-shrink-0",
                         unlocked
-                          ? "rounded-full bg-emerald-500/20 px-2 py-0.5 text-[0.65rem] font-semibold text-emerald-200"
-                          : "rounded-full bg-cyan-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-cyan-200/80"
-                      }
+                          ? "bg-emerald-500/20 text-emerald-200"
+                          : "bg-cyan-500/10 text-cyan-200/80"
+                      )}
                     >
                       {unlocked ? "Live" : "Soon"}
                     </span>
                   </div>
                   <div className="mt-2 space-y-1">
-                    <h4 className="text-sm font-semibold text-white">{milestone?.title || `Milestone ${threshold}%`}</h4>
-                    <p className="text-[0.7rem] text-muted-foreground">{milestone?.description || "Unlock details coming soon."}</p>
+                    <h4 className="text-xs md:text-sm font-semibold text-white leading-tight">{milestone?.title || `Milestone ${threshold}%`}</h4>
+                    <p className="text-[0.65rem] md:text-[0.7rem] text-muted-foreground leading-snug">{milestone?.description || "Unlock details coming soon."}</p>
                     {milestone?.value && (
-                      <p className="text-[0.7rem] font-semibold text-cyan-300">Value: {milestone.value}</p>
+                      <p className="text-[0.65rem] md:text-[0.7rem] font-semibold text-cyan-300">Value: {milestone.value}</p>
                     )}
                     {milestone?.note && (
-                      <p className="text-[0.65rem] font-mono uppercase tracking-[0.1em] text-emerald-300/80">
+                      <p className="text-[0.6rem] md:text-[0.65rem] font-mono uppercase tracking-[0.08em] md:tracking-[0.1em] text-emerald-300/80">
                         {milestone.note}
                       </p>
                     )}
@@ -823,9 +828,9 @@ export default function CiphersSentinelsMintPage() {
           </p>
 
           <div className="space-y-4">
-            <div className="rounded-2xl border border-cyan-400/30 bg-black/40 p-4 space-y-3">
-              <h3 className="font-display text-lg text-cyan-300">Card packs: 12 weeks after launch</h3>
-              <p className="text-sm text-muted-foreground">
+            <div className="rounded-2xl border border-cyan-400/30 bg-black/40 p-3 md:p-4 space-y-2 md:space-y-3">
+              <h3 className="font-display text-base md:text-lg text-cyan-300">Card packs: 12 weeks after launch</h3>
+              <p className="text-xs md:text-sm text-muted-foreground">
                 Gen-1 card pack release with animated pack opening experiences and wallet integration.
               </p>
             </div>
@@ -850,9 +855,9 @@ export default function CiphersSentinelsMintPage() {
               </ul>
             </div>
 
-            <div className="rounded-2xl border border-emerald-400/30 bg-black/40 p-4 space-y-3">
-              <h3 className="font-display text-lg text-emerald-300">Digital beta: 12 months after launch</h3>
-              <p className="text-sm text-muted-foreground">
+            <div className="rounded-2xl border border-emerald-400/30 bg-black/40 p-3 md:p-4 space-y-2 md:space-y-3">
+              <h3 className="font-display text-base md:text-lg text-emerald-300">Digital beta: 12 months after launch</h3>
+              <p className="text-xs md:text-sm text-muted-foreground">
                 Full digital beta game build with all features integrated and live.
               </p>
             </div>
@@ -893,17 +898,17 @@ export default function CiphersSentinelsMintPage() {
               <span className="inline-flex h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
               <span>Concept Only</span>
             </div>
-            <h2 className="font-display text-2xl md:text-3xl text-white">Otherside Playable Avatar</h2>
-            <p className="text-sm md:text-base text-muted-foreground max-w-3xl mx-auto">
+            <h2 className="font-display text-xl md:text-2xl lg:text-3xl text-white">Otherside Playable Avatar</h2>
+            <p className="text-xs md:text-sm lg:text-base text-muted-foreground max-w-3xl mx-auto px-2">
               This is a concept preview of our Otherside-compatible playable avatars that will be built and unlocked for
               Cipher and Sentinel holders. Below shows the transformation from PFP to fully rigged 3D model — the Cipher
               body type is displayed as an example.
             </p>
           </div>
 
-          <div className="flex flex-col md:flex-row items-center md:items-center justify-center gap-4 md:gap-8">
+          <div className="flex flex-col md:flex-row items-center md:items-center justify-center gap-4 md:gap-6 lg:gap-8">
             {/* Cipher Concept Image - Centered vertically */}
-            <div className="relative aspect-square w-full max-w-[280px] overflow-hidden rounded-2xl border border-cyan-500/60 bg-gradient-to-br from-cyan-500/20 via-slate-900/90 to-sky-500/20 shadow-[0_0_40px_rgba(34,211,238,0.45)]">
+            <div className="relative aspect-square w-full max-w-[240px] md:max-w-[280px] overflow-hidden rounded-2xl border border-cyan-500/60 bg-gradient-to-br from-cyan-500/20 via-slate-900/90 to-sky-500/20 shadow-[0_0_40px_rgba(34,211,238,0.45)]">
               <Image
                 src="/images/design-mode/Cipher%20Concept.png"
                 alt="Cipher PFP concept"
@@ -936,7 +941,7 @@ export default function CiphersSentinelsMintPage() {
             </div>
 
             {/* 3D Model Image - Same width as PFP, full height (rectangular) */}
-            <div className="relative w-full max-w-[280px] overflow-hidden rounded-2xl border border-emerald-500/60 bg-gradient-to-br from-emerald-500/20 via-slate-900/90 to-cyan-500/20 shadow-[0_0_40px_rgba(52,211,153,0.45)]">
+            <div className="relative w-full max-w-[240px] md:max-w-[280px] overflow-hidden rounded-2xl border border-emerald-500/60 bg-gradient-to-br from-emerald-500/20 via-slate-900/90 to-cyan-500/20 shadow-[0_0_40px_rgba(52,211,153,0.45)]">
               <Image
                 src="/images/design-mode/3d%20model.png"
                 alt="3D model concept"
@@ -967,9 +972,9 @@ export default function CiphersSentinelsMintPage() {
             <span className="inline-flex h-2 w-2 rounded-full bg-purple-400 animate-pulse" />
             <span>Super Reveal</span>
           </div>
-          <h2 className="font-display text-2xl md:text-3xl text-white">Who Is This Amazing Artist?</h2>
-          <div className="max-w-2xl mx-auto space-y-4">
-            <p className="text-sm md:text-base text-muted-foreground">
+            <h2 className="font-display text-xl md:text-2xl lg:text-3xl text-white">Who Is This Amazing Artist?</h2>
+            <div className="max-w-2xl mx-auto space-y-3 md:space-y-4 px-2">
+              <p className="text-xs md:text-sm lg:text-base text-muted-foreground">
               Behind every great collection is an exceptional artist. The Ciphers & Sentinels PFPs are being crafted by a
               well-known and highly regarded artist within the ApeChain community — someone whose work has shaped the
               visual identity of some of the most respected projects in the ecosystem.
