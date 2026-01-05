@@ -1845,8 +1845,13 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
 
         {/* Token selector bar below board */}
         <div className="w-full max-w-lg mx-auto mb-4 md:mb-6">
-          <div className="rounded-2xl border border-cyan-400/40 bg-gradient-to-r from-slate-900/90 via-slate-900/70 to-slate-900/90 px-3 md:px-4 py-2 shadow-[0_0_25px_rgba(34,211,238,0.25)] overflow-hidden">
-            <div className="flex items-center justify-center gap-1 md:gap-1.5">
+          <div className="rounded-2xl border border-cyan-400/40 bg-gradient-to-r from-slate-900/90 via-slate-900/70 to-slate-900/90 px-2 md:px-4 py-2 shadow-[0_0_25px_rgba(34,211,238,0.25)] overflow-hidden">
+            <div 
+              className="flex items-center justify-start md:justify-center gap-1 md:gap-1.5 overflow-x-auto scrollbar-hide pb-1 md:pb-0" 
+              style={{ 
+                WebkitOverflowScrolling: 'touch' // iOS smooth momentum scrolling
+              }}
+            >
               {TOKENS.map((token) => {
                 const isFullyUsed = tokenUsage[token.id] >= 9
                 const isHighlighted =
@@ -1858,10 +1863,10 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
                     data-selector-token={token.id}
                     onClick={() => placeValue(token.id)}
                     disabled={isFullyUsed || isTypeCompleted}
-                    className={`relative flex-shrink-0 rounded-full p-0.5 md:p-1 transition-transform ${
+                    className={`relative flex-shrink-0 rounded-full p-0.5 md:p-1 transition-transform touch-manipulation ${
                       isFullyUsed || isTypeCompleted
                         ? "opacity-30 cursor-not-allowed grayscale"
-                        : "cursor-pointer hover:scale-105"
+                        : "cursor-pointer hover:scale-105 active:scale-95"
                     } ${isHighlighted ? "ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-900" : ""}`}
                     title={`${token.name} (${tokenUsage[token.id]}/9)${
                       isFullyUsed ? " - All placed!" : ""
@@ -1870,8 +1875,8 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
                     <span
                       className="flex items-center justify-center rounded-full bg-slate-950/80"
                       style={{
-                        width: "2.0rem",
-                        height: "2.0rem",
+                        width: "1.75rem",
+                        height: "1.75rem",
                         borderColor: token.color,
                         borderWidth: 2,
                         borderStyle: "solid",
@@ -1880,7 +1885,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
                       <img
                         src={token.img || "/placeholder.svg"}
                         alt={token.name}
-                        className="w-5 h-5 md:w-6 md:h-6 object-contain"
+                        className="w-4 h-4 md:w-6 md:h-6 object-contain"
                       />
                     </span>
                   </button>
@@ -1888,7 +1893,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
               })}
               <button
                 onClick={eraseCell}
-                className={`flex-shrink-0 ml-1 md:ml-2 px-3 py-1 md:px-4 md:py-1.5 rounded-full border border-dashed border-slate-500 bg-slate-900/70 text-xs md:text-sm font-semibold hover:shadow-lg hover:shadow-cyan-400/25 transition-all ${
+                className={`flex-shrink-0 ml-1 md:ml-2 px-2.5 py-1 md:px-4 md:py-1.5 rounded-full border border-dashed border-slate-500 bg-slate-900/70 text-[0.7rem] md:text-sm font-semibold hover:shadow-lg hover:shadow-cyan-400/25 transition-all touch-manipulation active:scale-95 ${
                   highlightClear ? "clear-highlight" : ""
                 }`}
               >
