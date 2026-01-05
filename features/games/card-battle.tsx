@@ -484,7 +484,7 @@ export default function CardBattle() {
         <h1 className="font-display text-2xl md:text-5xl font-bold bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent mb-1 md:mb-2">
           CARD BATTLE ARENA
         </h1>
-        <p className="text-xs md:text-base text-muted-foreground mb-2">Strategic card combat using your collection</p>
+        <p className="text-xs md:text-base text-muted-foreground mb-2">A fun card battler using cards from The Crypto Rabbit Hole TCG universe</p>
         <div className="flex items-center justify-center gap-2 flex-wrap">
           <Badge variant="outline" className="text-xs">
             <Zap className="w-3 h-3 mr-1" />
@@ -506,7 +506,7 @@ export default function CardBattle() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 md:gap-8 mb-3 md:mb-8">
+      <div className="grid grid-cols-2 gap-2 md:gap-4 mb-3 md:mb-6">
         {/* Player Card */}
         <div
           className={`space-y-1 md:space-y-2 card-entrance ${playerAttacking ? "attacking" : ""} ${playerHit ? "hit" : ""}`}
@@ -517,7 +517,7 @@ export default function CardBattle() {
             </Badge>
             <div className="flex items-center gap-1">
               <Heart className="w-3 h-3 md:w-4 md:h-4 text-red-500" />
-              <span className="text-sm md:text-2xl font-bold text-red-500">{playerHealth}</span>
+              <span className="text-sm md:text-xl font-bold text-red-500">{playerHealth}</span>
             </div>
           </div>
           <div className="w-full h-1 md:h-2 bg-gray-800 rounded-full overflow-hidden">
@@ -529,37 +529,37 @@ export default function CardBattle() {
 
           <div className="relative">
             <Card
-              className={`p-1 md:p-4 bg-black/50 border md:border-4 ${
+              className={`p-0.5 md:p-2 bg-black/50 border md:border-2 ${
                 activeUpgrades.find((u) => u.type === "border")
-                  ? "border-yellow-500 shadow-[0_0_40px_rgba(234,179,8,0.8)]"
+                  ? "border-yellow-500 shadow-[0_0_20px_rgba(234,179,8,0.4)]"
                   : getRarityColor(playerCard.rarity)
               } transition-all duration-300`}
             >
               <img
                 src={playerCard.image || "/placeholder.svg"}
                 alt={playerCard.name}
-                className="w-full aspect-[2/3] object-cover rounded-lg mb-1 md:mb-2"
+                className="w-full aspect-[2/3] object-cover rounded-lg mb-0.5 md:mb-1"
               />
-              <div className="grid grid-cols-2 gap-0.5 md:gap-1 text-xs md:text-base">
-                <div className="flex items-center justify-between bg-red-500/10 rounded px-1 md:px-2 py-0.5 md:py-1">
-                  <span className="flex items-center gap-0.5 md:gap-1">
+              <div className="grid grid-cols-2 gap-0.5 md:gap-1 text-[10px] md:text-xs">
+                <div className="flex items-center justify-between bg-red-500/10 rounded px-1 md:px-2 py-0.5">
+                  <span className="flex items-center gap-0.5">
                     <Swords className="w-2 h-2 md:w-3 md:h-3 text-red-500" />
-                    <span className="text-[10px] md:text-xs">ATK</span>
+                    <span className="text-[8px] md:text-[10px]">ATK</span>
                   </span>
-                  <span className="font-bold text-red-500 text-xs md:text-base">{playerCard.attack}</span>
+                  <span className="font-bold text-red-500 text-[10px] md:text-xs">{playerCard.attack}</span>
                 </div>
-                <div className="flex items-center justify-between bg-blue-500/10 rounded px-1 md:px-2 py-0.5 md:py-1">
-                  <span className="flex items-center gap-0.5 md:gap-1">
+                <div className="flex items-center justify-between bg-blue-500/10 rounded px-1 md:px-2 py-0.5">
+                  <span className="flex items-center gap-0.5">
                     <Shield className="w-2 h-2 md:w-3 md:h-3 text-blue-500" />
-                    <span className="text-[10px] md:text-xs">DEF</span>
+                    <span className="text-[8px] md:text-[10px]">DEF</span>
                   </span>
-                  <span className="font-bold text-blue-500 text-xs md:text-base">{playerCard.defense}</span>
+                  <span className="font-bold text-blue-500 text-[10px] md:text-xs">{playerCard.defense}</span>
                 </div>
               </div>
               {activeUpgrades.length > 0 && (
-                <div className="flex gap-0.5 md:gap-1 mt-1 md:mt-2 flex-wrap">
+                <div className="flex gap-0.5 md:gap-1 mt-0.5 md:mt-1 flex-wrap">
                   {activeUpgrades.map((upgrade) => (
-                    <Badge key={upgrade.id} variant="outline" className="text-[10px] md:text-xs px-1">
+                    <Badge key={upgrade.id} variant="outline" className="text-[8px] md:text-[10px] px-0.5">
                       {upgrade.icon}
                     </Badge>
                   ))}
@@ -583,16 +583,16 @@ export default function CardBattle() {
           </div>
 
           {!gameOver && isPlayerTurn && (
-            <div className="grid grid-cols-2 gap-1 md:gap-2">
-              <Button onClick={attack} className="w-full text-xs md:text-base h-8 md:h-10" size="sm">
-                <Zap className="w-3 h-3 md:w-4 md:h-4 mr-0.5 md:mr-1" />
+            <div className="grid grid-cols-2 gap-1">
+              <Button onClick={attack} className="w-full text-[10px] md:text-xs h-7 md:h-8" size="sm">
+                <Zap className="w-2 h-2 md:w-3 md:h-3 mr-0.5" />
                 <span className="hidden md:inline">ATTACK</span>
                 <span className="md:hidden">ATK</span>
               </Button>
               <Button
                 onClick={() => setShowUpgradeShop(true)}
                 variant="outline"
-                className="w-full text-xs md:text-base h-8 md:h-10"
+                className="w-full text-[10px] md:text-xs h-7 md:h-8"
                 size="sm"
               >
                 <span className="hidden md:inline">🛒 SHOP</span>
@@ -602,7 +602,7 @@ export default function CardBattle() {
                 <Button
                   onClick={useKillShot}
                   variant="destructive"
-                  className="w-full col-span-2 animate-pulse text-xs md:text-base h-8 md:h-10"
+                  className="w-full col-span-2 animate-pulse text-[10px] md:text-xs h-7 md:h-8"
                   size="sm"
                 >
                   💀 KILL SHOT
@@ -623,7 +623,7 @@ export default function CardBattle() {
             </Badge>
             <div className="flex items-center gap-1">
               <Heart className="w-3 h-3 md:w-4 md:h-4 text-red-500" />
-              <span className="text-sm md:text-2xl font-bold text-red-500">{opponentHealth}</span>
+              <span className="text-sm md:text-xl font-bold text-red-500">{opponentHealth}</span>
             </div>
           </div>
           <div className="w-full h-1 md:h-2 bg-gray-800 rounded-full overflow-hidden">
@@ -635,27 +635,27 @@ export default function CardBattle() {
 
           <div className="relative">
             <Card
-              className={`p-1 md:p-4 bg-black/50 border md:border-4 ${getRarityColor(opponentCard.rarity)} transition-all duration-300`}
+              className={`p-0.5 md:p-2 bg-black/50 border md:border-2 ${getRarityColor(opponentCard.rarity)} transition-all duration-300`}
             >
               <img
                 src={opponentCard.image || "/placeholder.svg"}
                 alt={opponentCard.name}
-                className="w-full aspect-[2/3] object-cover rounded-lg mb-1 md:mb-2"
+                className="w-full aspect-[2/3] object-cover rounded-lg mb-0.5 md:mb-1"
               />
-              <div className="grid grid-cols-2 gap-0.5 md:gap-1 text-xs md:text-base">
-                <div className="flex items-center justify-between bg-red-500/10 rounded px-1 md:px-2 py-0.5 md:py-1">
-                  <span className="flex items-center gap-0.5 md:gap-1">
+              <div className="grid grid-cols-2 gap-0.5 md:gap-1 text-[10px] md:text-xs">
+                <div className="flex items-center justify-between bg-red-500/10 rounded px-1 md:px-2 py-0.5">
+                  <span className="flex items-center gap-0.5">
                     <Swords className="w-2 h-2 md:w-3 md:h-3 text-red-500" />
-                    <span className="text-[10px] md:text-xs">ATK</span>
+                    <span className="text-[8px] md:text-[10px]">ATK</span>
                   </span>
-                  <span className="font-bold text-red-500 text-xs md:text-base">{opponentCard.attack}</span>
+                  <span className="font-bold text-red-500 text-[10px] md:text-xs">{opponentCard.attack}</span>
                 </div>
-                <div className="flex items-center justify-between bg-blue-500/10 rounded px-1 md:px-2 py-0.5 md:py-1">
-                  <span className="flex items-center gap-0.5 md:gap-1">
+                <div className="flex items-center justify-between bg-blue-500/10 rounded px-1 md:px-2 py-0.5">
+                  <span className="flex items-center gap-0.5">
                     <Shield className="w-2 h-2 md:w-3 md:h-3 text-blue-500" />
-                    <span className="text-[10px] md:text-xs">DEF</span>
+                    <span className="text-[8px] md:text-[10px]">DEF</span>
                   </span>
-                  <span className="font-bold text-blue-500 text-xs md:text-base">{opponentCard.defense}</span>
+                  <span className="font-bold text-blue-500 text-[10px] md:text-xs">{opponentCard.defense}</span>
                 </div>
               </div>
             </Card>
@@ -676,20 +676,20 @@ export default function CardBattle() {
           </div>
 
           {!gameOver && !isPlayerTurn && (
-            <div className="w-full p-1 md:p-4 text-center bg-muted/20 rounded-lg animate-pulse">
-              <div className="text-xs md:text-lg font-bold">AI Thinking...</div>
+            <div className="w-full p-1 md:p-2 text-center bg-muted/20 rounded-lg animate-pulse">
+              <div className="text-[10px] md:text-sm font-bold">AI Thinking...</div>
             </div>
           )}
         </div>
       </div>
 
-      <Card className="p-3 md:p-6 bg-black/50 border-2 border-primary/30">
-        <h3 className="font-display text-sm md:text-xl font-bold mb-2 md:mb-4">Battle Log</h3>
-        <div className="space-y-1 max-h-24 md:max-h-40 overflow-y-auto">
+      <Card className="p-2 md:p-4 bg-black/50 border-2 border-primary/30">
+        <h3 className="font-display text-xs md:text-lg font-bold mb-1 md:mb-2">Battle Log</h3>
+        <div className="space-y-0.5 max-h-16 md:max-h-32 overflow-y-auto">
           {battleLog.slice(-5).map((log, index) => (
             <div
               key={index}
-              className="text-xs md:text-sm text-muted-foreground animate-in fade-in slide-in-from-left duration-300"
+              className="text-[10px] md:text-xs text-muted-foreground animate-in fade-in slide-in-from-left duration-300"
             >
               {log}
             </div>

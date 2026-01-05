@@ -16,16 +16,16 @@ type LeaderboardEntry = {
 }
 
 const GLOBAL_LEADERBOARD: LeaderboardEntry[] = [
-  { rank: 1, address: "0x1234...5678", points: 15420, wins: 142, streak: 12 },
-  { rank: 2, address: "0xabcd...efgh", points: 12890, wins: 128, streak: 8 },
-  { rank: 3, address: "0x9876...5432", points: 11250, wins: 115, streak: 5 },
-  { rank: 4, address: "0xfedc...ba98", points: 9870, wins: 98, streak: 3 },
-  { rank: 5, address: "0x5555...6666", points: 8450, wins: 84, streak: 7 },
-  { rank: 6, address: "0x7777...8888", points: 7230, wins: 72, streak: 4 },
-  { rank: 7, address: "0x9999...0000", points: 6540, wins: 65, streak: 2 },
-  { rank: 8, address: "0xaaaa...bbbb", points: 5890, wins: 58, streak: 6 },
-  { rank: 9, address: "0xcccc...dddd", points: 5120, wins: 51, streak: 1 },
-  { rank: 10, address: "0xeeee...ffff", points: 4780, wins: 47, streak: 9 },
+  { rank: 1, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
+  { rank: 2, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
+  { rank: 3, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
+  { rank: 4, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
+  { rank: 5, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
+  { rank: 6, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
+  { rank: 7, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
+  { rank: 8, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
+  { rank: 9, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
+  { rank: 10, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
 ]
 
 export default function LeaderboardView() {
@@ -50,12 +50,12 @@ export default function LeaderboardView() {
             </div>
             <div>
               <div className="text-sm text-cyan-400 mb-1">Your Rank</div>
-              <div className="text-3xl font-bold font-display text-cyan-400">#42</div>
+              <div className="text-3xl font-bold font-display text-cyan-400">#0</div>
             </div>
           </div>
           <div className="text-right">
             <div className="text-sm text-purple-400 mb-1">Your Points</div>
-            <div className="text-3xl font-bold font-display text-purple-400">{points.toLocaleString()}</div>
+            <div className="text-3xl font-bold font-display text-purple-400">0</div>
           </div>
         </div>
       </Card>

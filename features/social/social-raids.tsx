@@ -117,6 +117,9 @@ export default function SocialRaids() {
         <h1 className="font-display text-3xl font-bold bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent mb-2">
           SOCIAL RAIDS
         </h1>
+        <div className="mb-4 p-4 bg-yellow-500/20 border-2 border-yellow-500/50 rounded-lg text-center">
+          <p className="text-xl font-bold text-yellow-400">Coming Soon</p>
+        </div>
         <p className="text-muted-foreground">Join community events and earn rewards</p>
       </div>
 
@@ -128,7 +131,7 @@ export default function SocialRaids() {
             </div>
             <div>
               <div className="text-sm text-pink-400">Your Points</div>
-              <div className="text-2xl font-bold font-display text-pink-400">{points.toLocaleString()}</div>
+              <div className="text-2xl font-bold font-display text-pink-400">0</div>
             </div>
           </div>
         </Card>
@@ -140,7 +143,7 @@ export default function SocialRaids() {
             </div>
             <div>
               <div className="text-sm text-purple-400">Raids Completed</div>
-              <div className="text-2xl font-bold font-display text-purple-400">{completedRaids.size}</div>
+              <div className="text-2xl font-bold font-display text-purple-400">0</div>
             </div>
           </div>
         </Card>
@@ -152,9 +155,7 @@ export default function SocialRaids() {
             </div>
             <div>
               <div className="text-sm text-cyan-400">Active Raiders</div>
-              <div className="text-2xl font-bold font-display text-cyan-400">
-                {RAIDS.reduce((sum, r) => sum + r.participants, 0)}
-              </div>
+              <div className="text-2xl font-bold font-display text-cyan-400">0</div>
             </div>
           </div>
         </Card>
@@ -164,7 +165,7 @@ export default function SocialRaids() {
         <h2 className="font-display text-xl font-bold mb-4 text-pink-400">Active Raids</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {RAIDS.map((raid) => (
-            <RaidCard key={raid.id} raid={raid} completed={completedRaids.has(raid.id)} onJoin={handleJoinRaid} />
+            <RaidCard key={raid.id} raid={{...raid, participants: 0, timeLeft: "Coming Soon", status: "upcoming"}} completed={false} onJoin={handleJoinRaid} />
           ))}
         </div>
       </div>
@@ -172,10 +173,8 @@ export default function SocialRaids() {
       <div>
         <h2 className="font-display text-xl font-bold mb-4 text-cyan-400">Top Raiders</h2>
         <Card className="bg-black/50 backdrop-blur-xl border-2 border-purple-500/30 overflow-hidden">
-          <div className="divide-y divide-border/50">
-            {LEADERBOARD.map((entry) => (
-              <LeaderboardRow key={entry.rank} entry={entry} />
-            ))}
+          <div className="p-8 text-center">
+            <p className="text-xl font-bold text-muted-foreground">Coming Soon</p>
           </div>
         </Card>
       </div>
@@ -225,42 +224,26 @@ function RaidCard({
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Progress</span>
             <span className="font-medium">
-              {raid.participants} / {raid.maxParticipants}
+              0 / {raid.maxParticipants}
             </span>
           </div>
-          <Progress value={progress} className="h-2" />
+          <Progress value={0} className="h-2" />
         </div>
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-1 text-muted-foreground">
               <Clock className="w-4 h-4" />
-              {raid.timeLeft}
+              Coming Soon
             </div>
             <div className="flex items-center gap-1 text-pink-400 font-bold">
-              <Trophy className="w-4 h-4" />+{raid.reward}
+              <Trophy className="w-4 h-4" />+0
             </div>
           </div>
 
-          {completed ? (
-            <Button disabled size="sm" variant="outline" className="border-purple-500/30 bg-transparent">
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-              Joined
-            </Button>
-          ) : raid.status === "active" ? (
-            <Button
-              size="sm"
-              className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 shadow-[0_0_20px_hsl(var(--neon-pink)/0.3)]"
-              onClick={() => onJoin(raid)}
-            >
-              <Zap className="w-4 h-4 mr-2" />
-              Join Raid
-            </Button>
-          ) : (
-            <Button disabled size="sm" variant="outline" className="border-purple-500/30 bg-transparent">
-              Coming Soon
-            </Button>
-          )}
+          <Button disabled size="sm" variant="outline" className="border-purple-500/30 bg-transparent">
+            Coming Soon
+          </Button>
         </div>
       </div>
     </Card>

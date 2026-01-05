@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,8 +19,13 @@ import {
   TrendingUp,
   AlertCircle,
   Plus,
+  Loader2,
 } from "@/components/icons"
 import { useToast } from "@/hooks/use-toast"
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
+
+const ADMIN_EMAIL = "info@thecryptorabbithole.io"
+const ADMIN_PASSWORD = "adminCxR@bb1t"
 
 type SystemStats = {
   totalUsers: number
@@ -42,8 +47,123 @@ const STATS: SystemStats = {
 
 export default function AdminPanel() {
   const { toast } = useToast()
+  const { user, loading: authLoading, signIn } = useSupabaseAuth()
   const [newRaidTitle, setNewRaidTitle] = useState("")
   const [newRaidReward, setNewRaidReward] = useState("")
+  const [loginEmail, setLoginEmail] = useState("")
+  const [loginPassword, setLoginPassword] = useState("")
+  const [isAuthenticating, setIsAuthenticating] = useState(false)
+
+  const isAdmin = user?.email === ADMIN_EMAIL
+
+  useEffect(() => {
+    if (user && !isAdmin) {
+      toast({
+        title: "Access Denied",
+        description: "You do not have permission to access this page.",
+        variant: "destructive",
+      })
+    }
+  }, [user, isAdmin, toast])
+
+  async function handleAdminLogin(e: React.FormEvent) {
+    e.preventDefault()
+    setIsAuthenticating(true)
+
+    if (loginEmail !== ADMIN_EMAIL || loginPassword !== ADMIN_PASSWORD) {
+      toast({
+        title: "Invalid Credentials",
+        description: "Please check your email and password.",
+        variant: "destructive",
+      })
+      setIsAuthenticating(false)
+      return
+    }
+
+    const { error } = await signIn(loginEmail, loginPassword)
+    setIsAuthenticating(false)
+
+    if (error) {
+      toast({
+        title: "Login Failed",
+        description: error.message,
+        variant: "destructive",
+      })
+    } else {
+      toast({
+        title: "Login Successful",
+        description: "Welcome to the Admin Panel",
+      })
+    }
+  }
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
+      </div>
+    )
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="p-8 max-w-md w-full bg-black/50 backdrop-blur-xl border-2 border-purple-500/30">
+          <div className="space-y-6">
+            <div className="text-center">
+              <h1 className="font-display text-3xl font-bold bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent mb-2">
+                ADMIN LOGIN
+              </h1>
+              <p className="text-muted-foreground">Please sign in to access the admin panel</p>
+            </div>
+
+            <form onSubmit={handleAdminLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="admin-email">Email</Label>
+                <Input
+                  id="admin-email"
+                  type="email"
+                  placeholder="admin@example.com"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  className="border-purple-500/30"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="admin-password">Password</Label>
+                <Input
+                  id="admin-password"
+                  type="password"
+                  placeholder="Enter password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  className="border-purple-500/30"
+                  required
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 shadow-[0_0_20px_hsl(var(--neon-pink)/0.3)]"
+                disabled={isAuthenticating}
+              >
+                {isAuthenticating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
+              </Button>
+            </form>
+          </div>
+        </Card>
+      </div>
+    )
+  }
 
   function handleCreateRaid() {
     if (!newRaidTitle || !newRaidReward) {
