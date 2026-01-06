@@ -114,14 +114,14 @@ export default function CiphersSentinelsMintPage() {
             <h1 className="font-display text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-white">
               Ciphers &amp; Sentinels
             </h1>
-            <p className="text-sm md:text-base text-muted-foreground font-medium">
+            <p className="text-sm md:text-base text-white font-medium">
               Founder PFPs for The Crypto Rabbit Hole®
             </p>
-            <p className="text-sm md:text-base text-muted-foreground max-w-xl">
+            <p className="text-sm md:text-base text-white max-w-xl">
               Premium founder PFPs for the Crypto Rabbit Hole universe — a playable gaming ecosystem inspired by crypto,
               strategy, and community.
             </p>
-            <p className="text-sm md:text-base text-muted-foreground max-w-xl">
+            <p className="text-sm md:text-base text-white max-w-xl">
               Ciphers &amp; Sentinels are the genesis identities of our universe. They grant access, rewards, voting
               rights, playable avatars, and long-term benefits across everything we build next.
             </p>
@@ -163,7 +163,7 @@ export default function CiphersSentinelsMintPage() {
                   </div>
                 </div>
 
-                <p className="text-[0.7rem] text-muted-foreground max-w-xs">
+                <p className="text-[0.7rem] text-white max-w-xs">
                   Visuals, rarity tables, and full mint mechanics to be revealed in waves. This is your early ping.
                 </p>
               </div>
@@ -185,14 +185,14 @@ export default function CiphersSentinelsMintPage() {
       <HoloPanel accent="purple" title="Your On-Chain Identity">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
           <div className="space-y-4 lg:w-2/3">
-            <p className="text-sm md:text-base text-muted-foreground">
+            <p className="text-sm md:text-base text-white">
               Ciphers and Sentinels are founder identities in the world of Esoteria — the universe behind The Crypto
               Rabbit Hole.
             </p>
-            <p className="text-sm md:text-base text-muted-foreground">
+            <p className="text-sm md:text-base text-white">
               This is not just a profile picture. It's your identity inside the Rabbit Hole.
             </p>
-            <ul className="space-y-2 text-sm md:text-base text-muted-foreground">
+            <ul className="space-y-2 text-sm md:text-base text-white">
               <li className="flex gap-2">
                 <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400" />
                 <span>Your avatar</span>
@@ -230,16 +230,16 @@ export default function CiphersSentinelsMintPage() {
           <div className="space-y-6 lg:w-1/3">
             <div>
               <h2 className="font-display text-2xl md:text-3xl text-white mb-2">Ciphers &amp; Sentinels PFPs</h2>
-              <p className="text-sm md:text-base text-muted-foreground font-medium">
+              <p className="text-sm md:text-base text-white font-medium">
                 Two archetypes. One shared universe.
               </p>
             </div>
-            <p className="text-sm md:text-base text-muted-foreground">
+            <p className="text-sm md:text-base text-white">
               Every genesis avatar grants founder utility designed to compound as the ecosystem expands:
             </p>
 
             <div className="space-y-4">
-              <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">Collection Overview</h3>
+              <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-white">Collection Overview</h3>
               <div className="space-y-1">
                 <p className="text-sm md:text-base text-white font-semibold">10,000 total PFPs</p>
               </div>
@@ -247,20 +247,20 @@ export default function CiphersSentinelsMintPage() {
               <div className="space-y-4 pt-2">
                 <div className="space-y-2">
                   <h4 className="font-display text-lg text-cyan-300">CIPHERS</h4>
-                  <p className="text-xs md:text-sm text-muted-foreground font-medium">
+                  <p className="text-xs md:text-sm text-white font-medium">
                     Explorers • Analysts • Navigators
                   </p>
-                  <p className="text-sm md:text-base text-muted-foreground">
+                  <p className="text-sm md:text-base text-white">
                     80% supply (8,000) — the agile foundation of Esoteria's population.
                   </p>
                 </div>
 
                 <div className="space-y-2">
                   <h4 className="font-display text-lg text-fuchsia-300">SENTINELS</h4>
-                  <p className="text-xs md:text-sm text-muted-foreground font-medium">
+                  <p className="text-xs md:text-sm text-white font-medium">
                     Guardians • Protectors • Elite Constructs
                   </p>
-                  <p className="text-sm md:text-base text-muted-foreground">
+                  <p className="text-sm md:text-base text-white">
                     20% supply (2,000) — rare, powerful, prestige class.
                   </p>
                 </div>
@@ -268,8 +268,8 @@ export default function CiphersSentinelsMintPage() {
             </div>
 
             <div className="space-y-3 pt-4 border-t border-white/10">
-              <h4 className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">Collection Details</h4>
-              <ul className="space-y-2 text-sm md:text-base text-muted-foreground">
+              <h4 className="text-xs font-mono uppercase tracking-[0.2em] text-white">Collection Details</h4>
+              <ul className="space-y-2 text-sm md:text-base text-white">
                 <li className="flex gap-2">
                   <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400" />
                   <span>4 body types (Cipher/Sentinel × Male/Female)</span>
@@ -283,7 +283,7 @@ export default function CiphersSentinelsMintPage() {
                   <span>Designed as playable avatars and long-term identity passes</span>
                 </li>
               </ul>
-              <p className="text-sm md:text-base text-muted-foreground pt-2">
+              <p className="text-sm md:text-base text-white pt-2">
                 Each PFP represents your place in the world of Esoteria and The Crypto Rabbit Hole® ecosystem.
               </p>
             </div>
@@ -317,7 +317,7 @@ export default function CiphersSentinelsMintPage() {
                   <summary className="flex cursor-pointer items-center justify-between gap-2 list-none">
                     <div>
                       <h4 className="font-display text-sm text-cyan-300 mb-1">Cipher Founder Benefits</h4>
-                      <p className="text-xs text-muted-foreground">All genesis avatars receive these benefits</p>
+                      <p className="text-xs text-white">All genesis avatars receive these benefits</p>
                     </div>
                     <span className="rounded-full border border-cyan-400/50 bg-cyan-500/15 px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.2em] text-cyan-200 group-open:hidden">
                       Expand
@@ -327,7 +327,7 @@ export default function CiphersSentinelsMintPage() {
                     </span>
                   </summary>
                   <div className="mt-4 space-y-2 group-open:animate-in group-open:fade-in-0">
-                    <ul className="space-y-2 text-xs md:text-sm text-muted-foreground">
+                    <ul className="space-y-2 text-xs md:text-sm text-white">
                       <li className="flex gap-2">
                         <span className="mt-1 h-1 w-3 rounded-full bg-cyan-400/70" />
                         <span>Playable Otherside-compatible rig</span>
@@ -401,7 +401,7 @@ export default function CiphersSentinelsMintPage() {
                   <summary className="flex cursor-pointer items-center justify-between gap-2 list-none">
                     <div>
                       <h4 className="font-display text-sm text-fuchsia-300 mb-1">Sentinel Elite Benefits</h4>
-                      <p className="text-xs text-muted-foreground">Everything in Cipher benefits plus:</p>
+                      <p className="text-xs text-white">Everything in Cipher benefits plus:</p>
                     </div>
                     <span className="rounded-full border border-fuchsia-400/50 bg-fuchsia-500/15 px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.2em] text-fuchsia-200 group-open:hidden">
                       Expand
@@ -411,7 +411,7 @@ export default function CiphersSentinelsMintPage() {
                     </span>
                   </summary>
                   <div className="mt-4 space-y-2 group-open:animate-in group-open:fade-in-0">
-                    <ul className="space-y-2 text-xs md:text-sm text-muted-foreground">
+                    <ul className="space-y-2 text-xs md:text-sm text-white">
                       <li className="flex gap-2">
                         <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
                         <span>Extra packs</span>
@@ -455,7 +455,7 @@ export default function CiphersSentinelsMintPage() {
       {/* SECTION 4 — THE JOURNEY */}
       <HoloPanel accent="purple" title="From a single comment to a playable universe">
         <div className="space-y-6">
-          <div className="space-y-4 text-sm md:text-base text-muted-foreground">
+          <div className="space-y-4 text-sm md:text-base text-white">
             <p>
               In 2020, I told my traders and portfolio managers: "I've gone down the crypto rabbit hole… just wait for
               me, it'll be worth it."
@@ -559,10 +559,10 @@ export default function CiphersSentinelsMintPage() {
       {/* SECTION 5 — WHAT ALREADY EXISTS */}
       <HoloPanel accent="purple" title="Built, Playable, and Already Tested">
         <div className="space-y-6">
-          <p className="text-sm md:text-base text-muted-foreground">
+          <p className="text-sm md:text-base text-white">
             This isn't a concept. The foundation is already live and has been tested in real play sessions.
           </p>
-          <ul className="space-y-2 text-sm md:text-base text-muted-foreground">
+          <ul className="space-y-2 text-sm md:text-base text-white">
             <li className="flex gap-2">
               <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-purple-400 via-violet-400 to-indigo-400" />
               <span>Fully playable TCG sandbox on Tabletopia</span>
@@ -752,7 +752,7 @@ export default function CiphersSentinelsMintPage() {
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="space-y-2">
               <h2 className="font-display text-xl md:text-2xl text-white">Mint Milestones &amp; Unlocks</h2>
-              <p className="text-xs md:text-sm text-muted-foreground">
+              <p className="text-xs md:text-sm text-white">
                 As the mint fills, new experiences, drops, and events unlock for Ciphers &amp; Sentinels founders.
               </p>
             </div>
@@ -800,7 +800,7 @@ export default function CiphersSentinelsMintPage() {
                   </div>
                   <div className="mt-2 space-y-1">
                     <h4 className="text-xs md:text-sm font-semibold text-white leading-tight">{milestone?.title || `Milestone ${threshold}%`}</h4>
-                    <p className="text-[0.65rem] md:text-[0.7rem] text-muted-foreground leading-snug">{milestone?.description || "Unlock details coming soon."}</p>
+                    <p className="text-[0.65rem] md:text-[0.7rem] text-white leading-snug">{milestone?.description || "Unlock details coming soon."}</p>
                     {milestone?.value && (
                       <p className="text-[0.65rem] md:text-[0.7rem] font-semibold text-cyan-300">Value: {milestone.value}</p>
                     )}
@@ -823,23 +823,23 @@ export default function CiphersSentinelsMintPage() {
       {/* SECTION C — UPDATED: WHAT UNLOCKS AFTER PFP LAUNCH */}
       <HoloPanel accent="cyan" title="What Unlocks After the PFP Launch">
         <div className="space-y-6">
-          <p className="text-sm md:text-base text-muted-foreground">
+          <p className="text-sm md:text-base text-white">
             The PFP launch activates what's already built and accelerates what comes next.
           </p>
 
           <div className="space-y-4">
             <div className="rounded-2xl border border-cyan-400/30 bg-black/40 p-3 md:p-4 space-y-2 md:space-y-3">
               <h3 className="font-display text-base md:text-lg text-cyan-300">Card packs: 12 weeks after launch</h3>
-              <p className="text-xs md:text-sm text-muted-foreground">
+              <p className="text-xs md:text-sm text-white">
                 Gen-1 card pack release with animated pack opening experiences and wallet integration.
               </p>
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+              <h4 className="text-xs font-mono uppercase tracking-[0.2em] text-white">
                 Digital Card Game Features
               </h4>
-              <ul className="space-y-2 text-sm md:text-base text-muted-foreground">
+              <ul className="space-y-2 text-sm md:text-base text-white">
                 <li className="flex gap-2">
                   <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
                   <span>Animated pack opening experiences</span>
@@ -857,18 +857,18 @@ export default function CiphersSentinelsMintPage() {
 
             <div className="rounded-2xl border border-emerald-400/30 bg-black/40 p-3 md:p-4 space-y-2 md:space-y-3">
               <h3 className="font-display text-base md:text-lg text-emerald-300">Digital beta: 12 months after launch</h3>
-              <p className="text-xs md:text-sm text-muted-foreground">
+              <p className="text-xs md:text-sm text-white">
                 Full digital beta game build with all features integrated and live.
               </p>
             </div>
 
-            <div className="space-y-2 text-sm md:text-base text-muted-foreground">
+            <div className="space-y-2 text-sm md:text-base text-white">
               <p>• Seasonal modes and community events</p>
               <p>• More arcade games and participation rewards</p>
               <p>• Expansion development and deck-building options</p>
             </div>
 
-            <ul className="space-y-2 text-sm md:text-base text-muted-foreground pt-2">
+            <ul className="space-y-2 text-sm md:text-base text-white pt-2">
               <li className="flex gap-2">
                 <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
                 <span>Player vs Player (PvP) competitive modes</span>
@@ -899,7 +899,7 @@ export default function CiphersSentinelsMintPage() {
               <span>Concept Only</span>
             </div>
             <h2 className="font-display text-xl md:text-2xl lg:text-3xl text-white">Otherside Playable Avatar</h2>
-            <p className="text-xs md:text-sm lg:text-base text-muted-foreground max-w-3xl mx-auto px-2">
+            <p className="text-xs md:text-sm lg:text-base text-white max-w-3xl mx-auto px-2">
               This is a concept preview of our Otherside-compatible playable avatars that will be built and unlocked for
               Cipher and Sentinel holders. Below shows the transformation from PFP to fully rigged 3D model — the Cipher
               body type is displayed as an example.
@@ -958,7 +958,7 @@ export default function CiphersSentinelsMintPage() {
           </div>
 
           <div className="text-center pt-2">
-            <p className="text-xs text-muted-foreground italic">
+            <p className="text-xs text-white italic">
               Final 3D models will be fully rigged and compatible with Otherside and other compatible platforms.
             </p>
           </div>
@@ -974,12 +974,12 @@ export default function CiphersSentinelsMintPage() {
           </div>
             <h2 className="font-display text-xl md:text-2xl lg:text-3xl text-white">Who Is This Amazing Artist?</h2>
             <div className="max-w-2xl mx-auto space-y-3 md:space-y-4 px-2">
-              <p className="text-xs md:text-sm lg:text-base text-muted-foreground">
+              <p className="text-xs md:text-sm lg:text-base text-white">
               Behind every great collection is an exceptional artist. The Ciphers & Sentinels PFPs are being crafted by a
               well-known and highly regarded artist within the ApeChain community — someone whose work has shaped the
               visual identity of some of the most respected projects in the ecosystem.
             </p>
-            <p className="text-sm md:text-base text-muted-foreground">
+            <p className="text-sm md:text-base text-white">
               The artist reveal will drop alongside the final mint date, pricing, and complete collection details. This
               is one reveal you won't want to miss.
             </p>
@@ -997,7 +997,7 @@ export default function CiphersSentinelsMintPage() {
       {/* SECTION D — SIMPLIFIED: FOUNDER ACCESS TIERS */}
       <HoloPanel accent="pink" title="Founder Access Tiers">
         <div className="space-y-6">
-          <p className="text-sm md:text-base text-muted-foreground">
+          <p className="text-sm md:text-base text-white">
             Two access tiers designed for collectors, players, and long-term supporters. Exact allocations will be
             detailed before mint.
           </p>
@@ -1011,10 +1011,10 @@ export default function CiphersSentinelsMintPage() {
                   8,000 supply
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-white">
                 The innovators, traders, and explorers. Agile, adaptable, and connected to the flow of the chain.
               </p>
-              <ul className="space-y-1.5 text-xs md:text-sm text-muted-foreground">
+              <ul className="space-y-1.5 text-xs md:text-sm text-white">
                 <li className="flex gap-2">
                   <span className="mt-1 h-1 w-3 rounded-full bg-cyan-400/70" />
                   <span>All founder perks</span>
@@ -1042,10 +1042,10 @@ export default function CiphersSentinelsMintPage() {
                   2,000 supply
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-white">
                 The guardians and power players. Stronger presence, enhanced perks, elevated rarity.
               </p>
-              <ul className="space-y-1.5 text-xs md:text-sm text-muted-foreground">
+              <ul className="space-y-1.5 text-xs md:text-sm text-white">
                 <li className="flex gap-2">
                   <span className="mt-1 h-1 w-3 rounded-full bg-fuchsia-400/70" />
                   <span>All Cipher perks plus elite benefits</span>
@@ -1071,7 +1071,7 @@ export default function CiphersSentinelsMintPage() {
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-black/40 p-4 mt-4">
-            <p className="text-xs md:text-sm text-muted-foreground italic">
+            <p className="text-xs md:text-sm text-white italic">
               Note: An alternate mint/upgrade concept may allow Cipher holders to upgrade to Sentinel status. Details
               will be confirmed before mint.
             </p>
@@ -1082,10 +1082,10 @@ export default function CiphersSentinelsMintPage() {
       {/* SECTION 8 — PRICING & TRANSPARENCY */}
       <HoloPanel accent="cyan" title="Pricing & Transparency">
         <div className="space-y-6">
-          <p className="text-sm md:text-base text-muted-foreground">
+          <p className="text-sm md:text-base text-white">
             Final pricing confirmed before mint. We commit to clear communication and a fair launch — no surprises.
           </p>
-          <ul className="space-y-2 text-sm md:text-base text-muted-foreground">
+          <ul className="space-y-2 text-sm md:text-base text-white">
             <li className="flex gap-2">
               <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
               <span>Mint Date: TBA</span>
@@ -1105,11 +1105,11 @@ export default function CiphersSentinelsMintPage() {
       {/* SECTION 9 — WHY BACK THIS NOW */}
       <HoloPanel accent="purple" title="The Founder Window">
         <div className="space-y-6">
-          <p className="text-sm md:text-base text-muted-foreground">
+          <p className="text-sm md:text-base text-white">
             We are on the cusp of launch. The game, cards, and arcade foundation already exist — this is the entry point
             that fuels the next phase.
           </p>
-          <ul className="space-y-2 text-sm md:text-base text-muted-foreground">
+          <ul className="space-y-2 text-sm md:text-base text-white">
             <li className="flex gap-2">
               <span className="mt-1 h-1.5 w-4 rounded-full bg-gradient-to-r from-purple-400 via-violet-400 to-indigo-400" />
               <span>The foundation is built</span>
@@ -1152,7 +1152,7 @@ export default function CiphersSentinelsMintPage() {
       <HoloPanel accent="cyan">
         <div className="space-y-6 text-center">
           <h2 className="font-display text-2xl md:text-3xl text-white">The Crypto Rabbit Hole is open</h2>
-          <p className="text-sm md:text-base text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-sm md:text-base text-white max-w-2xl mx-auto">
             Mint Date: TBA. Follow along, join the community, and get notified when the next announcement lands.
           </p>
           <CtaBlock />
