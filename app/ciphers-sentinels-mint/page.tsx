@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 // Force Vercel rebuild - all mint page updates included
 
 const DISCORD_URL = "https://discord.gg/GJBbZHHUtY"
-const NOTIFY_URL = "/notify"
+const NOTIFY_URL = "https://discord.gg/GJBbZHHUtY"
 const COMMUNITY_URL = "/community"
 
 const PROGRESS_PCT = 0
@@ -84,7 +84,7 @@ function CtaBlock() {
         size="lg"
         className="bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400 text-sm md:text-base font-semibold shadow-[0_0_24px_hsl(var(--neon-cyan)/0.45)]"
       >
-        <a href={NOTIFY_URL}>Get Notified</a>
+        <a href={NOTIFY_URL} target="_blank" rel="noreferrer">Get Notified</a>
       </Button>
       <Button
         asChild
