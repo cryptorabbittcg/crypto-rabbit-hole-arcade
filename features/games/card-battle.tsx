@@ -538,7 +538,7 @@ export default function CardBattle() {
               <img
                 src={playerCard.image || "/placeholder.svg"}
                 alt={playerCard.name}
-                className="w-[34%] mx-auto aspect-[2/3] object-cover rounded-lg mb-0.5 md:mb-1"
+                className="w-[68%] mx-auto aspect-[2/3] object-cover rounded-lg mb-0.5 md:mb-1"
               />
               <div className="grid grid-cols-2 gap-0.5 md:gap-1 text-[10px] md:text-xs">
                 <div className="flex items-center justify-between bg-red-500/10 rounded px-1 md:px-2 py-0.5">
@@ -640,7 +640,7 @@ export default function CardBattle() {
               <img
                 src={opponentCard.image || "/placeholder.svg"}
                 alt={opponentCard.name}
-                className="w-[34%] mx-auto aspect-[2/3] object-cover rounded-lg mb-0.5 md:mb-1"
+                className="w-[68%] mx-auto aspect-[2/3] object-cover rounded-lg mb-0.5 md:mb-1"
               />
               <div className="grid grid-cols-2 gap-0.5 md:gap-1 text-[10px] md:text-xs">
                 <div className="flex items-center justify-between bg-red-500/10 rounded px-1 md:px-2 py-0.5">
