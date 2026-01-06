@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useArcade } from "@/components/providers"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -41,6 +42,7 @@ type Upgrade = {
 }
 
 export default function CardBattle() {
+  const router = useRouter()
   const { cards, addPoints, addTickets, points, addCard } = useArcade()
   const [playerCard, setPlayerCard] = useState<BattleCard | null>(null)
   const [opponentCard, setOpponentCard] = useState<BattleCard | null>(null)
@@ -867,7 +869,7 @@ export default function CardBattle() {
               <Button onClick={resetGame} size="lg" className="w-full text-lg">
                 Play Again
               </Button>
-              <Button onClick={() => (window.location.href = "/arcade")} variant="outline" size="lg" className="w-full">
+              <Button onClick={() => router.push("/")} variant="outline" size="lg" className="w-full">
                 Back to Arcade
               </Button>
             </div>
