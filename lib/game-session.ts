@@ -7,6 +7,7 @@ export type GameSession = {
   tickets: number
   points: number
   timestamp: number
+  avatar?: string | null // Avatar URL for profile picture
 }
 
 export type GamePointUpdate = {
@@ -23,6 +24,7 @@ export function createGameSession(userData: {
   address: string | null
   tickets: number
   points: number
+  avatar?: string | null
 }): GameSession {
   return {
     sessionId: generateSessionId(),
@@ -33,6 +35,7 @@ export function createGameSession(userData: {
     tickets: userData.tickets,
     points: userData.points,
     timestamp: Date.now(),
+    avatar: userData.avatar || null,
   }
 }
 

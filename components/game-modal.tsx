@@ -73,6 +73,7 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
           address: address || null,
           tickets: tickets || 0,
           points: points || 0,
+          avatar: profile.avatar || null, // Include avatar in session
         })
         storeGameSession(session)
         if (session) {
@@ -139,6 +140,7 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
           thirdwebClientId: session.thirdwebClientId,
           tickets: session.tickets,
           points: session.points,
+          avatar: session.avatar || null, // Include avatar for PFP display
         }
         
         // Log the exact message structure being sent
@@ -264,6 +266,23 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
         hasSentIdentity = false
         // Send immediately when requested
         sendSessionToIframe()
+      }
+      
+      // Handle points earned from Ape In
+      if (event.data?.type === "APE_IN_GAME_END" || event.data?.type === "GAME_POINTS_UPDATE") {
+        const pointsEarned = event.data?.points || event.data?.pointsEarned || 0
+        const gameMode = event.data?.gameMode || event.data?.mode || "unknown"
+        const score = event.data?.score || 0
+        
+        console.log("🎮 Ape In game ended:", { pointsEarned, gameMode, score })
+        
+        // Only add points if > 0 and not Sandy (tutorial mode)
+        if (pointsEarned > 0 && gameMode !== "sandy" && gameMode !== "Sandy") {
+          console.log("💰 Adding points from Ape In:", pointsEarned, "from mode:", gameMode)
+          addPoints(pointsEarned)
+        } else {
+          console.log("ℹ️ No points to add (tutorial mode or 0 points):", { gameMode, pointsEarned })
+        }
       }
     }
 

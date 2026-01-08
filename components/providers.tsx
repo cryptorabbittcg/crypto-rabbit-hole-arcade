@@ -150,6 +150,7 @@ export function Providers({ children }: { children: ReactNode }) {
         tickets,
         points,
         timestamp: Date.now(),
+        avatar: profile.avatar || null, // Include avatar in session
       })
     }
   }, [tickets, points, isConnected, address, profile.username])

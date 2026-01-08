@@ -61,27 +61,56 @@ export default function LeaderboardView() {
       </Card>
 
       {/* Leaderboard Tabs */}
-      <Tabs defaultValue="global" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 bg-black/50 border border-purple-500/30">
-          <TabsTrigger value="global">Global</TabsTrigger>
-          <TabsTrigger value="weekly">Weekly</TabsTrigger>
-          <TabsTrigger value="monthly">Monthly</TabsTrigger>
+      <Tabs defaultValue="overall" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-5 bg-black/50 border border-purple-500/30">
+          <TabsTrigger value="overall">Overall</TabsTrigger>
+          <TabsTrigger value="cryptoku">Cryptoku</TabsTrigger>
+          <TabsTrigger value="ape-in">Ape In</TabsTrigger>
+          <TabsTrigger value="ape-in-pvp">Ape In PvP</TabsTrigger>
+          <TabsTrigger value="ape-in-multiplayer">Ape In Multiplayer</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="global" className="space-y-3">
+        <TabsContent value="overall" className="space-y-3">
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Total points across all games
+          </p>
           {GLOBAL_LEADERBOARD.map((entry) => (
             <LeaderboardCard key={entry.rank} entry={entry} />
           ))}
         </TabsContent>
 
-        <TabsContent value="weekly" className="space-y-3">
-          {GLOBAL_LEADERBOARD.slice(0, 5).map((entry) => (
+        <TabsContent value="cryptoku" className="space-y-3">
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Cryptoku leaderboard - Ranked by best scores
+          </p>
+          {GLOBAL_LEADERBOARD.map((entry) => (
             <LeaderboardCard key={entry.rank} entry={entry} />
           ))}
         </TabsContent>
 
-        <TabsContent value="monthly" className="space-y-3">
-          {GLOBAL_LEADERBOARD.slice(0, 7).map((entry) => (
+        <TabsContent value="ape-in" className="space-y-3">
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Ape In single-player leaderboard
+          </p>
+          {GLOBAL_LEADERBOARD.map((entry) => (
+            <LeaderboardCard key={entry.rank} entry={entry} />
+          ))}
+        </TabsContent>
+
+        <TabsContent value="ape-in-pvp" className="space-y-3">
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Ape In Player vs Player leaderboard
+          </p>
+          {GLOBAL_LEADERBOARD.map((entry) => (
+            <LeaderboardCard key={entry.rank} entry={entry} />
+          ))}
+        </TabsContent>
+
+        <TabsContent value="ape-in-multiplayer" className="space-y-3">
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Ape In Multiplayer mode leaderboard
+          </p>
+          {GLOBAL_LEADERBOARD.map((entry) => (
             <LeaderboardCard key={entry.rank} entry={entry} />
           ))}
         </TabsContent>
