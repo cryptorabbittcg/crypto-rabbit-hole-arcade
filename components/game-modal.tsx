@@ -50,8 +50,15 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
     if (!isApeIn) return
 
     let retryInterval: NodeJS.Timeout | null = null
+    let hasSentIdentity = false // Guard to prevent duplicate sends
+    let identitySentTimeout: NodeJS.Timeout | null = null
 
     const sendSessionToIframe = () => {
+      // Prevent duplicate sends - only send once per iframe load
+      if (hasSentIdentity) {
+        console.log("⏭️ Identity already sent, skipping duplicate send")
+        return
+      }
       // Don't check contentWindow here - it can cause cross-origin errors
       // Just try to send the message and let it fail gracefully if needed
       
@@ -151,7 +158,14 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
         
         // Use "*" for cross-origin iframes - Ape In will validate the origin
         contentWindow.postMessage(messagePayload, "*")
-        console.log("✅ postMessage called with target origin: '*'")
+        hasSentIdentity = true // Mark as sent to prevent duplicates
+        console.log("✅ postMessage called with target origin: '*' - Identity sent successfully")
+        
+        // Clear any pending retry intervals since we've successfully sent
+        if (retryInterval) {
+          clearInterval(retryInterval)
+          retryInterval = null
+        }
       } catch (error) {
         console.error("❌ Error sending session to iframe:", error)
         // Don't retry if we get an error - likely a CORS/security issue
@@ -160,15 +174,21 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
 
     const handleLoad = () => {
       console.log("📥 Iframe loaded, waiting before sending session...")
-      // Wait longer after load to ensure iframe is fully ready and has initialized
-      setTimeout(() => {
-        if (retryInterval) {
-          clearInterval(retryInterval)
-          retryInterval = null
-        }
-        console.log("📤 Sending session after iframe load...")
+      // Clear any pending timeout from previous load attempts
+      if (identitySentTimeout) {
+        clearTimeout(identitySentTimeout)
+        identitySentTimeout = null
+      }
+      // Reset the sent flag for this new load
+      hasSentIdentity = false
+      
+      // Wait 300ms after load to ensure iframe is fully ready and message listener is initialized
+      // Ape In recommends 200-500ms delay
+      identitySentTimeout = setTimeout(() => {
+        console.log("📤 Sending session after iframe load (300ms delay)...")
         sendSessionToIframe()
-      }, 1000) // Wait 1 second after load to ensure iframe is ready
+        identitySentTimeout = null
+      }, 300) // Reduced from 1000ms to 300ms as recommended
     }
 
     const handleError = () => {
@@ -189,7 +209,8 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
       try {
         if (iframe.contentWindow || iframe.contentDocument) {
           // Iframe might already be loaded, but wait a bit anyway to ensure it's ready
-          setTimeout(handleLoad, 200)
+          // Use handleLoad which will reset the flag and send after delay
+          setTimeout(handleLoad, 100)
         }
       } catch (e) {
         // Cross-origin - can't check, just wait for load event
@@ -197,15 +218,26 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
       }
     }
 
-    // Retry mechanism: try sending session multiple times in case iframe loads slowly
-    // We'll rely on the load event primarily, but keep retries as backup
+    // Retry mechanism: Only retry if we haven't successfully sent yet
+    // This is a backup in case the load event doesn't fire or is delayed
     let retryCount = 0
-    const maxRetries = 10 // Try for up to 5 seconds
+    const maxRetries = 6 // Try for up to 3 seconds (6 * 500ms)
     retryInterval = setInterval(() => {
+      if (hasSentIdentity) {
+        // Already sent, clear the interval
+        if (retryInterval) {
+          clearInterval(retryInterval)
+          retryInterval = null
+        }
+        return
+      }
+      
       if (retryCount < maxRetries) {
+        console.log(`🔄 Retry attempt ${retryCount + 1}/${maxRetries} - sending identity...`)
         sendSessionToIframe()
         retryCount++
       } else {
+        console.warn("⚠️ Max retries reached, stopping retry interval")
         if (retryInterval) {
           clearInterval(retryInterval)
           retryInterval = null
@@ -227,11 +259,10 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
       }
 
       if (event.data?.type === "REQUEST_ARCADE_IDENTITY") {
-        console.log("📥 Received identity request from iframe")
-        if (retryInterval) {
-          clearInterval(retryInterval)
-          retryInterval = null
-        }
+        console.log("📥 Received identity request from iframe - sending identity...")
+        // Reset the flag to allow sending again if requested
+        hasSentIdentity = false
+        // Send immediately when requested
         sendSessionToIframe()
       }
     }
@@ -239,15 +270,22 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
     window.addEventListener("message", handleMessage)
 
     return () => {
+      // Cleanup: clear all intervals and timeouts
       if (retryInterval) {
         clearInterval(retryInterval)
         retryInterval = null
+      }
+      if (identitySentTimeout) {
+        clearTimeout(identitySentTimeout)
+        identitySentTimeout = null
       }
       if (iframe) {
         iframe.removeEventListener("load", handleLoad)
         iframe.removeEventListener("error", handleError)
       }
       window.removeEventListener("message", handleMessage)
+      // Reset flag on cleanup so next open can send again
+      hasSentIdentity = false
     }
   }, [isOpen, gameTitle, isConnected, address, profile.username, points, tickets])
 
