@@ -33,11 +33,13 @@ function calculateScore(
   // Streak bonus (only for clean runs, capped at 500)
   const streakBonus = isCleanRun ? Math.min(50 * cleanStreak, 500) : 0
 
-  // Final score: starting points - time decay - penalties + bonuses
-  const score = Math.max(
-    0,
-    Math.round(baseTimeScore - hintPenalty - errorPenalty + cleanRunBonus + streakBonus)
-  )
+  // Calculate raw score: starting points - time decay - penalties + bonuses
+  const rawScore = baseTimeScore - hintPenalty - errorPenalty + cleanRunBonus + streakBonus
+  
+  // Minimum score floor: ensure completion always rewards at least 200 points
+  // This prevents scores from going too low even with heavy penalties
+  const minScore = 200
+  const score = Math.max(minScore, Math.round(rawScore))
 
   return score
 }
