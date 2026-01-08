@@ -118,13 +118,24 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
         }
 
         // Send session data to iframe
-        contentWindow.postMessage(
-          {
-            type: "ARCADE_IDENTITY",
-            session: session,
-          },
-          "https://ape-in-game.vercel.app" // Specific target origin for security
-        )
+        // For cross-origin iframes, we need to use "*" or the iframe's actual origin
+        // Since we can't reliably get the iframe's origin due to CORS, we use "*"
+        // Ape In will validate the origin on its side
+        const messagePayload = {
+          type: "ARCADE_IDENTITY",
+          session: session,
+          // Also send as direct properties for compatibility
+          sessionId: session.sessionId,
+          userId: session.userId,
+          username: session.username,
+          address: session.address,
+          thirdwebClientId: session.thirdwebClientId,
+          tickets: session.tickets,
+          points: session.points,
+        }
+        
+        // Use "*" for cross-origin iframes - Ape In will validate the origin
+        contentWindow.postMessage(messagePayload, "*")
         console.log("📤 Sent arcade identity to iframe:", {
           sessionId: session.sessionId,
           username: session.username,
@@ -194,8 +205,14 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
 
     // Listen for requests from iframe
     const handleMessage = (event: MessageEvent) => {
-      // Verify origin for security
-      if (event.origin !== "https://ape-in-game.vercel.app") {
+      // Verify origin for security - Ape In should come from its domain
+      const allowedOrigins = [
+        "https://ape-in-game.vercel.app",
+        "http://localhost:5173", // For local development
+        "http://127.0.0.1:5173",
+      ]
+      
+      if (!allowedOrigins.includes(event.origin)) {
         return
       }
 
