@@ -49,7 +49,12 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
 
     if (!isApeIn) return
 
+    let retryInterval: NodeJS.Timeout | null = null
+
     const sendSessionToIframe = () => {
+      // Don't check contentWindow here - it can cause cross-origin errors
+      // Just try to send the message and let it fail gracefully if needed
+      
       let session = getGameSession()
       
       // If no session exists, create a minimal one for the iframe
@@ -66,59 +71,122 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
         console.log("📝 Created minimal session for iframe:", session)
       }
       
-      if (session && iframe.contentWindow) {
-        try {
-          // Send session data to iframe
-          iframe.contentWindow.postMessage(
-            {
-              type: "ARCADE_IDENTITY",
-              session: session,
-            },
-            "*" // Target origin - in production, should be specific: "https://ape-in-game.vercel.app"
-          )
-          console.log("📤 Sent arcade identity to iframe:", {
-            sessionId: session.sessionId,
-            username: session.username,
-            address: session.address,
-            hasClientId: !!session.thirdwebClientId,
-          })
-        } catch (error) {
-          console.error("❌ Error sending session to iframe:", error)
-        }
-      } else if (!session) {
+      if (!session) {
         console.warn("⚠️ No session available to send to iframe")
+        return
+      }
+      
+      // Try to send message - wrap in try/catch to handle cross-origin errors gracefully
+      try {
+        // Only try to access contentWindow if iframe exists
+        if (!iframe) {
+          console.warn("⚠️ Iframe ref not available")
+          return
+        }
+
+        // Access contentWindow in a try/catch to handle cross-origin gracefully
+        let contentWindow: Window | null = null
+        try {
+          contentWindow = iframe.contentWindow
+        } catch (e) {
+          // Cross-origin access blocked - this is expected before iframe loads
+          console.log("⚠️ Cannot access iframe contentWindow (cross-origin or not loaded)")
+          return
+        }
+
+        if (!contentWindow) {
+          console.warn("⚠️ Iframe contentWindow is null")
+          return
+        }
+
+        // Send session data to iframe
+        contentWindow.postMessage(
+          {
+            type: "ARCADE_IDENTITY",
+            session: session,
+          },
+          "https://ape-in-game.vercel.app" // Specific target origin for security
+        )
+        console.log("📤 Sent arcade identity to iframe:", {
+          sessionId: session.sessionId,
+          username: session.username,
+          address: session.address,
+          hasClientId: !!session.thirdwebClientId,
+        })
+      } catch (error) {
+        console.error("❌ Error sending session to iframe:", error)
+        // Don't retry if we get an error - likely a CORS/security issue
+      }
+    }
+
+    const handleLoad = () => {
+      console.log("📥 Iframe loaded, waiting before sending session...")
+      // Wait longer after load to ensure iframe is fully ready and has initialized
+      setTimeout(() => {
+        if (retryInterval) {
+          clearInterval(retryInterval)
+          retryInterval = null
+        }
+        console.log("📤 Sending session after iframe load...")
+        sendSessionToIframe()
+      }, 1000) // Wait 1 second after load to ensure iframe is ready
+    }
+
+    const handleError = () => {
+      console.error("❌ Iframe error: failed to load")
+      if (retryInterval) {
+        clearInterval(retryInterval)
+        retryInterval = null
+      }
+    }
+
+    // Listen for iframe load - only set up listeners if iframe element exists
+    if (iframe) {
+      iframe.addEventListener("load", handleLoad)
+      iframe.addEventListener("error", handleError)
+      
+      // Check if iframe has already loaded by checking if contentWindow is accessible
+      // Note: This might throw on cross-origin iframes, so we catch it
+      try {
+        if (iframe.contentWindow || iframe.contentDocument) {
+          // Iframe might already be loaded, but wait a bit anyway to ensure it's ready
+          setTimeout(handleLoad, 200)
+        }
+      } catch (e) {
+        // Cross-origin - can't check, just wait for load event
+        console.log("⚠️ Cannot check iframe state (cross-origin), waiting for load event")
       }
     }
 
     // Retry mechanism: try sending session multiple times in case iframe loads slowly
+    // We'll rely on the load event primarily, but keep retries as backup
     let retryCount = 0
-    const maxRetries = 10
-    const retryInterval = setInterval(() => {
-      if (retryCount < maxRetries && iframe.contentWindow) {
+    const maxRetries = 10 // Try for up to 5 seconds
+    retryInterval = setInterval(() => {
+      if (retryCount < maxRetries) {
         sendSessionToIframe()
         retryCount++
       } else {
-        clearInterval(retryInterval)
+        if (retryInterval) {
+          clearInterval(retryInterval)
+          retryInterval = null
+        }
       }
-    }, 500) // Try every 500ms for up to 5 seconds
-
-    // Send immediately if iframe is already loaded
-    if (iframe.contentWindow) {
-      sendSessionToIframe()
-    }
-
-    // Also send when iframe loads
-    iframe.addEventListener("load", () => {
-      clearInterval(retryInterval)
-      sendSessionToIframe()
-    })
+    }, 500)
 
     // Listen for requests from iframe
     const handleMessage = (event: MessageEvent) => {
-      // In production, verify event.origin === "https://ape-in-game.vercel.app"
+      // Verify origin for security
+      if (event.origin !== "https://ape-in-game.vercel.app") {
+        return
+      }
+
       if (event.data?.type === "REQUEST_ARCADE_IDENTITY") {
         console.log("📥 Received identity request from iframe")
-        clearInterval(retryInterval)
+        if (retryInterval) {
+          clearInterval(retryInterval)
+          retryInterval = null
+        }
         sendSessionToIframe()
       }
     }
@@ -126,8 +194,14 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
     window.addEventListener("message", handleMessage)
 
     return () => {
-      clearInterval(retryInterval)
-      iframe.removeEventListener("load", sendSessionToIframe)
+      if (retryInterval) {
+        clearInterval(retryInterval)
+        retryInterval = null
+      }
+      if (iframe) {
+        iframe.removeEventListener("load", handleLoad)
+        iframe.removeEventListener("error", handleError)
+      }
       window.removeEventListener("message", handleMessage)
     }
   }, [isOpen, gameTitle, isConnected, address, profile.username])

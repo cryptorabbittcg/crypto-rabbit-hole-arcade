@@ -308,18 +308,49 @@ export function ProfileMenu() {
             <Button 
               type="button" 
               variant="destructive" 
-              onClick={async () => { 
-                // Disconnect wagmi wallet if connected
-                if (isConnected) {
-                  try {
-                    disconnectWallet()
-                  } catch (error) {
-                    console.error("Error disconnecting wallet:", error)
+              onClick={async (e) => { 
+                // Prevent double-clicking
+                e.currentTarget.disabled = true
+                
+                try {
+                  // Store connection state before disconnect to avoid race conditions
+                  // These values are captured from the closure and won't change during async operations
+                  const wasConnected = isConnected
+                  const hadAddress = address
+                  
+                  // First, disconnect wagmi wallet and wait for it to complete
+                  if (wasConnected && hadAddress) {
+                    console.log("🔌 Disconnecting wallet...", { wasConnected, hadAddress })
+                    try {
+                      // Disconnect wallet - this updates wagmi's internal state
+                      disconnectWallet()
+                      // Give a small delay to ensure disconnect state propagates through wagmi
+                      await new Promise(resolve => setTimeout(resolve, 150))
+                      console.log("✅ Wallet disconnected")
+                    } catch (walletError) {
+                      console.error("⚠️ Wallet disconnect error (continuing with logout):", walletError)
+                      // Continue with logout even if wallet disconnect fails
+                    }
                   }
+                  
+                  // Then, logout to clear auth token and game session
+                  // This must run regardless of wallet disconnect status
+                  console.log("🚪 Logging out...")
+                  logout()
+                  
+                  // Close the dialog
+                  setOpen(false)
+                  
+                  console.log("✅ Logout complete")
+                } catch (error) {
+                  console.error("❌ Error during logout:", error)
+                  // Still try to logout even if wallet disconnect fails
+                  logout()
+                  setOpen(false)
+                } finally {
+                  // Re-enable button in case of error (shouldn't be visible after successful logout)
+                  e.currentTarget.disabled = false
                 }
-                // Logout clears auth token and game session
-                logout(); 
-                setOpen(false); 
               }}
               className="w-full sm:w-auto"
             >
