@@ -177,6 +177,25 @@ export function Providers({ children }: { children: ReactNode }) {
 
   const syncProfileWithWallet = useCallback(async (walletAddress: string) => {
     try {
+      // First, try to load from localStorage (persisted profile)
+      const { loadProfileByAddress } = require("@/lib/profile-storage")
+      const savedProfile = loadProfileByAddress(walletAddress)
+      
+      if (savedProfile) {
+        // Restore profile from localStorage
+        setProfile({
+          username: savedProfile.username,
+          avatar: savedProfile.avatar || profile.avatar,
+          referralCode: savedProfile.referralCode || profile.referralCode,
+          referralCount: savedProfile.referralCount || 0,
+          referralEarnings: savedProfile.referralEarnings || 0,
+          joinedAt: new Date(savedProfile.joinedAt),
+          stats: savedProfile.stats || profile.stats,
+        })
+        setTickets(savedProfile.tickets || 0)
+        setPoints(savedProfile.points || 0)
+      }
+      
       const supabase = createClient()
       const profileService = new ProfileService(supabase)
 
@@ -188,9 +207,10 @@ export function Providers({ children }: { children: ReactNode }) {
       const existingProfile = await profileService.getProfileByWallet(walletAddress)
 
       if (existingProfile) {
+        // Merge Supabase data with localStorage data (Supabase takes precedence for username, localStorage for avatar)
         setProfile({
           username: existingProfile.username,
-          avatar: existingProfile.avatar_url || profile.avatar,
+          avatar: savedProfile?.avatar || existingProfile.avatar_url || profile.avatar,
           referralCode: existingProfile.referral_code || profile.referralCode,
           referralCount: existingProfile.referral_count || 0,
           referralEarnings: existingProfile.referral_earnings || 0,
@@ -382,29 +402,22 @@ export function Providers({ children }: { children: ReactNode }) {
     setProfile((prev) => {
       const updated = { ...prev, ...updates }
       
-      // TODO: Implement saveProfileByAddress and updateArcadeSession
       // Save profile to localStorage keyed by wallet address
       if (address && isAuthenticated) {
-        // saveProfileByAddress(address, {
-        //   username: updated.username,
-        //   avatar: updated.avatar,
-        //   referralCode: updated.referralCode,
-        //   referralCount: updated.referralCount,
-        //   referralEarnings: updated.referralEarnings,
-        //   joinedAt: updated.joinedAt.toISOString(),
-        //   points: points,
-        //   tickets: tickets,
-        //   stats: updated.stats,
-        // })
+        const { saveProfileByAddress } = require("@/lib/profile-storage")
+        saveProfileByAddress(address, {
+          username: updated.username,
+          avatar: updated.avatar || "",
+          referralCode: updated.referralCode,
+          referralCount: updated.referralCount,
+          referralEarnings: updated.referralEarnings,
+          joinedAt: updated.joinedAt.toISOString(),
+          points: points,
+          tickets: tickets,
+          stats: updated.stats,
+        })
       }
       
-      // Update session when profile changes
-      if (isAuthenticated) {
-        // updateArcadeSession({
-        //   username: updated.username,
-        //   avatar: updated.avatar,
-        // })
-      }
       return updated
     })
   }, [address, isAuthenticated, points, tickets])
@@ -412,18 +425,18 @@ export function Providers({ children }: { children: ReactNode }) {
   // Auto-save profile whenever it changes (for stats updates from games, etc.)
   useEffect(() => {
     if (address && isAuthenticated) {
-      // TODO: Implement saveProfileByAddress
-      // saveProfileByAddress(address, {
-      //   username: profile.username,
-      //   avatar: profile.avatar,
-      //   referralCode: profile.referralCode,
-      //   referralCount: profile.referralCount,
-      //   referralEarnings: profile.referralEarnings,
-      //   joinedAt: profile.joinedAt.toISOString(),
-      //   points: points,
-      //   tickets: tickets,
-      //   stats: profile.stats,
-      // })
+      const { saveProfileByAddress } = require("@/lib/profile-storage")
+      saveProfileByAddress(address, {
+        username: profile.username,
+        avatar: profile.avatar || "",
+        referralCode: profile.referralCode,
+        referralCount: profile.referralCount,
+        referralEarnings: profile.referralEarnings,
+        joinedAt: profile.joinedAt.toISOString(),
+        points: points,
+        tickets: tickets,
+        stats: profile.stats,
+      })
     }
   }, [address, isAuthenticated, profile.username, profile.avatar, profile.referralCode, profile.referralCount, profile.referralEarnings, profile.stats.gamesPlayed, profile.stats.totalScore, profile.stats.achievements.length, points, tickets])
 

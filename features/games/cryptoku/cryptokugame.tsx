@@ -560,6 +560,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
   const [verificationAttempted, setVerificationAttempted] = useState(false)
   const [verificationProofId, setVerificationProofId] = useState<string | null>(null)
   const [showVictory, setShowVictory] = useState(false)
+  const [pointsEarned, setPointsEarned] = useState<number | null>(null)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [leaderboardEntries, setLeaderboardEntries] = useState<Array<{
     rank: number
@@ -711,6 +712,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
       setGameStartTime(null)
       setGameEndTime(null)
       setCurrentScore(null)
+      setPointsEarned(null)
       setHintCooldownTime(0)
       setHintsUsedInGame(0)
       setVerificationProofId(null)
@@ -751,6 +753,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
     setVerificationAttempted(false)
     setIsVerifying(false)
     setShowVictory(false)
+    setPointsEarned(null)
     setIsPaused(false)
     setPauseStartTime(null)
     setTimerTicks(0)
@@ -1215,7 +1218,8 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
               }
 
               // Calculate points based on difficulty
-              const pointsEarned = getRewardForDifficulty(currentDifficulty)
+              const earned = getRewardForDifficulty(currentDifficulty)
+              setPointsEarned(earned)
 
               // Show confetti for 5 seconds, then reveal victory modal
               setShowConfetti(true)
@@ -1237,13 +1241,14 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
                   playerAddress,
                   cleanStreak: data.cleanStreak,
                   hintsEarned: data.hintsEarned || 0,
-                  points: pointsEarned,
+                  points: earned,
                 },
               })
             } else {
               console.error("Failed to submit result to API")
               // Calculate points based on difficulty (still award points even if submission failed)
-              const pointsEarned = getRewardForDifficulty(currentDifficulty)
+              const earned = getRewardForDifficulty(currentDifficulty)
+              setPointsEarned(earned)
               
               // Still show victory modal even if submission failed
               setCurrentScore(0)
@@ -1265,7 +1270,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
                   proofId: verificationResult.proofId ?? null,
                   playerAddress,
                   submissionFailed: true,
-                  points: pointsEarned,
+                  points: earned,
                 },
               })
               showToastMessage("Game completed but failed to submit score")
@@ -1273,7 +1278,8 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
           } catch (error) {
             console.error("Error submitting result:", error)
             // Calculate points based on difficulty (still award points even if submission failed)
-            const pointsEarned = getRewardForDifficulty(currentDifficulty)
+            const earned = getRewardForDifficulty(currentDifficulty)
+            setPointsEarned(earned)
             
             // Still show victory modal even if submission failed
             setCurrentScore(0)
@@ -1295,7 +1301,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
                 proofId: verificationResult.proofId ?? null,
                 playerAddress,
                 submissionFailed: true,
-                points: pointsEarned,
+                points: earned,
               },
             })
             showToastMessage("Game completed but failed to submit score")
@@ -1303,7 +1309,8 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
         } else {
           // NOOB mode - unranked, show local result only
           // Calculate points based on difficulty (NOOB = 0 points)
-          const pointsEarned = getRewardForDifficulty(currentDifficulty)
+          const earned = getRewardForDifficulty(currentDifficulty)
+          setPointsEarned(earned)
           
           setCurrentScore(0)
           setShowConfetti(true)
@@ -1324,7 +1331,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
               proofId: verificationResult.proofId ?? null,
               playerAddress,
               unranked: true,
-              points: pointsEarned,
+              points: earned,
             },
           })
         }
@@ -1486,7 +1493,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
           }
           100% {
             transform: translate3d(0, calc(100vh + 20px), 0) rotateZ(720deg) rotateY(360deg);
-            opacity: 0.8;
+            opacity: 0;
           }
         }
       `}</style>
@@ -1494,14 +1501,15 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
 
       {showConfetti && (
         <div className="confetti">
-          {Array.from({ length: 150 }, (_, i) => (
+          {Array.from({ length: 300 }, (_, i) => (
             <div
               key={i}
               className="confetti-piece"
               style={{
                 left: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 0.5}s`,
-                animationDuration: `${4 + Math.random() * 1.5}s`,
+                top: `${-20 - Math.random() * 100}px`,
+                animationDelay: `${Math.random() * 2}s`,
+                animationDuration: `${3 + Math.random() * 2}s`,
                 transform: `rotate(${Math.random() * 360}deg)`,
               }}
             />
@@ -1559,16 +1567,38 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
                 🟢 Noob — 40 clues (Easy) • Unranked
               </button>
               <button
-                onClick={() => startNewGame("degen")}
-                className="w-full px-6 py-3 rounded-lg border-2 border-cyan-400 bg-gradient-to-b from-cyan-900/50 to-cyan-800/50 font-bold text-sm hover:shadow-lg hover:shadow-cyan-400/40 transition-all"
+                onClick={() => {
+                  if (!playerAddress) {
+                    showToastMessage("Please connect your wallet to play Degen mode")
+                    return
+                  }
+                  startNewGame("degen")
+                }}
+                disabled={!playerAddress}
+                className={`w-full px-6 py-3 rounded-lg border-2 border-cyan-400 bg-gradient-to-b from-cyan-900/50 to-cyan-800/50 font-bold text-sm transition-all ${
+                  playerAddress
+                    ? "hover:shadow-lg hover:shadow-cyan-400/40 cursor-pointer"
+                    : "opacity-50 cursor-not-allowed"
+                }`}
               >
-                🔵 Degen — 28 clues (Medium) • Ranked
+                🔵 Degen — 28 clues (Medium) • Ranked {!playerAddress && "(Login Required)"}
               </button>
               <button
-                onClick={() => startNewGame("ape")}
-                className="w-full px-6 py-3 rounded-lg border-2 border-yellow-400 bg-gradient-to-b from-yellow-900/50 to-yellow-800/50 font-bold text-sm hover:shadow-lg hover:shadow-yellow-400/40 transition-all"
+                onClick={() => {
+                  if (!playerAddress) {
+                    showToastMessage("Please connect your wallet to play Ape mode")
+                    return
+                  }
+                  startNewGame("ape")
+                }}
+                disabled={!playerAddress}
+                className={`w-full px-6 py-3 rounded-lg border-2 border-yellow-400 bg-gradient-to-b from-yellow-900/50 to-yellow-800/50 font-bold text-sm transition-all ${
+                  playerAddress
+                    ? "hover:shadow-lg hover:shadow-yellow-400/40 cursor-pointer"
+                    : "opacity-50 cursor-not-allowed"
+                }`}
               >
-                🟡 Ape — 20 clues (Hard) • Ranked
+                🟡 Ape — 20 clues (Hard) • Ranked {!playerAddress && "(Login Required)"}
               </button>
             </div>
 
@@ -1880,7 +1910,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
       )}
 
       {/* Victory modal */}
-      {showVictory && currentScore && gameStartTime && gameEndTime && (
+      {showVictory && currentScore !== null && gameStartTime && gameEndTime && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-[100]">
           <div className="bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-600 p-8 rounded-2xl w-full max-w-md text-center">
             <div className="text-6xl mb-4">🏆</div>
@@ -1894,6 +1924,12 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <span className="text-slate-300">Score:</span>
                 <span className="text-cyan-400 font-bold">{currentScore}</span>
+                {(currentDifficulty === "degen" || currentDifficulty === "ape") && pointsEarned !== null && (
+                  <>
+                    <span className="text-slate-300">Points Earned:</span>
+                    <span className="text-yellow-400 font-bold">+{pointsEarned}</span>
+                  </>
+                )}
                 <span className="text-slate-300">Time:</span>
                 <span className="font-bold">
                   {formatTime(

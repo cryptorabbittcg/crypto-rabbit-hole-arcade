@@ -56,6 +56,9 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess = () => {} }: Aut
   const handleAuthSuccess = async () => {
     try {
       if (address) {
+        // Clear any previous errors
+        setError(null)
+        
         // For Glyph wallet, use the address as the token identifier
         // Glyph handles authentication internally, so we use the address
         const result: AuthResult = {
