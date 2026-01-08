@@ -1217,8 +1217,9 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
                 setGamesUntilNextFreeHint(data.gamesUntilNextFreeHint || 0)
               }
 
-              // Calculate points based on difficulty
-              const earned = getRewardForDifficulty(currentDifficulty)
+              // Use the actual server-calculated score as points (only for ranked modes)
+              // For NOOB mode, points are 0 (unranked)
+              const earned = currentDifficulty === "noob" ? 0 : serverScore
               setPointsEarned(earned)
 
               // Show confetti for 5 seconds, then reveal victory modal
@@ -1241,14 +1242,28 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
                   playerAddress,
                   cleanStreak: data.cleanStreak,
                   hintsEarned: data.hintsEarned || 0,
-                  points: earned,
+                  points: earned, // Use actual calculated score, not the legacy reward function
                 },
               })
             } else {
               console.error("Failed to submit result to API")
-              // Calculate points based on difficulty (still award points even if submission failed)
-              const earned = getRewardForDifficulty(currentDifficulty)
-              setPointsEarned(earned)
+              // Calculate points locally if API submission failed (only for ranked modes)
+              // Use a simplified calculation that matches the server formula
+              let earned = 0
+              if (currentDifficulty === "degen" || currentDifficulty === "ape") {
+                const startingPoints = currentDifficulty === "degen" ? 5000 : 8000
+                const timeDecay = timeInSeconds * 2
+                const hintPenalty = 150 * hintsUsedInGame
+                const errorPenalty = 50 * errors
+                const isCleanRun = hintsUsedInGame === 0 && errors === 0
+                const cleanRunBonus = isCleanRun ? 200 : 0
+                const baseTimeScore = Math.max(0, startingPoints - timeDecay)
+                const rawScore = baseTimeScore - hintPenalty - errorPenalty + cleanRunBonus
+                earned = Math.max(200, Math.round(rawScore)) // Minimum 200
+                setPointsEarned(earned)
+              } else {
+                setPointsEarned(0) // NOOB mode = 0 points
+              }
               
               // Still show victory modal even if submission failed
               setCurrentScore(0)
@@ -1277,9 +1292,22 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
             }
           } catch (error) {
             console.error("Error submitting result:", error)
-            // Calculate points based on difficulty (still award points even if submission failed)
-            const earned = getRewardForDifficulty(currentDifficulty)
-            setPointsEarned(earned)
+            // Calculate points locally if API submission failed (only for ranked modes)
+            let earned = 0
+            if (currentDifficulty === "degen" || currentDifficulty === "ape") {
+              const startingPoints = currentDifficulty === "degen" ? 5000 : 8000
+              const timeDecay = timeInSeconds * 2
+              const hintPenalty = 150 * hintsUsedInGame
+              const errorPenalty = 50 * errors
+              const isCleanRun = hintsUsedInGame === 0 && errors === 0
+              const cleanRunBonus = isCleanRun ? 200 : 0
+              const baseTimeScore = Math.max(0, startingPoints - timeDecay)
+              const rawScore = baseTimeScore - hintPenalty - errorPenalty + cleanRunBonus
+              earned = Math.max(200, Math.round(rawScore)) // Minimum 200
+              setPointsEarned(earned)
+            } else {
+              setPointsEarned(0) // NOOB mode = 0 points
+            }
             
             // Still show victory modal even if submission failed
             setCurrentScore(0)
@@ -1308,9 +1336,8 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
           }
         } else {
           // NOOB mode - unranked, show local result only
-          // Calculate points based on difficulty (NOOB = 0 points)
-          const earned = getRewardForDifficulty(currentDifficulty)
-          setPointsEarned(earned)
+          // NOOB mode = 0 points (unranked)
+          setPointsEarned(0)
           
           setCurrentScore(0)
           setShowConfetti(true)
@@ -1331,7 +1358,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
               proofId: verificationResult.proofId ?? null,
               playerAddress,
               unranked: true,
-              points: earned,
+              points: 0, // NOOB mode always 0 points
             },
           })
         }

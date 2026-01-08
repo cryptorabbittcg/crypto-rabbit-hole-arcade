@@ -210,7 +210,7 @@ export function ProfileMenu() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-amber-300">Golden Tickets:</span>
-                  <span className="font-mono text-amber-100">{ticketsPreview(tickets)}</span>
+                  <span className="font-mono text-amber-100 opacity-60">Coming Soon</span>
                   <span className="text-cyan-300 ml-2">$APE Balance:</span>
                   <span className="font-mono text-cyan-100">{apeBalance} APE</span>
                 </div>

@@ -224,7 +224,9 @@ export function Providers({ children }: { children: ReactNode }) {
         setTickets(existingProfile.ticket_balance || 0)
         // Load points from the 'points' field, not 'ape_balance'
         // Note: The database has both 'ape_balance' (APE tokens) and 'points' (game points)
-        setPoints((existingProfile as any).points || 0)
+        const dbPoints = (existingProfile as any).points || 0
+        logger.log("📊 Loading points from database:", dbPoints, "for wallet:", walletAddress)
+        setPoints(dbPoints)
       } else {
         if (typeof profileService?.createProfile !== "function") {
           console.warn("profileService.createProfile missing; skipping profile creation")
@@ -334,9 +336,14 @@ export function Providers({ children }: { children: ReactNode }) {
 
   const addPoints = useCallback(async (amount: number) => {
     logger.log("➕ addPoints called with amount:", amount)
+    if (amount <= 0) {
+      logger.warn("⚠️ addPoints called with 0 or negative amount, skipping")
+      return
+    }
+    
     setPoints((prev) => {
       const newPoints = prev + amount
-      logger.log("💰 Points updated:", prev, "->", newPoints)
+      logger.log("💰 Points updated locally:", prev, "->", newPoints)
       
       // Sync points to Supabase if authenticated and address is available
       if (isAuthenticated && address) {
@@ -349,14 +356,27 @@ export function Providers({ children }: { children: ReactNode }) {
             
             if (profile) {
               // Use the RPC function to update points (this also updates total_points in leaderboard)
+              // Parameters: userId, apeChange, ticketChange, pointsChange
               const success = await profileService.updateBalance(profile.id, 0, 0, amount)
               if (success) {
-                logger.log("✅ Points synced to Supabase:", amount)
+                logger.log("✅ Points synced to Supabase:", amount, "Total points now:", newPoints)
+                // Reload points from database to ensure consistency
+                setTimeout(async () => {
+                  const updatedProfile = await profileService.getProfileByWallet(address)
+                  if (updatedProfile) {
+                    const dbPoints = (updatedProfile as any).points || 0
+                    logger.log("📊 Points in database:", dbPoints)
+                    if (dbPoints !== newPoints) {
+                      logger.warn("⚠️ Points mismatch - DB:", dbPoints, "Local:", newPoints)
+                      setPoints(dbPoints) // Sync to database value
+                    }
+                  }
+                }, 500)
               } else {
                 logger.warn("⚠️ Failed to sync points to Supabase")
               }
             } else {
-              logger.warn("⚠️ Profile not found when trying to sync points")
+              logger.warn("⚠️ Profile not found when trying to sync points, address:", address)
             }
           } catch (error) {
             logger.error("❌ Error syncing points to Supabase:", error)
@@ -364,6 +384,8 @@ export function Providers({ children }: { children: ReactNode }) {
         })()
       } else if (!address) {
         logger.warn("⚠️ No address available when trying to save points")
+      } else if (!isAuthenticated) {
+        logger.warn("⚠️ Not authenticated when trying to save points")
       }
       
       return newPoints

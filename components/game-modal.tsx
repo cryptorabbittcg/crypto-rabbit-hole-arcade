@@ -15,7 +15,7 @@ interface GameModalProps {
 }
 
 export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProps) {
-  const { isConnected, address, connect, profile, addPoints, addTickets } = useArcade()
+  const { isConnected, address, connect, profile, addPoints, addTickets, points, tickets } = useArcade()
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
@@ -57,23 +57,41 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
       
       let session = getGameSession()
       
-      // If no session exists, create a minimal one for the iframe
+      // If no session exists, create one for the iframe with current profile data
       if (!session) {
         const { createGameSession, storeGameSession } = require("@/lib/game-session")
         session = createGameSession({
-          userId: profile.username || "guest",
+          userId: profile.username || address || "guest",
           username: profile.username || "Guest",
           address: address || null,
-          tickets: 0,
-          points: 0,
+          tickets: tickets || 0,
+          points: points || 0,
         })
         storeGameSession(session)
-        console.log("📝 Created minimal session for iframe:", session)
+        if (session) {
+          console.log("📝 Created session for iframe:", {
+            sessionId: session.sessionId,
+            username: session.username,
+            address: session.address,
+            points: session.points,
+            hasClientId: !!session.thirdwebClientId,
+          })
+        }
       }
       
+      // Ensure session exists before proceeding
       if (!session) {
         console.warn("⚠️ No session available to send to iframe")
         return
+      }
+      
+      // Update existing session with current points/tickets if they've changed
+      if (session.points !== points || session.tickets !== tickets) {
+        const { storeGameSession } = require("@/lib/game-session")
+        const updatedSession = { ...session, points: points || 0, tickets: tickets || 0 }
+        storeGameSession(updatedSession)
+        session = updatedSession
+        console.log("🔄 Updated session with current balances:", { points: session.points, tickets: session.tickets })
       }
       
       // Try to send message - wrap in try/catch to handle cross-origin errors gracefully
@@ -204,7 +222,7 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
       }
       window.removeEventListener("message", handleMessage)
     }
-  }, [isOpen, gameTitle, isConnected, address, profile.username])
+  }, [isOpen, gameTitle, isConnected, address, profile.username, points, tickets])
 
   if (!isOpen) return null
 
@@ -238,18 +256,18 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
               profileAvatarUrl={profile.avatar}
               onGameEnd={(result) => {
                 console.log("🎮 Cryptoku game ended:", result)
-                // Add points and tickets when game ends
+                // Add points when game ends (only for ranked modes with points > 0)
                 if (result.metadata?.points !== undefined && result.metadata.points > 0) {
                   console.log("💰 Adding points from Cryptoku:", result.metadata.points)
                   addPoints(result.metadata.points)
                 } else {
-                  console.warn("⚠️ No points in metadata or points is 0:", result.metadata)
+                  console.log("ℹ️ No points to add (unranked mode or 0 points):", result.metadata)
                 }
-                // Cryptoku doesn't pass tickets in metadata, but we could add 1 ticket per win
-                if (result.metadata?.outcome === "win") {
-                  console.log("🎫 Adding ticket for Cryptoku win")
-                  addTickets(1)
-                }
+                // Tickets are disabled for now - coming soon
+                // if (result.metadata?.outcome === "win") {
+                //   console.log("🎫 Adding ticket for Cryptoku win")
+                //   addTickets(1)
+                // }
               }}
             />
           </div>
@@ -274,3 +292,4 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
     </div>
   )
 }
+

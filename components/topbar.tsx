@@ -34,10 +34,10 @@ export default function Topbar() {
         {/* Right: tickets / points / wallet */}
         <div className="flex items-center gap-2 md:gap-3">
           <div className="flex items-center gap-2">
-            <div className="px-2.5 md:px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-400/40 via-yellow-400/20 to-orange-400/40 border border-amber-300/80 shadow-[0_0_20px_rgba(250,204,21,0.75)]">
+            <div className="px-2.5 md:px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-400/40 via-yellow-400/20 to-orange-400/40 border border-amber-300/80 shadow-[0_0_20px_rgba(250,204,21,0.75)] opacity-60">
               <span className="text-xs md:text-sm mr-1.5 md:mr-2">🎫</span>
               <span className="text-xs md:text-sm font-bold text-amber-50 drop-shadow-[0_0_6px_rgba(0,0,0,0.9)]">
-                {tickets}
+                Coming Soon
               </span>
             </div>
             <div className="px-2.5 md:px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500/20 via-sky-500/10 to-emerald-500/20 border border-cyan-400/70 shadow-[0_0_20px_hsl(var(--neon-cyan)/0.5)]">
