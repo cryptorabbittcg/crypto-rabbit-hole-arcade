@@ -5,10 +5,10 @@ import { getGameSession, storeGameSession, getStoredPointUpdates, clearPointUpda
 import { createClient } from "@/lib/supabase/client"
 import { ProfileService } from "@/lib/supabase/services/profile.service"
 import { logger } from "@/lib/logger"
-import { getApeBalance } from "@/adapters/wallet.adapter"
+// Balance fetching stubbed for auth-only migration
+// import { getApeBalance } from "@/adapters/wallet.adapter"
 import { clearAuthToken } from "@/lib/auth"
 import { clearGameSession } from "@/lib/game-session"
-import type { Wallet } from "thirdweb/wallets"
 
 type Transaction = {
   id: string
@@ -46,7 +46,6 @@ type ArcadeContextType = {
   txns: Transaction[]
   isConnected: boolean
   address: string | null
-  wallet: Wallet | null
   profile: UserProfile
   cards: Card[]
   isAuthenticated: boolean
@@ -54,7 +53,7 @@ type ArcadeContextType = {
   connect: () => void
   disconnect: () => void
   logout: () => void
-  setWalletConnection: (address: string | null, wallet: Wallet | null) => void
+  setWalletConnection: (address: string | null) => void
   syncProfileWithWallet: (address: string) => Promise<void>
   handleAuthSuccess: (result: { token: string; walletAddress: string; type: string; isNewUser?: boolean }) => void
   addTxn: (txn: Transaction) => void
@@ -78,7 +77,6 @@ export function Providers({ children }: { children: ReactNode }) {
   const [txns, setTxns] = useState<Transaction[]>([])
   const [isConnected, setIsConnected] = useState(false)
   const [address, setAddress] = useState<string | null>(null)
-  const [wallet, setWallet] = useState<Wallet | null>(null)
   const [cards, setCards] = useState<Card[]>([])
   const [authToken, setAuthToken] = useState<string | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -115,12 +113,13 @@ export function Providers({ children }: { children: ReactNode }) {
       updates.forEach((update) => {
         setPoints((prev) => prev + update.points)
         setTickets((prev) => prev + update.tickets)
-        if (update.achievements) {
+        if (update.achievements && Array.isArray(update.achievements) && update.achievements.length > 0) {
+          const newAchievements = update.achievements as string[]
           setProfile((prev) => ({
             ...prev,
             stats: {
               ...prev.stats,
-              achievements: [...new Set([...prev.stats.achievements, ...update.achievements])],
+              achievements: [...new Set([...prev.stats.achievements, ...newAchievements])],
             },
           }))
         }
@@ -147,7 +146,7 @@ export function Providers({ children }: { children: ReactNode }) {
         userId: profile.username,
         username: profile.username,
         address,
-        thirdwebClientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "",
+        thirdwebClientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "", // Kept for backward compatibility with embedded games
         tickets,
         points,
         timestamp: Date.now(),
@@ -155,22 +154,13 @@ export function Providers({ children }: { children: ReactNode }) {
     }
   }, [tickets, points, isConnected, address, profile.username])
 
-  const setWalletConnection = useCallback((newAddress: string | null, newWallet: Wallet | null) => {
+  const setWalletConnection = useCallback((newAddress: string | null) => {
     setAddress(newAddress)
-    setWallet(newWallet)
     setIsConnected(!!newAddress)
     
-    // Fetch APE balance when address changes
-    if (newAddress) {
-      getApeBalance(newAddress).then((balance) => {
-        setApeBalance(balance)
-      }).catch((err) => {
-        logger.error("[v0] Error fetching APE balance:", err)
-        setApeBalance("0.0000")
-      })
-    } else {
-      setApeBalance("0.0000")
-    }
+    // Balance fetching stubbed for auth-only migration
+    // TODO: Re-enable balance fetching after auth migration
+    setApeBalance("0.0000")
   }, [])
 
   const syncProfileWithWallet = useCallback(async (walletAddress: string) => {
@@ -239,13 +229,9 @@ export function Providers({ children }: { children: ReactNode }) {
     // Sync profile with wallet
     if (result.walletAddress) {
       syncProfileWithWallet(result.walletAddress)
-      // Fetch APE balance
-      getApeBalance(result.walletAddress).then((balance) => {
-        setApeBalance(balance)
-      }).catch((err) => {
-        logger.error("[v0] Error fetching APE balance:", err)
-        setApeBalance("0.0000")
-      })
+      // Balance fetching stubbed for auth-only migration
+      // TODO: Re-enable balance fetching after auth migration
+      setApeBalance("0.0000")
     }
   }, [syncProfileWithWallet])
 
@@ -259,21 +245,22 @@ export function Providers({ children }: { children: ReactNode }) {
     setAuthToken(null)
     setAddress(null)
     setIsConnected(false)
-    setWallet(null)
     setApeBalance("0.0000")
     clearAuthToken()
     clearGameSession()
   }, [])
 
   const disconnect = useCallback(() => {
-    logger.log("[v0] Use WalletConnect component to disconnect wallet")
+    logger.log("[v0] Disconnect wallet")
     if (isAuthenticated) {
       logout()
     } else {
       setIsConnected(false)
       setAddress(null)
-      setWallet(null)
       setApeBalance("0.0000")
+      // Clear hub auth token and session on disconnect
+      clearAuthToken()
+      clearGameSession()
     }
   }, [isAuthenticated, logout])
 
@@ -432,7 +419,6 @@ export function Providers({ children }: { children: ReactNode }) {
       txns,
       isConnected,
       address,
-      wallet,
       profile,
       cards,
       isAuthenticated,
@@ -461,7 +447,6 @@ export function Providers({ children }: { children: ReactNode }) {
       txns,
       isConnected,
       address,
-      wallet,
       profile,
       cards,
       isAuthenticated,

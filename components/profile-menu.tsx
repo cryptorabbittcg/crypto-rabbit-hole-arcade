@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useRef, ChangeEvent } from "react"
-import { useDisconnect, useActiveWallet } from "thirdweb/react"
-import { createWallet } from "thirdweb/wallets"
+import { useDisconnect as useWagmiDisconnect } from "wagmi"
 
 import { useArcade } from "@/components/providers"
 import { clearAuthToken } from "@/lib/auth"
@@ -34,8 +33,7 @@ function sanitizeUsername(value: string) {
 export function ProfileMenu() {
   const { isConnected, connect, disconnect, profile, updateProfile, address, tickets, apeBalance, isAuthenticated, logout } = useArcade()
   const [open, setOpen] = useState(false)
-  const { disconnect: disconnectWallet } = useDisconnect()
-  const activeWallet = useActiveWallet()
+  const { disconnect: disconnectWallet } = useWagmiDisconnect()
 
   const [username, setUsername] = useState(profile.username)
   const [avatarUrl, setAvatarUrl] = useState<string>(profile.avatar || geometricPresets[0].id)
@@ -90,24 +88,8 @@ export function ProfileMenu() {
 
   async function handleConnectClick() {
     if (!isConnected) {
-      // Close profile menu and clear connections to show auth dialog
+      // Close profile menu and show auth dialog
       setOpen(false)
-      // Clear any stored connections before connecting to require fresh sign-in
-      // NOTE: We preserve profile data (arcade_profile_*) - only clear wallet connections
-      if (typeof window !== "undefined") {
-        // Clear our auth tokens
-        clearAuthToken()
-        // Clear thirdweb's stored wallet connections (but NOT profile data)
-        const keysToRemove: string[] = []
-        for (let i = 0; i < window.localStorage.length; i++) {
-          const key = window.localStorage.key(i)
-          if (key && (key.startsWith("thirdweb") || key.startsWith("wagmi")) && !key.startsWith("arcade_profile_")) {
-            keysToRemove.push(key)
-          }
-        }
-        keysToRemove.forEach(key => window.localStorage.removeItem(key))
-        console.log("🧹 Cleared stored connections, auth dialog will show on next render (profile data preserved)")
-      }
       // Trigger a custom event that the arcade hub can listen to
       // Use requestAnimationFrame to ensure DOM is ready
       requestAnimationFrame(() => {
@@ -115,15 +97,15 @@ export function ProfileMenu() {
         console.log("🔔 Dispatched showAuthDialog event")
       })
     } else {
-      // Disconnect thirdweb wallet if connected
-      if (activeWallet) {
+      // Disconnect: clear wagmi connection, hub auth token, and hub session
+      if (isConnected) {
         try {
-          await disconnectWallet(activeWallet)
+          disconnectWallet()
         } catch (error) {
           console.error("Error disconnecting wallet:", error)
         }
       }
-      // Call our disconnect handler (which will call logout if authenticated)
+      // Call our disconnect handler (which clears hub auth token and session)
       await disconnect()
     }
   }
@@ -169,7 +151,7 @@ export function ProfileMenu() {
               <div>
                 <p className="text-sm font-medium">Wallet connection</p>
                 <p className="text-xs text-muted-foreground">
-                  Connect a wallet via MetaMask using thirdweb (read-only for game items &amp; $APE balance).
+                  Connect your ApeChain wallet (read-only for game items &amp; $APE balance).
                 </p>
               </div>
               <Button size="sm" variant={isConnected ? "outline" : "default"} onClick={handleConnectClick}>
@@ -259,14 +241,15 @@ export function ProfileMenu() {
         <DialogFooter className="mt-4">
           {isAuthenticated && (
             <Button type="button" variant="destructive" onClick={async () => { 
-              // Disconnect thirdweb wallet if connected
-              if (activeWallet) {
+              // Disconnect wagmi wallet if connected
+              if (isConnected) {
                 try {
-                  await disconnectWallet(activeWallet)
+                  disconnectWallet()
                 } catch (error) {
                   console.error("Error disconnecting wallet:", error)
                 }
               }
+              // Logout clears auth token and game session
               logout(); 
               setOpen(false); 
             }}>

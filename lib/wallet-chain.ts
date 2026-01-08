@@ -31,13 +31,19 @@ export async function ensureApeChain(): Promise<void> {
             {
               chainId,
               chainName: apeChainMainnet.name,
-              rpcUrls: [apeChainMainnet.rpc],
+              rpcUrls: (apeChainMainnet as any).rpcUrls?.default?.http || 
+                       (apeChainMainnet as any).rpc || 
+                       ["https://rpc.apechain.com"],
               nativeCurrency: {
-                name: apeChainMainnet.nativeCurrency.name,
-                symbol: apeChainMainnet.nativeCurrency.symbol,
-                decimals: apeChainMainnet.nativeCurrency.decimals,
+                name: apeChainMainnet.nativeCurrency?.name ?? "APE",
+                symbol: apeChainMainnet.nativeCurrency?.symbol ?? "APE",
+                decimals: apeChainMainnet.nativeCurrency?.decimals ?? 18,
               },
-              blockExplorerUrls: apeChainMainnet.blockExplorers?.map((exp) => exp.url) || [],
+              blockExplorerUrls: Array.isArray(apeChainMainnet.blockExplorers)
+                ? apeChainMainnet.blockExplorers.map((exp) => exp.url)
+                : apeChainMainnet.blockExplorers && typeof apeChainMainnet.blockExplorers === "object" && "default" in apeChainMainnet.blockExplorers
+                ? [(apeChainMainnet.blockExplorers as any).default.url]
+                : [],
             },
           ],
         })

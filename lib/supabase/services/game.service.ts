@@ -77,4 +77,16 @@ export class GameService {
 
     return data || []
   }
+
+  // Static wrapper method for convenience
+  static async getRecentGames(walletAddress: string, limit: number): Promise<GameSession[]> {
+    // First get the profile by wallet to get the user_id
+    const { ProfileService } = await import("./profile.service")
+    const profile = await ProfileService.getProfile(walletAddress)
+    if (!profile) {
+      return []
+    }
+    const service = new GameService()
+    return service.getUserGameHistory(profile.id, limit)
+  }
 }

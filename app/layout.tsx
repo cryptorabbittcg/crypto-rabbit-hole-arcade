@@ -13,7 +13,12 @@ import MobileNav from "@/components/mobile-nav"
 import Topbar from "@/components/topbar"
 import { Toaster } from "@/components/ui/toaster"
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
+const inter = Inter({ 
+  subsets: ["latin"], 
+  variable: "--font-sans",
+  display: "swap",
+  fallback: ["system-ui", "arial"],
+})
 // Temporarily disabled Orbitron font due to loading issues
 // const orbitron = Orbitron({ subsets: ["latin"], variable: "--font-display" })
 

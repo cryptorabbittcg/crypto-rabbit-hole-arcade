@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useArcade } from "@/components/providers"
-import { useActiveAccount } from "thirdweb/react"
+import { useAccount } from "wagmi"
 import { ProfileService } from "@/lib/supabase/services/profile.service"
 import { GameService } from "@/lib/supabase/services/game.service"
 import { Card } from "@/components/ui/card"
@@ -15,7 +15,7 @@ import { Trophy, Star, Gamepad2, Users, Gift, Edit2, Copy, Check } from "@/compo
 
 export default function ProfileView() {
   const { profile, updateProfile, tickets, points, isConnected, address } = useArcade()
-  const account = useActiveAccount()
+  const { address: wagmiAddress } = useAccount()
   const [isEditing, setIsEditing] = useState(false)
   const [username, setUsername] = useState(profile.username)
   const [copied, setCopied] = useState(false)
@@ -24,15 +24,16 @@ export default function ProfileView() {
 
   useEffect(() => {
     async function loadProfileData() {
-      if (!account?.address) {
+      const profileAddress = wagmiAddress || address
+      if (!profileAddress) {
         setLoading(false)
         return
       }
 
       try {
         const [supabaseProfile, games] = await Promise.all([
-          ProfileService.getProfile(account.address),
-          GameService.getRecentGames(account.address, 5),
+          ProfileService.getProfile(profileAddress),
+          GameService.getRecentGames(profileAddress, 5),
         ])
 
         if (supabaseProfile) {
@@ -48,15 +49,16 @@ export default function ProfileView() {
     }
 
     loadProfileData()
-  }, [account?.address])
+  }, [wagmiAddress, address])
 
   const handleSave = async () => {
     updateProfile({ username })
     setIsEditing(false)
 
-    if (account?.address) {
+    const profileAddress = wagmiAddress || address
+    if (profileAddress) {
       try {
-        await ProfileService.updateProfile(account.address, { username })
+        await ProfileService.updateProfile(profileAddress, { username })
       } catch (error) {
         console.error("[v0] Failed to update username:", error)
       }

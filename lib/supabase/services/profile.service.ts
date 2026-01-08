@@ -214,4 +214,48 @@ export class ProfileService {
 
     return true
   }
+
+  // Static wrapper methods for convenience
+  static async getProfile(walletAddress: string): Promise<Profile | null> {
+    const service = new ProfileService()
+    return service.getProfileByWallet(walletAddress)
+  }
+
+  static async createProfile(params: {
+    wallet_address: string
+    username: string
+    ape_balance?: number
+    ticket_balance?: number
+    referral_code?: string
+  }): Promise<Profile | null> {
+    const service = new ProfileService()
+    return service.createProfile({
+      wallet_address: params.wallet_address,
+      username: params.username,
+      ape_balance: params.ape_balance,
+      tickets: params.ticket_balance,
+      referral_code: params.referral_code,
+    })
+  }
+
+  static async updateBalance(walletAddress: string, balances: { ape_balance: number; ticket_balance: number }): Promise<boolean> {
+    const service = new ProfileService()
+    const profile = await service.getProfileByWallet(walletAddress)
+    if (!profile) {
+      return false
+    }
+    // Calculate the changes needed
+    const apeChange = balances.ape_balance - profile.ape_balance
+    const ticketChange = balances.ticket_balance - profile.ticket_balance
+    return service.updateBalance(profile.id, apeChange, ticketChange, 0)
+  }
+
+  static async updateProfile(walletAddress: string, updates: Partial<Profile>): Promise<boolean> {
+    const service = new ProfileService()
+    const profile = await service.getProfileByWallet(walletAddress)
+    if (!profile) {
+      return false
+    }
+    return service.updateProfile(profile.id, updates)
+  }
 }

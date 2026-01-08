@@ -1,33 +1,33 @@
 "use client"
 
 import { useEffect, useCallback } from "react"
-import { useActiveAccount } from "thirdweb/react"
+import { useAccount } from "wagmi"
 import { useArcade } from "@/components/providers"
 import { ProfileService } from "@/lib/supabase/services/profile.service"
 import { createGameSession, storeGameSession } from "@/lib/game-session"
 
 export function useProfileSync() {
-  const account = useActiveAccount()
+  const { address } = useAccount()
   const { profile, tickets, points, updateProfile, setTickets, setPoints } = useArcade()
 
   const syncProfile = useCallback(async () => {
-    if (!account?.address) return
+    if (!address) return
 
     try {
       // Get or create profile in Supabase
-      let supabaseProfile = await ProfileService.getProfile(account.address)
+      let supabaseProfile = await ProfileService.getProfile(address)
 
       if (!supabaseProfile) {
         // Create new profile
         supabaseProfile = await ProfileService.createProfile({
-          wallet_address: account.address,
-          username: profile.username || `Player${account.address.slice(2, 8)}`,
+          wallet_address: address,
+          username: profile.username || `Player${address.slice(2, 8)}`,
           ape_balance: points,
           ticket_balance: tickets,
         })
       } else {
         // Update existing profile with current balances
-        await ProfileService.updateBalance(account.address, {
+        await ProfileService.updateBalance(address, {
           ape_balance: points,
           ticket_balance: tickets,
         })
@@ -46,7 +46,7 @@ export function useProfileSync() {
         const session = createGameSession({
           userId: supabaseProfile.id,
           username: supabaseProfile.username,
-          address: account.address,
+          address: address,
           tickets: supabaseProfile.ticket_balance,
           points: supabaseProfile.ape_balance,
         })
@@ -55,14 +55,14 @@ export function useProfileSync() {
     } catch (error) {
       console.error("[v0] Failed to sync profile:", error)
     }
-  }, [account?.address, profile.username, points, tickets, updateProfile, setTickets, setPoints])
+  }, [address, profile.username, points, tickets, updateProfile, setTickets, setPoints])
 
   // Sync on wallet connection
   useEffect(() => {
-    if (account?.address) {
+    if (address) {
       syncProfile()
     }
-  }, [account?.address, syncProfile])
+  }, [address, syncProfile])
 
   return { syncProfile }
 }

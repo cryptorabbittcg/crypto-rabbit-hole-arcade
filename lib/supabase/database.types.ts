@@ -13,6 +13,9 @@ export type Profile = {
   total_points: number
   level: number
   experience: number
+  referral_code?: string | null
+  referral_count?: number
+  referral_earnings?: number
   created_at: string
   updated_at: string
 }

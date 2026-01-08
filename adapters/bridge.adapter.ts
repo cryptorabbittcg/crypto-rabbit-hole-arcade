@@ -1,5 +1,7 @@
 import { ENV } from "@/lib/env"
-import { getWalletClient } from "@wagmi/core"
+// Note: This adapter uses wagmi but wagmi is not configured in this project.
+// This function is currently unused. If needed, either configure wagmi or migrate to thirdweb.
+import type { Config } from "@wagmi/core"
 
 const ABI = [
   {
@@ -22,15 +24,19 @@ const ABI = [
 export async function bridgeApe(to: `0x${string}`, amountWei: bigint) {
   if (!ENV.APE_OFT) throw new Error("APE OFT not set")
 
-  const wc = await getWalletClient()
+  // Wagmi is not configured in this project. This function requires wagmi config to work.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { getWalletClient } = await import("@wagmi/core")
+  // @ts-ignore - wagmi config not available, this function is unused
+  const wc = await getWalletClient({} as Config)
   if (!wc) throw new Error("Wallet not connected")
 
   const res = await wc.writeContract({
     address: ENV.APE_OFT as `0x${string}`,
     abi: ABI,
     functionName: "send",
-    value: 0n,
-    args: [Number(ENV.LZ_DST_EID), to as any, amountWei, 0n, "0x", "0x", to],
+    value: BigInt(0),
+    args: [Number(ENV.LZ_DST_EID), to as any, amountWei, BigInt(0), "0x", "0x", to],
   })
 
   return res

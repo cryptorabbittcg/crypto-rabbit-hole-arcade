@@ -66,8 +66,6 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
           <div className="w-full h-full overflow-auto bg-black">
             <CryptokuGame
               playerAddress={address}
-              isConnected={isConnected}
-              onConnectWallet={connect}
               profileUsername={profile.username}
               profileAvatarUrl={profile.avatar}
               onGameEnd={(result) => {

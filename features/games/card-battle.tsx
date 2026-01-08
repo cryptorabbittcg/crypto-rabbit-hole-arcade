@@ -143,9 +143,9 @@ export default function CardBattle() {
       setPlayerCard({ ...playerCard, defense: playerCard.defense + upgrade.effect.defense })
       console.log("[v0] Applied defense boost:", upgrade.effect.defense)
     }
-    if (upgrade.effect.health) {
+    if (upgrade.effect.health !== undefined && upgrade.effect.health !== null) {
       setPlayerHealth((prev) => {
-        const newHealth = Math.min(prev + upgrade.effect.health, 100)
+        const newHealth = Math.min(prev + upgrade.effect.health!, 100)
         console.log("[v0] Applied health boost:", upgrade.effect.health, "New health:", newHealth)
         return newHealth
       })

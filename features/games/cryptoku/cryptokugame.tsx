@@ -16,11 +16,9 @@ import {
 import { mockVerifySudoku, verifySudokuWithZkVerify } from "./components/logic/zkverify"
 
 export interface CryptokuGameProps {
-  playerAddress: string | null
-  isConnected: boolean
-  onConnectWallet?: () => void
-  profileUsername?: string
-  profileAvatarUrl?: string
+  playerAddress: string | null // Hub identity - required
+  profileUsername?: string // Hub identity - optional
+  profileAvatarUrl?: string // Hub identity - optional
   onGameStart?: () => void
   onGameEnd?: (result: {
     score: number
@@ -520,131 +518,12 @@ function digHolesSimple(full: Board, clues: number): Board {
   return puzzle
 }
 
-interface GameScore {
-  id: string
-  playerName: string
-  difficulty: Difficulty
-  score: number
-  timeInSeconds: number
-  mistakes: number
-  completedAt: Date
-}
-
-const LEADERBOARD_KEY = "cryptoku-leaderboard"
-
-function calculateScore(difficulty: Difficulty, timeInSeconds: number, mistakes: number): number {
-  const baseScores: Record<Difficulty, number> = {
-    noob: 1000,
-    degen: 2000,
-    ape: 3000,
-  }
-  const baseScore = baseScores[difficulty]
-  const timePenalty = Math.max(0, timeInSeconds - 300)
-  const mistakePenalty = mistakes * 100
-  return Math.max(100, baseScore - timePenalty - mistakePenalty)
-}
-
-/**
- * Calculate arcade-style points & achievements based on difficulty and performance.
- * Mirrors the original Cryptoku implementation so hosts can reuse this logic via metadata.
- */
-function calculateArcadePoints(
-  difficulty: Difficulty,
-  score: number,
-  mistakes: number,
-  timeInSeconds: number,
-): { points: number; achievements: string[] } {
-  // Base points by difficulty
-  const basePoints: Record<Difficulty, number> = {
-    noob: 50,
-    degen: 100,
-    ape: 250,
-  }
-
-  let points = basePoints[difficulty]
-  const achievements: string[] = []
-
-  // Perfect Score bonus (0 errors)
-  if (mistakes === 0) {
-    points += 50
-    achievements.push("Perfect Score")
-  }
-
-  // High Score bonus - check if score is in top 10% of leaderboard for this difficulty
-  const leaderboard = getLeaderboard()
-  const difficultyScores = leaderboard
-    .filter((s) => s.difficulty === difficulty)
-    .map((s) => s.score)
-    .sort((a, b) => b - a)
-
-  if (difficultyScores.length > 0) {
-    const top10Index = Math.floor(difficultyScores.length * 0.1)
-    const top10PercentThreshold = difficultyScores[top10Index] ?? difficultyScores[0]
-    if (score >= top10PercentThreshold) {
-      points += 25
-      achievements.push("High Score")
-    }
-  } else {
-    // If no leaderboard entries yet, first completion counts as high score
-    points += 25
-    achievements.push("High Score")
-  }
-
-  // Difficulty-specific achievements
-  if (difficulty === "ape") {
-    achievements.push("Ape Mode Master")
-  } else if (difficulty === "degen") {
-    achievements.push("Degen Mode Complete")
-  }
-
-  // Generic completion achievement
-  achievements.push("Cryptoku Complete")
-
-  return { points, achievements }
-}
-
-function saveScore(score: GameScore) {
-  const scores = getLeaderboard()
-  scores.push(score)
-  scores.sort((a, b) => b.score - a.score)
-  const topScores = scores.slice(0, 50)
-  if (typeof window !== "undefined") {
-    type StoredScore = Omit<GameScore, "completedAt"> & { completedAt: string }
-    window.localStorage.setItem(
-      LEADERBOARD_KEY,
-      JSON.stringify(
-        topScores.map<StoredScore>((s) => ({
-          ...s,
-          completedAt: s.completedAt.toISOString(),
-        })),
-      ),
-    )
-  }
-}
-
-function getLeaderboard(): GameScore[] {
-  if (typeof window === "undefined") return []
-  const stored = window.localStorage.getItem(LEADERBOARD_KEY)
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored) as (Omit<GameScore, "completedAt"> & { completedAt: string })[]
-      return parsed.map((s) => ({
-        ...s,
-        completedAt: new Date(s.completedAt),
-      }))
-    } catch {
-      return []
-    }
-  }
-  return []
-}
+// Client-side scoring removed - all scoring is now server-side via API
 
 // Main game component --------------------------------------------------------
 
 export const CryptokuGame: React.FC<CryptokuGameProps> = ({
   playerAddress,
-  isConnected,
-  onConnectWallet,
   profileUsername,
   profileAvatarUrl,
   onGameStart,
@@ -663,9 +542,11 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
   const [selected, setSelected] = useState<[number, number] | null>(null)
   const [currentDifficulty, setCurrentDifficulty] = useState<Difficulty>("noob")
   const [errors, setErrors] = useState(0)
-  const [freeHintsRemaining, setFreeHintsRemaining] = useState(3)
+  const [hintBalance, setHintBalance] = useState(3)
+  const [gamesUntilNextFreeHint, setGamesUntilNextFreeHint] = useState(0)
   const [hintCooldownTime, setHintCooldownTime] = useState(0)
   const [hintsUsedInGame, setHintsUsedInGame] = useState(0)
+  const [runId, setRunId] = useState<string | null>(null)
   const [gameStartTime, setGameStartTime] = useState<Date | null>(null)
   const [gameEndTime, setGameEndTime] = useState<Date | null>(null)
   const [currentScore, setCurrentScore] = useState<number | null>(null)
@@ -678,18 +559,20 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
   const [verificationProofId, setVerificationProofId] = useState<string | null>(null)
   const [showVictory, setShowVictory] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [leaderboardEntries, setLeaderboardEntries] = useState<Array<{
+    rank: number
+    runId: string
+    address: string
+    mode: string
+    score: number
+    timeSeconds: number
+    hintsUsed: number
+    errors: number
+    timestamp: number
+  }>>([])
+  const [leaderboardMode, setLeaderboardMode] = useState<"ALL" | "DEGEN" | "APE">("ALL")
   const [showStatsModal, setShowStatsModal] = useState(false)
-  const [showScoreEntry, setShowScoreEntry] = useState(false)
-  const [playerName, setPlayerName] = useState("")
 
-  // Initialize player name from profile or wallet address
-  useEffect(() => {
-    if (profileUsername) {
-      setPlayerName(profileUsername)
-    } else if (playerAddress) {
-      setPlayerName(`${playerAddress.slice(0, 6)}...${playerAddress.slice(-4)}`)
-    }
-  }, [profileUsername, playerAddress])
   const [toast, setToast] = useState("")
   const [timerTicks, setTimerTicks] = useState(0)
   const [tokenUsage, setTokenUsage] = useState<Record<number, number>>(() => {
@@ -698,7 +581,6 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
     return usage
   })
   const [completedTokens, setCompletedTokens] = useState<Set<number>>(new Set())
-  const [isGuest, setIsGuest] = useState(false)
   const [showSplash, setShowSplash] = useState(true)
   const [showWelcome, setShowWelcome] = useState(false)
   const [showTutorial, setShowTutorial] = useState(false)
@@ -710,64 +592,25 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
   const animatedTokensRef = useRef<Set<number>>(new Set())
   const completedSectionsRef = useRef<Set<string>>(new Set())
 
-  const walletKey = playerAddress?.toLowerCase() ?? null
-
-  // Daily free hints (3 per UTC day, per wallet/guest)
+  // Load hints balance from API
   useEffect(() => {
-    if (typeof window === "undefined") return
-    const keyBase = walletKey || "guest"
-    const storageKey = `cryptoku_daily_free_hints_${keyBase}`
-    const today = new Date().toISOString().slice(0, 10) // UTC date YYYY-MM-DD
+    if (!playerAddress) return
 
-    try {
-      const stored = window.localStorage.getItem(storageKey)
-      if (stored) {
-        const parsed = JSON.parse(stored) as { date: string; remaining: number }
-        if (parsed.date === today) {
-          setFreeHintsRemaining(parsed.remaining)
-        } else {
-          const fresh = { date: today, remaining: 3 }
-          setFreeHintsRemaining(3)
-          window.localStorage.setItem(storageKey, JSON.stringify(fresh))
+    const fetchHintsBalance = async () => {
+      try {
+        const response = await fetch(`/api/cryptoku/hints/balance?address=${encodeURIComponent(playerAddress)}`)
+        if (response.ok) {
+          const data = await response.json()
+          setHintBalance(data.hintBalance)
+          setGamesUntilNextFreeHint(data.gamesUntilNextFreeHint)
         }
-      } else {
-        const initial = { date: today, remaining: 3 }
-        setFreeHintsRemaining(3)
-        window.localStorage.setItem(storageKey, JSON.stringify(initial))
+      } catch (error) {
+        console.error("Error fetching hints balance:", error)
       }
-    } catch {
-      setFreeHintsRemaining(3)
     }
 
-    const interval = window.setInterval(() => {
-      const nowDate = new Date().toISOString().slice(0, 10)
-      if (nowDate !== today) {
-        const reset = { date: nowDate, remaining: 3 }
-        setFreeHintsRemaining(3)
-        window.localStorage.setItem(storageKey, JSON.stringify(reset))
-      }
-    }, 60_000)
-
-    return () => {
-      window.clearInterval(interval)
-    }
-  }, [walletKey])
-
-  // Load guest mode from localStorage
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const storedGuest = window.localStorage.getItem("cryptoku_guest_mode")
-    setIsGuest(storedGuest === "true")
-  }, [])
-
-  // Auto-clear guest mode once connected
-  useEffect(() => {
-    if (!isConnected || !isGuest) return
-    setIsGuest(false)
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem("cryptoku_guest_mode")
-    }
-  }, [isConnected, isGuest])
+    fetchHintsBalance()
+  }, [playerAddress])
 
 
   // Timer ticking
@@ -810,10 +653,26 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
   const startNewGame = useCallback(
     (diffKey: Difficulty) => {
       // If there is an in-progress session, treat this as a forfeit
-      if (currentSession && currentSession.status === "in-progress" && gameHasStarted) {
+      if (currentSession && currentSession.status === "in-progress" && gameHasStarted && playerAddress) {
         forfeitGameSession(currentSession.id, errors, hintsUsedInGame)
 
         const timeInSeconds = getCurrentGameTime()
+
+        // Submit forfeit to API (won't be logged to leaderboard)
+        fetch("/api/cryptoku/submit-result", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            playerAddress,
+            mode: currentDifficulty.toUpperCase(),
+            runId: runId || `run_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+            timeSeconds: timeInSeconds,
+            hintsUsed: hintsUsedInGame,
+            errors,
+            completed: false,
+            forfeited: true,
+          }),
+        }).catch(console.error)
 
         onGameEnd?.({
           score: 0,
@@ -826,6 +685,10 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
           },
         })
       }
+
+      // Create new runId
+      const newRunId = `run_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
+      setRunId(newRunId)
 
       setCurrentDifficulty(diffKey)
       const newSolution = generateCompleted()
@@ -870,7 +733,8 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
       getCurrentGameTime,
       onGameEnd,
       currentDifficulty,
-      onGameStart,
+      runId,
+      playerAddress,
     ],
   )
 
@@ -987,13 +851,17 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
     })
   }, [selected, givenMask])
 
-  const doHint = useCallback(() => {
+  const doHint = useCallback(async () => {
     if (!gameHasStarted) {
       showToastMessage("Press Start Game to begin")
       return
     }
     if (hintCooldownTime > 0) {
       showToastMessage(`Hint cooling down... ${hintCooldownTime}s remaining`)
+      return
+    }
+    if (!playerAddress) {
+      showToastMessage("Player address required")
       return
     }
 
@@ -1009,7 +877,24 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
       return
     }
 
-    if (freeHintsRemaining > 0) {
+    // Use hint via API
+    try {
+      const response = await fetch("/api/cryptoku/hints/use", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: playerAddress }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        showToastMessage(data.error || "No hints remaining")
+        return
+      }
+
+      const data = await response.json()
+      setHintBalance(data.hintBalance)
+
+      // Apply hint to board
       const [r, c] = empties[Math.floor(Math.random() * empties.length)]
       setUserBoard((prev) => {
         const newBoard = deepClone(prev)
@@ -1021,63 +906,41 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
         newNotes[r][c].clear()
         return newNotes
       })
-      setFreeHintsRemaining((prev) => prev - 1)
-      if (typeof window !== "undefined") {
-        const keyBase = walletKey || "guest"
-        const storageKey = `cryptoku_daily_free_hints_${keyBase}`
-        const today = new Date().toISOString().slice(0, 10)
-        try {
-          window.localStorage.setItem(
-            storageKey,
-            JSON.stringify({ date: today, remaining: Math.max(0, freeHintsRemaining - 1) }),
-          )
-        } catch {
-          // ignore
-        }
-      }
       setHintCooldownTime(30)
       setHintsUsedInGame((prev) => prev + 1)
+    } catch (error) {
+      console.error("Error using hint:", error)
+      showToastMessage("Failed to use hint")
     }
-  }, [gameHasStarted, hintCooldownTime, userBoard, solutionBoard, freeHintsRemaining, showToastMessage])
+  }, [gameHasStarted, hintCooldownTime, userBoard, solutionBoard, playerAddress, showToastMessage])
 
-  const purchaseHint = useCallback(
-    (cost: number) => {
-      if (!walletKey) {
-        showToastMessage("Connect your wallet to use paid hints")
+  const purchaseHint = useCallback(async () => {
+    if (!playerAddress) {
+      showToastMessage("Player address required")
+      return
+    }
+
+    try {
+      const response = await fetch("/api/cryptoku/hints/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: playerAddress, amount: 10 }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        showToastMessage(data.error || "Failed to purchase hints")
         return
       }
 
-      const empties: [number, number][] = []
-      for (let r = 0; r < 9; r++) {
-        for (let c = 0; c < 9; c++) {
-          if (userBoard[r][c] === 0) empties.push([r, c])
-        }
-      }
-
-      if (!empties.length) {
-        showToastMessage("Board is full")
-        return
-      }
-
-      const [r, c] = empties[Math.floor(Math.random() * empties.length)]
-      setUserBoard((prev) => {
-        const newBoard = deepClone(prev)
-        newBoard[r][c] = solutionBoard[r][c]
-        return newBoard
-      })
-      setNotes((prev) => {
-        const newNotes = deepCloneNotes(prev)
-        newNotes[r][c].clear()
-        return newNotes
-      })
-
-      setHintCooldownTime(30)
-      setHintsUsedInGame((prev) => prev + 1)
-
-      showToastMessage(`Hint purchased for ${cost.toFixed(2)} $APE!`)
-    },
-    [userBoard, solutionBoard, walletKey, showToastMessage],
-  )
+      const data = await response.json()
+      setHintBalance(data.hintBalance)
+      showToastMessage(data.message || "Purchased 10 hints for 1.0 $APE (stub)")
+    } catch (error) {
+      console.error("Error purchasing hints:", error)
+      showToastMessage("Failed to purchase hints")
+    }
+  }, [playerAddress, showToastMessage])
 
   // Track completed tokens (all 9 correctly placed)
   useEffect(() => {
@@ -1270,7 +1133,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
   }, [highlightClear])
 
   const handleZkVerifyValidation = useCallback(async () => {
-    if (!gameStartTime) return
+    if (!gameStartTime || !playerAddress || !runId) return
 
     setIsVerifying(true)
 
@@ -1278,10 +1141,6 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
     setGameEndTime(endTime)
 
     const timeInSeconds = Math.floor((endTime.getTime() - gameStartTime.getTime()) / 1000)
-    const score = calculateScore(currentDifficulty, timeInSeconds, errors)
-    setCurrentScore(score)
-
-    const { points, achievements } = calculateArcadePoints(currentDifficulty, score, errors, timeInSeconds)
 
     const hasApiKey =
       typeof process !== "undefined" &&
@@ -1310,35 +1169,98 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
             timeInSeconds,
             errors,
             hintsUsedInGame,
-            score,
+            0, // Score now calculated server-side
             verificationResult.proofId,
           )
           setCurrentSession(null)
         }
 
-        // Show confetti for 5 seconds, then reveal victory modal
-        setShowConfetti(true)
-        setShowVictory(false)
-        setTimeout(() => {
-          setShowConfetti(false)
-          setShowVictory(true)
-        }, 5000)
+        // Submit result to API (server-side scoring)
+        const mode = currentDifficulty.toUpperCase() as "NOOB" | "DEGEN" | "APE"
+        const isRanked = mode !== "NOOB"
 
-        console.log("🎮 Cryptoku win - calling onGameEnd with points:", points)
-        onGameEnd?.({
-          score,
-          metadata: {
-            outcome: "win",
-            difficulty: currentDifficulty,
-            timeInSeconds,
-            errors,
-            hintsUsed: hintsUsedInGame,
-            proofId: verificationResult.proofId ?? null,
-            playerAddress,
-            points, // Arcade points calculated from calculateArcadePoints
-            achievements,
-          },
-        })
+        if (isRanked) {
+          try {
+            const response = await fetch("/api/cryptoku/submit-result", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                playerAddress,
+                mode,
+                runId,
+                timeSeconds: timeInSeconds,
+                hintsUsed: hintsUsedInGame,
+                errors,
+                completed: true,
+                forfeited: false,
+              }),
+            })
+
+            if (response.ok) {
+              const data = await response.json()
+              const serverScore = data.score || 0
+              setCurrentScore(serverScore)
+
+              // Update hints balance if earned
+              if (data.hintBalance !== undefined) {
+                setHintBalance(data.hintBalance)
+                setGamesUntilNextFreeHint(data.gamesUntilNextFreeHint || 0)
+              }
+
+              // Show confetti for 5 seconds, then reveal victory modal
+              setShowConfetti(true)
+              setShowVictory(false)
+              setTimeout(() => {
+                setShowConfetti(false)
+                setShowVictory(true)
+              }, 5000)
+
+              onGameEnd?.({
+                score: serverScore,
+                metadata: {
+                  outcome: "win",
+                  difficulty: currentDifficulty,
+                  timeInSeconds,
+                  errors,
+                  hintsUsed: hintsUsedInGame,
+                  proofId: verificationResult.proofId ?? null,
+                  playerAddress,
+                  cleanStreak: data.cleanStreak,
+                  hintsEarned: data.hintsEarned || 0,
+                },
+              })
+            } else {
+              console.error("Failed to submit result to API")
+              showToastMessage("Game completed but failed to submit score")
+            }
+          } catch (error) {
+            console.error("Error submitting result:", error)
+            showToastMessage("Game completed but failed to submit score")
+          }
+        } else {
+          // NOOB mode - unranked, show local result only
+          setCurrentScore(0)
+          setShowConfetti(true)
+          setShowVictory(false)
+          setTimeout(() => {
+            setShowConfetti(false)
+            setShowVictory(true)
+          }, 5000)
+
+          onGameEnd?.({
+            score: 0,
+            metadata: {
+              outcome: "win",
+              difficulty: currentDifficulty,
+              timeInSeconds,
+              errors,
+              hintsUsed: hintsUsedInGame,
+              proofId: verificationResult.proofId ?? null,
+              playerAddress,
+              unranked: true,
+            },
+          })
+        }
       } else {
         showToastMessage(verificationResult.message || "Solution verification failed")
       }
@@ -1351,45 +1273,33 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
     errors,
     puzzleBoard,
     userBoard,
-    walletKey,
-    isConnected,
     currentSession,
     hintsUsedInGame,
     showToastMessage,
     onGameEnd,
     playerAddress,
+    runId,
   ])
 
-  const handleSaveScore = () => {
-    if (!currentScore || !gameStartTime || !gameEndTime || !playerName.trim()) return
-    const timeInSeconds = Math.floor((gameEndTime.getTime() - gameStartTime.getTime()) / 1000)
-    const gameScore: GameScore = {
-      id: Date.now().toString(),
-      playerName: playerName.trim(),
-      difficulty: currentDifficulty,
-      score: currentScore,
-      timeInSeconds,
-      mistakes: errors,
-      completedAt: gameEndTime,
+  // Fetch leaderboard from API
+  const fetchLeaderboard = useCallback(async (mode: "ALL" | "DEGEN" | "APE" = "ALL") => {
+    try {
+      const response = await fetch(`/api/cryptoku/leaderboard?mode=${mode}&limit=50`)
+      if (response.ok) {
+        const data = await response.json()
+        setLeaderboardEntries(data.entries || [])
+      }
+    } catch (error) {
+      console.error("Error fetching leaderboard:", error)
     }
-    saveScore(gameScore)
-    setShowScoreEntry(false)
-    // Don't clear playerName if user is authenticated - keep it for next game
-    if (!isConnected && !profileUsername) {
-      setPlayerName("")
-    }
-    setShowLeaderboard(true)
-    showToastMessage("Score saved! Leaderboard updated.")
-  }
+  }, [])
 
-  const handleContinueAsGuest = () => {
-    setIsGuest(true)
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("cryptoku_guest_mode", "true")
+  useEffect(() => {
+    if (showLeaderboard) {
+      fetchLeaderboard(leaderboardMode)
     }
-    setShowWelcome(false)
-    startNewGame("noob")
-  }
+  }, [showLeaderboard, leaderboardMode, fetchLeaderboard])
+
 
   const currentTimeLabel = formatTime(getCurrentGameTime())
 
@@ -1527,100 +1437,63 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
               Welcome to Cryptoku
             </h1>
 
-            {!isConnected && !isGuest && (
-              <div className="mb-6 text-sm text-slate-300">
-                Connect your wallet or account to earn rewards, track stats, and appear on the leaderboard.
+            {playerAddress && (
+              <div className="mb-6 flex flex-col items-center gap-3">
+                {profileAvatarUrl ? (
+                  <img
+                    src={profileAvatarUrl}
+                    alt={profileUsername || "Profile avatar"}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-cyan-400 shadow-lg shadow-cyan-400/30"
+                  />
+                ) : (
+                  <RabbitAvatar color={RABBIT_COLORS[0]} size={64} />
+                )}
+                <div className="text-sm font-semibold text-slate-100">
+                  {profileUsername ||
+                    (playerAddress
+                      ? `${playerAddress.slice(0, 6)}...${playerAddress.slice(-4)}`
+                      : "Player")}
+                </div>
+                <div className="text-xs text-slate-400">
+                  Hints: {hintBalance} {gamesUntilNextFreeHint > 0 && `• ${gamesUntilNextFreeHint} games until next free hint`}
+                </div>
               </div>
             )}
 
-            <div className="mb-6 flex flex-col items-center gap-3">
-              {isConnected ? (
-                <>
-                  {profileAvatarUrl ? (
-                    <img
-                      src={profileAvatarUrl}
-                      alt={profileUsername || "Profile avatar"}
-                      className="w-16 h-16 rounded-full object-cover border-2 border-cyan-400 shadow-lg shadow-cyan-400/30"
-                    />
-                  ) : (
-                    <RabbitAvatar color={RABBIT_COLORS[0]} size={64} />
-                  )}
-                  <div className="text-sm font-semibold text-slate-100">
-                    {profileUsername ||
-                      (playerAddress
-                        ? `${playerAddress.slice(0, 6)}...${playerAddress.slice(-4)}`
-                        : "Connected")}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={onConnectWallet}
-                    className="w-full px-6 py-3 rounded-lg border-2 border-cyan-400 bg-gradient-to-b from-cyan-900/50 to-cyan-800/50 font-bold text-sm hover:shadow-lg hover:shadow-cyan-400/30 transition-all"
-                  >
-                    Connect Wallet / Account
-                  </button>
-                  <button
-                    onClick={handleContinueAsGuest}
-                    className="w-full px-6 py-3 rounded-lg border border-slate-500 bg-slate-800/60 hover:bg-slate-700 transition text-sm text-slate-200"
-                  >
-                    Continue as Guest (Noob mode only)
-                  </button>
-                  <p className="text-xs text-slate-500">
-                    Guest mode: play Noob games only • no leaderboard • no on-chain rewards
-                  </p>
-                </>
-              )}
+            <button
+              onClick={() => {
+                setShowTutorial(true)
+                setTutorialSlide(0)
+              }}
+              className="w-full mb-4 px-6 py-3 rounded-lg border-2 border-purple-400 bg-gradient-to-b from-purple-900/50 to-purple-800/50 font-bold text-sm hover:shadow-lg hover:shadow-purple-400/40 transition-all"
+            >
+              📖 How to Play (Tutorial)
+            </button>
+
+            <div className="space-y-3 mb-2">
+              <button
+                onClick={() => startNewGame("noob")}
+                className="w-full px-6 py-3 rounded-lg border-2 border-green-400 bg-gradient-to-b from-green-900/50 to-green-800/50 font-bold text-sm hover:shadow-lg hover:shadow-green-400/40 transition-all"
+              >
+                🟢 Noob — 40 clues (Easy) • Unranked
+              </button>
+              <button
+                onClick={() => startNewGame("degen")}
+                className="w-full px-6 py-3 rounded-lg border-2 border-cyan-400 bg-gradient-to-b from-cyan-900/50 to-cyan-800/50 font-bold text-sm hover:shadow-lg hover:shadow-cyan-400/40 transition-all"
+              >
+                🔵 Degen — 28 clues (Medium) • Ranked
+              </button>
+              <button
+                onClick={() => startNewGame("ape")}
+                className="w-full px-6 py-3 rounded-lg border-2 border-yellow-400 bg-gradient-to-b from-yellow-900/50 to-yellow-800/50 font-bold text-sm hover:shadow-lg hover:shadow-yellow-400/40 transition-all"
+              >
+                🟡 Ape — 20 clues (Hard) • Ranked
+              </button>
             </div>
 
-            {(isConnected || isGuest) && (
-              <>
-                <button
-                  onClick={() => {
-                    setShowTutorial(true)
-                    setTutorialSlide(0)
-                  }}
-                  className="w-full mb-4 px-6 py-3 rounded-lg border-2 border-purple-400 bg-gradient-to-b from-purple-900/50 to-purple-800/50 font-bold text-sm hover:shadow-lg hover:shadow-purple-400/40 transition-all"
-                >
-                  📖 How to Play (Tutorial)
-                </button>
-
-                <div className="space-y-3 mb-2">
-                  <button
-                    onClick={() => startNewGame("noob")}
-                    className="w-full px-6 py-3 rounded-lg border-2 border-green-400 bg-gradient-to-b from-green-900/50 to-green-800/50 font-bold text-sm hover:shadow-lg hover:shadow-green-400/40 transition-all"
-                  >
-                    🟢 Noob — 40 clues (Easy)
-                  </button>
-                  <button
-                    onClick={() => (!isGuest ? startNewGame("degen") : null)}
-                    disabled={isGuest}
-                    className={`w-full px-6 py-3 rounded-lg border-2 font-bold text-sm transition-all ${
-                      isGuest
-                        ? "border-slate-600 bg-slate-800/60 cursor-not-allowed opacity-50"
-                        : "border-cyan-400 bg-gradient-to-b from-cyan-900/50 to-cyan-800/50 hover:shadow-lg hover:shadow-cyan-400/40"
-                    }`}
-                  >
-                    🔵 Degen — 28 clues (Medium){isGuest ? " — sign in to unlock" : ""}
-                  </button>
-                  <button
-                    onClick={() => (!isGuest ? startNewGame("ape") : null)}
-                    disabled={isGuest}
-                    className={`w-full px-6 py-3 rounded-lg border-2 font-bold text-sm transition-all ${
-                      isGuest
-                        ? "border-slate-600 bg-slate-800/60 cursor-not-allowed opacity-50"
-                        : "border-yellow-400 bg-gradient-to-b from-yellow-900/50 to-yellow-800/50 hover:shadow-lg hover:shadow-yellow-400/40"
-                    }`}
-                  >
-                    🟡 Ape — 20 clues (Hard){isGuest ? " — sign in to unlock" : ""}
-                  </button>
-                </div>
-
-                <p className="text-xs text-slate-500 mt-4">
-                  3 free hints per game • verified with zkVerify (mocked if no API key set)
-                </p>
-              </>
-            )}
+            <p className="text-xs text-slate-500 mt-4">
+              Start with 3 free hints • Earn +1 hint every 10 completed ranked games • Verified with zkVerify
+            </p>
           </div>
         </div>
       )}
@@ -1700,18 +1573,23 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
 
             <button
               onClick={doHint}
-              disabled={hintCooldownTime > 0 || isPaused}
+              disabled={hintCooldownTime > 0 || isPaused || hintBalance <= 0}
               className={`px-2.5 py-1.5 md:px-3 md:py-1.5 rounded-lg border-2 font-bold text-[11px] md:text-xs transition-all ${
-                hintCooldownTime > 0 || isPaused
+                hintCooldownTime > 0 || isPaused || hintBalance <= 0
                   ? "border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed"
                   : "border-yellow-400 bg-gradient-to-b from-yellow-900/50 to-yellow-800/50 hover:shadow-lg hover:shadow-yellow-400/30 text-yellow-400"
               }`}
             >
               {hintCooldownTime > 0
                 ? `💡 Hint (${hintCooldownTime}s)`
-                : freeHintsRemaining > 0
-                  ? `💡 Hint (${freeHintsRemaining} free)`
-                  : "💡 Hint (Paid — coming soon)"}
+                : `💡 Hint (${hintBalance} available)`}
+            </button>
+            <button
+              onClick={purchaseHint}
+              className="px-2.5 py-1.5 md:px-3 md:py-1.5 rounded-lg border border-emerald-400 bg-gradient-to-b from-emerald-900/50 to-emerald-800/50 font-bold text-[11px] md:text-xs hover:shadow-lg hover:shadow-emerald-400/30 transition-all text-emerald-400"
+              title="Purchase 10 hints for 1.0 $APE"
+            >
+              💰 Buy Hints
             </button>
           </div>
 
@@ -1957,23 +1835,6 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
               <button
                 onClick={() => {
                   setShowVictory(false)
-                  // Auto-fill player name if authenticated
-                  if (!playerName.trim()) {
-                    if (profileUsername) {
-                      setPlayerName(profileUsername)
-                    } else if (playerAddress) {
-                      setPlayerName(`${playerAddress.slice(0, 6)}...${playerAddress.slice(-4)}`)
-                    }
-                  }
-                  setShowScoreEntry(true)
-                }}
-                className="px-4 py-2 rounded-lg border border-cyan-400 bg-gradient-to-b from-cyan-900 to-cyan-800 font-bold hover:shadow-lg hover:shadow-cyan-400/20 transition-all text-cyan-100"
-              >
-                Save Score
-              </button>
-              <button
-                onClick={() => {
-                  setShowVictory(false)
                   startNewGame(currentDifficulty)
                 }}
                 className="px-4 py-2 rounded-lg border border-slate-600 bg-gradient-to-b from-slate-800 to-slate-900 font-bold hover:shadow-lg hover:shadow-cyan-400/20 transition-all"
@@ -1985,63 +1846,71 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
         </div>
       )}
 
-      {/* Score entry modal */}
-      {showScoreEntry && currentScore && gameStartTime && gameEndTime && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
-          <div className="bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-600 p-8 rounded-2xl w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4 text-center">Save Your Score</h2>
-            <div className="bg-slate-700/50 rounded-lg p-4 mb-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-cyan-400 mb-2">{currentScore}</div>
-                <div className="text-sm text-slate-300">
-                  {formatTime(
-                    Math.floor((gameEndTime.getTime() - gameStartTime.getTime()) / 1000),
-                  )}{" "}
-                  • {errors} mistakes • {currentDifficulty}
-                </div>
-              </div>
-            </div>
-            <input
-              type="text"
-              placeholder="Enter your name"
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-400 mb-4 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-              maxLength={20}
-            />
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={() => setShowScoreEntry(false)}
-                className="px-4 py-2 rounded-lg border border-slate-600 bg-gradient-to-b from-slate-800 to-slate-900 font-bold hover:shadow-lg hover:shadow-cyan-400/20 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveScore}
-                disabled={!playerName.trim()}
-                className="px-4 py-2 rounded-lg border border-cyan-400 bg-gradient-to-b from-cyan-900 to-cyan-800 font-bold hover:shadow-lg hover:shadow-cyan-400/20 transition-all text-cyan-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Save Score
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Leaderboard modal */}
       {showLeaderboard && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-40">
           <div className="bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-600 p-8 rounded-2xl w-full max-w-md">
             <h2 className="text-2xl font-bold mb-4 text-center">Leaderboard</h2>
+            <div className="flex gap-2 mb-4 justify-center">
+              <button
+                onClick={() => {
+                  setLeaderboardMode("ALL")
+                  fetchLeaderboard("ALL")
+                }}
+                className={`px-3 py-1 rounded text-xs font-bold ${
+                  leaderboardMode === "ALL"
+                    ? "bg-cyan-500 text-white"
+                    : "bg-slate-700 text-slate-300"
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => {
+                  setLeaderboardMode("DEGEN")
+                  fetchLeaderboard("DEGEN")
+                }}
+                className={`px-3 py-1 rounded text-xs font-bold ${
+                  leaderboardMode === "DEGEN"
+                    ? "bg-cyan-500 text-white"
+                    : "bg-slate-700 text-slate-300"
+                }`}
+              >
+                Degen
+              </button>
+              <button
+                onClick={() => {
+                  setLeaderboardMode("APE")
+                  fetchLeaderboard("APE")
+                }}
+                className={`px-3 py-1 rounded text-xs font-bold ${
+                  leaderboardMode === "APE"
+                    ? "bg-cyan-500 text-white"
+                    : "bg-slate-700 text-slate-300"
+                }`}
+              >
+                Ape
+              </button>
+            </div>
             <div className="bg-slate-700/50 rounded-lg p-4 mb-4 max-h-80 overflow-y-auto">
-              <ul className="list-disc pl-6 text-sm space-y-1">
-                {getLeaderboard().map((score, index) => (
-                  <li key={score.id} className="text-slate-300">
-                    {index + 1}. {score.playerName} — {score.score} pts (
-                    {formatTime(score.timeInSeconds)}) — {score.mistakes} mistakes
-                  </li>
-                ))}
-              </ul>
+              {leaderboardEntries.length === 0 ? (
+                <div className="text-center text-slate-400 text-sm py-4">No entries yet</div>
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {leaderboardEntries.map((entry) => (
+                    <li key={entry.runId} className="text-slate-300 flex justify-between items-center">
+                      <span className="font-bold text-cyan-400">#{entry.rank}</span>
+                      <span className="flex-1 ml-2">
+                        {entry.address.slice(0, 6)}...{entry.address.slice(-4)}
+                      </span>
+                      <span className="text-yellow-400 font-bold">{entry.score}</span>
+                      <span className="text-xs text-slate-400 ml-2">
+                        {formatTime(entry.timeSeconds)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             <div className="flex gap-3 justify-center">
               <button

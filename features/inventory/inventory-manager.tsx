@@ -26,7 +26,7 @@ export default function InventoryManager() {
   async function loadNfts() {
     setLoading(true)
     // Only fetch NFTs that are actually owned in wallets
-    const data = await fetchUserNfts(address)
+    const data = await fetchUserNfts(address || undefined)
     // Only show NFTs that are owned in wallets - no cards from context
     setNfts(data)
     setLoading(false)

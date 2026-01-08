@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import { Gamepad2, Package, Wallet, Users, Trophy, User, Swords } from "@/components/icons"
 import { cn } from "@/lib/utils"
 
-const navItems = [
+const navItems: Array<{ href: string; icon: typeof Gamepad2; label: string; soon?: boolean }> = [
   { href: "/", icon: Gamepad2, label: "Arcade" },
   { href: "/inventory", icon: Wallet, label: "Inventory" },
   { href: "/mint", icon: Package, label: "Mint" },
