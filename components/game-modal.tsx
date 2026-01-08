@@ -2,9 +2,10 @@
 
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useArcade } from "@/components/providers"
 import { CryptokuGame } from "@/features/games/cryptoku/cryptokugame"
+import { getGameSession } from "@/lib/game-session"
 
 interface GameModalProps {
   isOpen: boolean
@@ -15,6 +16,7 @@ interface GameModalProps {
 
 export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProps) {
   const { isConnected, address, connect, profile, addPoints, addTickets } = useArcade()
+  const iframeRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -37,6 +39,98 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
       document.body.style.overflow = "unset"
     }
   }, [isOpen])
+
+  // Send session data to iframe when it loads (for Ape In cross-origin communication)
+  useEffect(() => {
+    if (!isOpen || !iframeRef.current) return
+
+    const iframe = iframeRef.current
+    const isApeIn = gameTitle === "Ape In!"
+
+    if (!isApeIn) return
+
+    const sendSessionToIframe = () => {
+      let session = getGameSession()
+      
+      // If no session exists, create a minimal one for the iframe
+      if (!session) {
+        const { createGameSession, storeGameSession } = require("@/lib/game-session")
+        session = createGameSession({
+          userId: profile.username || "guest",
+          username: profile.username || "Guest",
+          address: address || null,
+          tickets: 0,
+          points: 0,
+        })
+        storeGameSession(session)
+        console.log("📝 Created minimal session for iframe:", session)
+      }
+      
+      if (session && iframe.contentWindow) {
+        try {
+          // Send session data to iframe
+          iframe.contentWindow.postMessage(
+            {
+              type: "ARCADE_IDENTITY",
+              session: session,
+            },
+            "*" // Target origin - in production, should be specific: "https://ape-in-game.vercel.app"
+          )
+          console.log("📤 Sent arcade identity to iframe:", {
+            sessionId: session.sessionId,
+            username: session.username,
+            address: session.address,
+            hasClientId: !!session.thirdwebClientId,
+          })
+        } catch (error) {
+          console.error("❌ Error sending session to iframe:", error)
+        }
+      } else if (!session) {
+        console.warn("⚠️ No session available to send to iframe")
+      }
+    }
+
+    // Retry mechanism: try sending session multiple times in case iframe loads slowly
+    let retryCount = 0
+    const maxRetries = 10
+    const retryInterval = setInterval(() => {
+      if (retryCount < maxRetries && iframe.contentWindow) {
+        sendSessionToIframe()
+        retryCount++
+      } else {
+        clearInterval(retryInterval)
+      }
+    }, 500) // Try every 500ms for up to 5 seconds
+
+    // Send immediately if iframe is already loaded
+    if (iframe.contentWindow) {
+      sendSessionToIframe()
+    }
+
+    // Also send when iframe loads
+    iframe.addEventListener("load", () => {
+      clearInterval(retryInterval)
+      sendSessionToIframe()
+    })
+
+    // Listen for requests from iframe
+    const handleMessage = (event: MessageEvent) => {
+      // In production, verify event.origin === "https://ape-in-game.vercel.app"
+      if (event.data?.type === "REQUEST_ARCADE_IDENTITY") {
+        console.log("📥 Received identity request from iframe")
+        clearInterval(retryInterval)
+        sendSessionToIframe()
+      }
+    }
+
+    window.addEventListener("message", handleMessage)
+
+    return () => {
+      clearInterval(retryInterval)
+      iframe.removeEventListener("load", sendSessionToIframe)
+      window.removeEventListener("message", handleMessage)
+    }
+  }, [isOpen, gameTitle, isConnected, address, profile.username])
 
   if (!isOpen) return null
 
@@ -87,6 +181,7 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
           </div>
         ) : (
           <iframe
+            ref={iframeRef}
             src={gameUrl}
             className="w-full h-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
