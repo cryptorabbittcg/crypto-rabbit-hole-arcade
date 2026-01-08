@@ -154,13 +154,25 @@ export function Providers({ children }: { children: ReactNode }) {
     }
   }, [tickets, points, isConnected, address, profile.username])
 
-  const setWalletConnection = useCallback((newAddress: string | null) => {
+  const setWalletConnection = useCallback(async (newAddress: string | null) => {
     setAddress(newAddress)
     setIsConnected(!!newAddress)
     
-    // Balance fetching stubbed for auth-only migration
-    // TODO: Re-enable balance fetching after auth migration
-    setApeBalance("0.0000")
+    // Fetch APE balance when wallet connects
+    // Note: The Glyph wallet is fully accessible via wagmi hooks (useAccount, useBalance, useWalletClient)
+    // This allows standard wallet operations like viewing balances and sending transactions
+    if (newAddress) {
+      try {
+        const { getApeBalance } = await import("@/lib/utils/wallet-balance")
+        const balance = await getApeBalance(newAddress)
+        setApeBalance(parseFloat(balance).toFixed(4))
+      } catch (error) {
+        console.error("Error fetching balance:", error)
+        setApeBalance("0.0000")
+      }
+    } else {
+      setApeBalance("0.0000")
+    }
   }, [])
 
   const syncProfileWithWallet = useCallback(async (walletAddress: string) => {
@@ -190,7 +202,9 @@ export function Providers({ children }: { children: ReactNode }) {
           },
         })
         setTickets(existingProfile.ticket_balance || 0)
-        setPoints(existingProfile.ape_balance || 0)
+        // Load points from the 'points' field, not 'ape_balance'
+        // Note: The database has both 'ape_balance' (APE tokens) and 'points' (game points)
+        setPoints((existingProfile as any).points || 0)
       } else {
         if (typeof profileService?.createProfile !== "function") {
           console.warn("profileService.createProfile missing; skipping profile creation")
@@ -298,41 +312,43 @@ export function Providers({ children }: { children: ReactNode }) {
     })
   }, [isAuthenticated, address, points])
 
-  const addPoints = useCallback((amount: number) => {
+  const addPoints = useCallback(async (amount: number) => {
     logger.log("➕ addPoints called with amount:", amount)
     setPoints((prev) => {
       const newPoints = prev + amount
       logger.log("💰 Points updated:", prev, "->", newPoints)
-      // Note: updateArcadeSession, loadProfileByAddress, saveProfileByAddress are referenced but not imported
-      // These need to be implemented or imported from the appropriate module
-      // Update session when points change
-      if (isAuthenticated) {
-        // TODO: Implement updateArcadeSession
-        // updateArcadeSession({ points: newPoints })
-      }
-      // Save to profile storage to persist accumulated points
-      // Save even if not fully authenticated, as long as we have an address
-      if (address) {
-        // TODO: Implement loadProfileByAddress and saveProfileByAddress
-        // const savedProfile = loadProfileByAddress(address)
-        // if (savedProfile) {
-        //   saveProfileByAddress(address, {
-        //     ...savedProfile,
-        //     points: newPoints,
-        //     tickets: tickets,
-        //   })
-        //   logger.log("💾 Saved points to profile:", newPoints)
-        // } else {
-        //   const minimalProfile = { ... }
-        //   saveProfileByAddress(address, minimalProfile)
-        //   logger.log("💾 Created new profile entry with points:", newPoints)
-        // }
-      } else {
+      
+      // Sync points to Supabase if authenticated and address is available
+      if (isAuthenticated && address) {
+        // Sync asynchronously to avoid blocking UI
+        ;(async () => {
+          try {
+            const supabase = createClient()
+            const profileService = new ProfileService(supabase)
+            const profile = await profileService.getProfileByWallet(address)
+            
+            if (profile) {
+              // Use the RPC function to update points (this also updates total_points in leaderboard)
+              const success = await profileService.updateBalance(profile.id, 0, 0, amount)
+              if (success) {
+                logger.log("✅ Points synced to Supabase:", amount)
+              } else {
+                logger.warn("⚠️ Failed to sync points to Supabase")
+              }
+            } else {
+              logger.warn("⚠️ Profile not found when trying to sync points")
+            }
+          } catch (error) {
+            logger.error("❌ Error syncing points to Supabase:", error)
+          }
+        })()
+      } else if (!address) {
         logger.warn("⚠️ No address available when trying to save points")
       }
+      
       return newPoints
     })
-  }, [isAuthenticated, address, tickets])
+  }, [isAuthenticated, address])
 
   const setTicketsValue = useCallback((amount: number) => {
     setTickets(amount)

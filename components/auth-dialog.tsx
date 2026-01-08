@@ -30,10 +30,19 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess = () => {} }: Aut
   // Monitor for successful connection
   useEffect(() => {
     if (open && address && isConnected && !hasProcessedAuth) {
-      console.log("✅ Wallet connected! Processing auth...")
+      console.log("✅ Wallet connected! Processing auth...", { address, isConnected })
       handleAuthSuccess()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, address, isConnected, hasProcessedAuth])
+
+  // Monitor for connection errors
+  useEffect(() => {
+    if (open && !address && !isConnected && hasProcessedAuth) {
+      // Connection was attempted but failed
+      setError("Failed to connect wallet. Please try again.")
+      setHasProcessedAuth(false)
+    }
   }, [open, address, isConnected, hasProcessedAuth])
 
   // Reset processed flag and error when dialog closes
@@ -97,10 +106,20 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess = () => {} }: Aut
         </DialogHeader>
 
         <div className="mt-6 space-y-4">
-          <div className="flex flex-col items-center gap-3">
-            {/* Glyph Native Connect Button */}
+          <div className="flex flex-col items-center gap-4">
+            {/* Glyph Native Connect Button - Styled wrapper */}
             <div className="w-full">
-              <NativeGlyphConnectButton />
+              <div className="relative group">
+                <div className="absolute inset-0 bg-gradient-to-r from-green-400/20 via-emerald-400/20 to-green-500/20 rounded-xl blur-sm group-hover:blur-md transition-all duration-300" />
+                <div className="relative border-2 border-green-400/60 rounded-xl p-4 bg-gradient-to-br from-slate-900/90 via-slate-800/90 to-slate-900/90 backdrop-blur-sm shadow-[0_0_30px_rgba(34,197,94,0.3)] group-hover:shadow-[0_0_40px_rgba(34,197,94,0.5)] transition-all duration-300">
+                  <div className="flex flex-col items-center gap-3">
+                    <p className="text-sm font-semibold text-green-400 mb-2">Login / Signup with Glyph</p>
+                    <div className="flex justify-center">
+                      <NativeGlyphConnectButton />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             
             {/* Continue as Guest button */}

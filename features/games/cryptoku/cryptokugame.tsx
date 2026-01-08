@@ -13,6 +13,7 @@ import {
   type Difficulty,
   type GameSession,
 } from "./components/logic/playerStats"
+import { getRewardForDifficulty } from "./components/logic/tokenRewards"
 import { mockVerifySudoku, verifySudokuWithZkVerify } from "./components/logic/zkverify"
 
 export interface CryptokuGameProps {
@@ -556,6 +557,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
   const [isPaused, setIsPaused] = useState(false)
   const [pauseStartTime, setPauseStartTime] = useState<Date | null>(null)
   const [isVerifying, setIsVerifying] = useState(false)
+  const [verificationAttempted, setVerificationAttempted] = useState(false)
   const [verificationProofId, setVerificationProofId] = useState<string | null>(null)
   const [showVictory, setShowVictory] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
@@ -620,7 +622,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
       setTimerTicks((prev) => prev + 1)
     }, 1000)
     return () => clearInterval(interval)
-  }, [gameStartTime, showVictory, isPaused, !!gameEndTime])
+  }, [gameStartTime, showVictory, isPaused, gameEndTime])
 
   // Hint cooldown ticking
   useEffect(() => {
@@ -712,6 +714,8 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
       setHintCooldownTime(0)
       setHintsUsedInGame(0)
       setVerificationProofId(null)
+      setVerificationAttempted(false)
+      setIsVerifying(false)
       setGameHasStarted(false)
       setIsGamePrepared(true)
       setIsPaused(false)
@@ -744,6 +748,8 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
     const start = new Date()
     setGameStartTime(start)
     setGameEndTime(null)
+    setVerificationAttempted(false)
+    setIsVerifying(false)
     setShowVictory(false)
     setIsPaused(false)
     setPauseStartTime(null)
@@ -1011,12 +1017,12 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
       if (!isFull) break
     }
 
-    if (isFull && isCorrect && !isVerifying && gameHasStarted) {
+    if (isFull && isCorrect && !isVerifying && !verificationAttempted && gameHasStarted) {
       ;(async () => {
         await handleZkVerifyValidation()
       })()
     }
-  }, [userBoard, solutionBoard, isVerifying, gameHasStarted])
+  }, [userBoard, solutionBoard, isVerifying, verificationAttempted, gameHasStarted])
 
   // Row / column / box completion effects
   useEffect(() => {
@@ -1133,9 +1139,10 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
   }, [highlightClear])
 
   const handleZkVerifyValidation = useCallback(async () => {
-    if (!gameStartTime || !playerAddress || !runId) return
+    if (!gameStartTime || !playerAddress || !runId || verificationAttempted) return
 
     setIsVerifying(true)
+    setVerificationAttempted(true)
 
     const endTime = new Date()
     setGameEndTime(endTime)
@@ -1207,6 +1214,9 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
                 setGamesUntilNextFreeHint(data.gamesUntilNextFreeHint || 0)
               }
 
+              // Calculate points based on difficulty
+              const pointsEarned = getRewardForDifficulty(currentDifficulty)
+
               // Show confetti for 5 seconds, then reveal victory modal
               setShowConfetti(true)
               setShowVictory(false)
@@ -1227,18 +1237,74 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
                   playerAddress,
                   cleanStreak: data.cleanStreak,
                   hintsEarned: data.hintsEarned || 0,
+                  points: pointsEarned,
                 },
               })
             } else {
               console.error("Failed to submit result to API")
+              // Calculate points based on difficulty (still award points even if submission failed)
+              const pointsEarned = getRewardForDifficulty(currentDifficulty)
+              
+              // Still show victory modal even if submission failed
+              setCurrentScore(0)
+              setShowConfetti(true)
+              setShowVictory(false)
+              setTimeout(() => {
+                setShowConfetti(false)
+                setShowVictory(true)
+              }, 5000)
+              
+              onGameEnd?.({
+                score: 0,
+                metadata: {
+                  outcome: "win",
+                  difficulty: currentDifficulty,
+                  timeInSeconds,
+                  errors,
+                  hintsUsed: hintsUsedInGame,
+                  proofId: verificationResult.proofId ?? null,
+                  playerAddress,
+                  submissionFailed: true,
+                  points: pointsEarned,
+                },
+              })
               showToastMessage("Game completed but failed to submit score")
             }
           } catch (error) {
             console.error("Error submitting result:", error)
+            // Calculate points based on difficulty (still award points even if submission failed)
+            const pointsEarned = getRewardForDifficulty(currentDifficulty)
+            
+            // Still show victory modal even if submission failed
+            setCurrentScore(0)
+            setShowConfetti(true)
+            setShowVictory(false)
+            setTimeout(() => {
+              setShowConfetti(false)
+              setShowVictory(true)
+            }, 5000)
+            
+            onGameEnd?.({
+              score: 0,
+              metadata: {
+                outcome: "win",
+                difficulty: currentDifficulty,
+                timeInSeconds,
+                errors,
+                hintsUsed: hintsUsedInGame,
+                proofId: verificationResult.proofId ?? null,
+                playerAddress,
+                submissionFailed: true,
+                points: pointsEarned,
+              },
+            })
             showToastMessage("Game completed but failed to submit score")
           }
         } else {
           // NOOB mode - unranked, show local result only
+          // Calculate points based on difficulty (NOOB = 0 points)
+          const pointsEarned = getRewardForDifficulty(currentDifficulty)
+          
           setCurrentScore(0)
           setShowConfetti(true)
           setShowVictory(false)
@@ -1258,6 +1324,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
               proofId: verificationResult.proofId ?? null,
               playerAddress,
               unranked: true,
+              points: pointsEarned,
             },
           })
         }
@@ -1279,6 +1346,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
     onGameEnd,
     playerAddress,
     runId,
+    verificationAttempted,
   ])
 
   // Fetch leaderboard from API
@@ -1377,18 +1445,25 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
           position: fixed;
           inset: 0;
           pointer-events: none;
-          overflow: hidden;
-          z-index: 60;
+          overflow: visible;
+          z-index: 9999;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          width: 100vw;
+          height: 100vh;
         }
 
         .confetti-piece {
           position: absolute;
-          width: 8px;
-          height: 14px;
+          width: 12px;
+          height: 12px;
           background: #fbbf24;
           opacity: 0.9;
           border-radius: 2px;
-          animation: confetti-fall 4s linear infinite;
+          top: -20px;
+          animation: confetti-fall 5s linear forwards;
         }
 
         .confetti-piece:nth-child(4n) {
@@ -1400,13 +1475,18 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
         .confetti-piece:nth-child(4n + 2) {
           background: #f97316;
         }
+        .confetti-piece:nth-child(4n + 3) {
+          background: #a855f7;
+        }
 
         @keyframes confetti-fall {
           0% {
-            transform: translate3d(0, -100%, 0) rotateZ(0deg);
+            transform: translate3d(0, -20px, 0) rotateZ(0deg) rotateY(0deg);
+            opacity: 1;
           }
           100% {
-            transform: translate3d(0, 110%, 0) rotateZ(720deg);
+            transform: translate3d(0, calc(100vh + 20px), 0) rotateZ(720deg) rotateY(360deg);
+            opacity: 0.8;
           }
         }
       `}</style>
@@ -1414,14 +1494,15 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
 
       {showConfetti && (
         <div className="confetti">
-          {Array.from({ length: 80 }, (_, i) => (
+          {Array.from({ length: 150 }, (_, i) => (
             <div
               key={i}
               className="confetti-piece"
               style={{
                 left: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 3}s`,
-                animationDuration: `${3 + Math.random() * 2}s`,
+                animationDelay: `${Math.random() * 0.5}s`,
+                animationDuration: `${4 + Math.random() * 1.5}s`,
+                transform: `rotate(${Math.random() * 360}deg)`,
               }}
             />
           ))}
@@ -1800,7 +1881,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
 
       {/* Victory modal */}
       {showVictory && currentScore && gameStartTime && gameEndTime && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-[100]">
           <div className="bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-600 p-8 rounded-2xl w-full max-w-md text-center">
             <div className="text-6xl mb-4">🏆</div>
             <h2 className="text-2xl font-bold mb-3">You solved the puzzle!</h2>

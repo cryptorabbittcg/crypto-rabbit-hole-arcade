@@ -5,7 +5,8 @@
   "scripts": {
     "build": "next build --webpack",
     "dev": "next dev --webpack",
-    "start": "next start"
+    "start": "next start",
+    "postinstall": "node scripts/setup-async-storage-stub.js"
   },
   "dependencies": {
     "@aws-sdk/client-lambda": "3.955.0",

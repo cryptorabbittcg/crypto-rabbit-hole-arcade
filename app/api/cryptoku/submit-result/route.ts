@@ -15,11 +15,12 @@ function calculateScore(
   errors: number,
   cleanStreak: number
 ): number {
-  // Mode multiplier
-  const modeMultiplier = mode === "DEGEN" ? 1.0 : mode === "APE" ? 1.5 : 1.0
+  // Starting points based on difficulty mode
+  const startingPoints = mode === "DEGEN" ? 5000 : mode === "APE" ? 8000 : 0
 
-  // BaseTimeScore
-  const baseTimeScore = Math.max(0, 2000 - timeSeconds * 2)
+  // Time decay: lose 2 points per second
+  const timeDecay = timeSeconds * 2
+  const baseTimeScore = Math.max(0, startingPoints - timeDecay)
 
   // Penalties
   const hintPenalty = 150 * hintsUsed
@@ -32,10 +33,10 @@ function calculateScore(
   // Streak bonus (only for clean runs, capped at 500)
   const streakBonus = isCleanRun ? Math.min(50 * cleanStreak, 500) : 0
 
-  // Final score
+  // Final score: starting points - time decay - penalties + bonuses
   const score = Math.max(
     0,
-    Math.round((baseTimeScore - hintPenalty - errorPenalty) * modeMultiplier + cleanRunBonus + streakBonus)
+    Math.round(baseTimeScore - hintPenalty - errorPenalty + cleanRunBonus + streakBonus)
   )
 
   return score
