@@ -134,14 +134,24 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
           points: session.points,
         }
         
+        // Log the exact message structure being sent
+        console.log("📤 Sending identity message:", JSON.stringify(messagePayload, null, 2))
+        console.log("📤 Message structure breakdown:", {
+          "event.data.type": messagePayload.type,
+          "event.data.session": "Full GameSession object (see below)",
+          "event.data.sessionId": messagePayload.sessionId,
+          "event.data.userId": messagePayload.userId,
+          "event.data.username": messagePayload.username,
+          "event.data.address": messagePayload.address,
+          "event.data.thirdwebClientId": messagePayload.thirdwebClientId,
+          "event.data.tickets": messagePayload.tickets,
+          "event.data.points": messagePayload.points,
+        })
+        console.log("📤 Full session object:", JSON.stringify(session, null, 2))
+        
         // Use "*" for cross-origin iframes - Ape In will validate the origin
         contentWindow.postMessage(messagePayload, "*")
-        console.log("📤 Sent arcade identity to iframe:", {
-          sessionId: session.sessionId,
-          username: session.username,
-          address: session.address,
-          hasClientId: !!session.thirdwebClientId,
-        })
+        console.log("✅ postMessage called with target origin: '*'")
       } catch (error) {
         console.error("❌ Error sending session to iframe:", error)
         // Don't retry if we get an error - likely a CORS/security issue
