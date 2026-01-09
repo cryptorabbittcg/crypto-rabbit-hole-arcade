@@ -2,6 +2,16 @@
 
 import { kv } from "@vercel/kv"
 
+// Check if Vercel KV is configured
+function isKVConfigured(): boolean {
+  return !!(
+    process.env.KV_REST_API_URL &&
+    process.env.KV_REST_API_TOKEN &&
+    process.env.KV_REST_API_URL !== "" &&
+    process.env.KV_REST_API_TOKEN !== ""
+  )
+}
+
 export interface LeaderboardEntry {
   runId: string
   address: string
@@ -51,6 +61,14 @@ export async function getCryptokuHints(address: string): Promise<PlayerHints> {
   const normalizedAddress = normalizeAddress(address)
   const key = `cryptoku:hints:${normalizedAddress}`
   
+  // Check if KV is configured
+  if (!isKVConfigured()) {
+    console.warn(`Vercel KV not configured - returning default hints for ${normalizedAddress}`)
+    console.warn("Missing environment variables: KV_REST_API_URL and/or KV_REST_API_TOKEN")
+    // Return default hints if KV is not configured (allows game to work without KV)
+    return HINTS_DEFAULT
+  }
+  
   try {
     const hints = await kv.get<PlayerHints>(key)
     if (hints) {
@@ -61,6 +79,7 @@ export async function getCryptokuHints(address: string): Promise<PlayerHints> {
     return HINTS_DEFAULT
   } catch (error) {
     console.error(`Error getting hints for ${normalizedAddress}:`, error)
+    // Return default hints on error to allow game to continue
     return HINTS_DEFAULT
   }
 }
@@ -73,14 +92,51 @@ export async function updateCryptokuHints(
   const normalizedAddress = normalizeAddress(address)
   const key = `cryptoku:hints:${normalizedAddress}`
   
+  // Check if KV is configured
+  if (!isKVConfigured()) {
+    console.warn(`Vercel KV not configured - using in-memory fallback for hints`)
+    console.warn("Missing environment variables: KV_REST_API_URL and/or KV_REST_API_TOKEN")
+    // Return updated hints without persisting (allows hints to work without KV)
+    const current = await getCryptokuHints(normalizedAddress)
+    const updated = updateFn(current)
+    return updated
+  }
+  
   try {
     const current = await getCryptokuHints(normalizedAddress)
     const updated = updateFn(current)
-    await kv.set(key, updated)
+    
+    // Double-check KV is still configured before attempting set
+    if (isKVConfigured()) {
+      try {
+        await kv.set(key, updated)
+        return updated
+      } catch (kvError) {
+        console.error(`KV set operation failed for ${normalizedAddress}:`, kvError)
+        // Fall through to return updated hints without persistence
+      }
+    }
+    
+    // Return updated hints without persisting (graceful degradation)
+    console.warn(`Hint balance updated without persistence for ${normalizedAddress} (KV unavailable)`)
     return updated
   } catch (error) {
     console.error(`Error updating hints for ${normalizedAddress}:`, error)
-    throw error
+    // If getting hints fails, try to return a default decremented value
+    // This ensures hints still work even if there's an error
+    try {
+      const defaultHints = await getCryptokuHints(normalizedAddress)
+      const updated = updateFn(defaultHints)
+      console.warn("Error occurred, returning updated hints without persistence")
+      return updated
+    } catch (fallbackError) {
+      // Last resort: return default hints with balance decremented
+      console.error("All hint update attempts failed, returning safe default")
+      return {
+        ...HINTS_DEFAULT,
+        hintBalance: Math.max(0, HINTS_DEFAULT.hintBalance - 1),
+      }
+    }
   }
 }
 

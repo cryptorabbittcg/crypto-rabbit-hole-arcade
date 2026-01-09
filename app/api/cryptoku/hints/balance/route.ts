@@ -18,7 +18,25 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error("Error fetching hints balance:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    // Provide more specific error message
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    const isKVError = errorMessage.includes("KV") || errorMessage.includes("not configured")
+    
+    // Return default hints if KV is not configured (allows game to work)
+    if (isKVError) {
+      console.warn("KV not configured - returning default hints balance")
+      return NextResponse.json({
+        hintBalance: 3,
+        gamesUntilNextFreeHint: 10,
+      })
+    }
+    
+    return NextResponse.json(
+      { 
+        error: `Failed to fetch hints balance: ${errorMessage}` 
+      },
+      { status: 500 }
+    )
   }
 }
 

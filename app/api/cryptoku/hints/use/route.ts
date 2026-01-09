@@ -32,7 +32,18 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error("Error using hint:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    // Provide more specific error message
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    const isKVError = errorMessage.includes("KV") || errorMessage.includes("not configured")
+    
+    return NextResponse.json(
+      { 
+        error: isKVError 
+          ? "Hint service is not configured. Please contact support." 
+          : `Failed to use hint: ${errorMessage}` 
+      },
+      { status: 500 }
+    )
   }
 }
 
