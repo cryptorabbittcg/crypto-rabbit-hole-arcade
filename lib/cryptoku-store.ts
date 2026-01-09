@@ -38,6 +38,10 @@ export interface PlayerHints {
   totalRankedCompleted: number
 }
 
+// In-memory cache for when KV is not available
+// This persists during the server session (until server restart)
+const inMemoryCache = new Map<string, PlayerHints>()
+
 const HINTS_DEFAULT: PlayerHints = {
   hintBalance: 3,
   gamesUntilNextFreeHint: 10,
@@ -63,23 +67,37 @@ export async function getCryptokuHints(address: string): Promise<PlayerHints> {
   
   // Check if KV is configured
   if (!isKVConfigured()) {
-    console.warn(`Vercel KV not configured - returning default hints for ${normalizedAddress}`)
-    console.warn("Missing environment variables: KV_REST_API_URL and/or KV_REST_API_TOKEN")
-    // Return default hints if KV is not configured (allows game to work without KV)
+    // Try to get from in-memory cache first
+    const cached = inMemoryCache.get(normalizedAddress)
+    if (cached) {
+      return cached
+    }
+    
+    // Return default hints if not in cache
+    inMemoryCache.set(normalizedAddress, HINTS_DEFAULT)
     return HINTS_DEFAULT
   }
   
   try {
     const hints = await kv.get<PlayerHints>(key)
     if (hints) {
+      // Update cache for faster access
+      inMemoryCache.set(normalizedAddress, hints)
       return hints
     }
     
-    // Return default if not found
+    // Return default if not found and update cache
+    inMemoryCache.set(normalizedAddress, HINTS_DEFAULT)
     return HINTS_DEFAULT
   } catch (error) {
     console.error(`Error getting hints for ${normalizedAddress}:`, error)
-    // Return default hints on error to allow game to continue
+    // Try cache as fallback
+    const cached = inMemoryCache.get(normalizedAddress)
+    if (cached) {
+      return cached
+    }
+    // Return default hints on error and update cache
+    inMemoryCache.set(normalizedAddress, HINTS_DEFAULT)
     return HINTS_DEFAULT
   }
 }
@@ -94,11 +112,14 @@ export async function updateCryptokuHints(
   
   // Check if KV is configured
   if (!isKVConfigured()) {
-    console.warn(`Vercel KV not configured - using in-memory fallback for hints`)
-    console.warn("Missing environment variables: KV_REST_API_URL and/or KV_REST_API_TOKEN")
-    // Return updated hints without persisting (allows hints to work without KV)
+    // Use in-memory cache when KV is not configured
     const current = await getCryptokuHints(normalizedAddress)
     const updated = updateFn(current)
+    
+    // Update in-memory cache
+    inMemoryCache.set(normalizedAddress, updated)
+    
+    console.log(`Hint balance updated in-memory for ${normalizedAddress}: ${updated.hintBalance} hints remaining`)
     return updated
   }
   
@@ -110,15 +131,18 @@ export async function updateCryptokuHints(
     if (isKVConfigured()) {
       try {
         await kv.set(key, updated)
+        // Update cache after successful KV write
+        inMemoryCache.set(normalizedAddress, updated)
         return updated
       } catch (kvError) {
         console.error(`KV set operation failed for ${normalizedAddress}:`, kvError)
-        // Fall through to return updated hints without persistence
+        // Fall through to use in-memory cache
       }
     }
     
-    // Return updated hints without persisting (graceful degradation)
-    console.warn(`Hint balance updated without persistence for ${normalizedAddress} (KV unavailable)`)
+    // KV unavailable - use in-memory cache as fallback
+    inMemoryCache.set(normalizedAddress, updated)
+    console.warn(`Hint balance updated in-memory (KV unavailable) for ${normalizedAddress}: ${updated.hintBalance} hints remaining`)
     return updated
   } catch (error) {
     console.error(`Error updating hints for ${normalizedAddress}:`, error)
@@ -127,15 +151,20 @@ export async function updateCryptokuHints(
     try {
       const defaultHints = await getCryptokuHints(normalizedAddress)
       const updated = updateFn(defaultHints)
-      console.warn("Error occurred, returning updated hints without persistence")
+      
+      // Update cache even on error
+      inMemoryCache.set(normalizedAddress, updated)
+      console.warn("Error occurred, using in-memory cache fallback")
       return updated
     } catch (fallbackError) {
       // Last resort: return default hints with balance decremented
       console.error("All hint update attempts failed, returning safe default")
-      return {
+      const safeDefault = {
         ...HINTS_DEFAULT,
         hintBalance: Math.max(0, HINTS_DEFAULT.hintBalance - 1),
       }
+      inMemoryCache.set(normalizedAddress, safeDefault)
+      return safeDefault
     }
   }
 }
