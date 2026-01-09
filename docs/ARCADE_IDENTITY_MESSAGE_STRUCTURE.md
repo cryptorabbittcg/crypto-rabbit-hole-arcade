@@ -28,7 +28,8 @@ The message payload has the following structure:
     thirdwebClientId: string,
     tickets: number,
     points: number,
-    timestamp: number
+    timestamp: number,
+    avatar: string | null  // ⚠️ NEW: Base64 avatar image or null
   },
   // All session properties are also flattened at the top level for compatibility
   sessionId: string,
@@ -37,7 +38,8 @@ The message payload has the following structure:
   address: string | null,
   thirdwebClientId: string,
   tickets: number,
-  points: number
+  points: number,
+  avatar: string | null  // ⚠️ NEW: Base64 avatar image or null
 }
 ```
 
@@ -87,6 +89,7 @@ interface ArcadeIdentityMessage {
     tickets: number
     points: number
     timestamp: number
+    avatar: string | null  // ⚠️ NEW: Base64 avatar image or null
   }
   // Flattened properties (duplicates of session properties)
   sessionId: string
@@ -96,6 +99,7 @@ interface ArcadeIdentityMessage {
   thirdwebClientId: string
   tickets: number
   points: number
+  avatar: string | null  // ⚠️ NEW: Base64 avatar image or null
 }
 ```
 
@@ -112,6 +116,7 @@ interface ArcadeIdentityMessage {
 | `session.tickets` | `number` | Current ticket balance | `0` (currently disabled) |
 | `session.points` | `number` | Current points balance | `1250` |
 | `session.timestamp` | `number` | Session creation timestamp (milliseconds) | `1698765432000` |
+| `session.avatar` | `string \| null` | Base64-encoded avatar image (or null) | `"data:image/png;base64,iVBORw0KG..."` or `null` |
 
 ## Example Message
 
@@ -126,7 +131,8 @@ interface ArcadeIdentityMessage {
     "thirdwebClientId": "fc800f64235293d8bc898052f0859a3f",
     "tickets": 0,
     "points": 1250,
-    "timestamp": 1698765432000
+    "timestamp": 1698765432000,
+    "avatar": "data:image/png;base64,iVBORw0KG..."  // or null
   },
   "sessionId": "session_1698765432000_abc123def456",
   "userId": "0x431E3cA238fE4AF6De90078F0AcD688Ff19f2968",
@@ -134,7 +140,8 @@ interface ArcadeIdentityMessage {
   "address": "0x431E3cA238fE4AF6De90078F0AcD688Ff19f2968",
   "thirdwebClientId": "fc800f64235293d8bc898052f0859a3f",
   "tickets": 0,
-  "points": 1250
+  "points": 1250,
+  "avatar": "data:image/png;base64,iVBORw0KG..."  // or null
 }
 ```
 
