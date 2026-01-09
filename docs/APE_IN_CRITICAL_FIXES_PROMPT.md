@@ -122,13 +122,38 @@ Based on console logs, these issues are preventing games from launching:
 ### Issue 4: Games Not Launching / Free Plays Consumed ❌
 
 **Problem:**
-- Clicking play buttons doesn't launch games
+- Clicking play buttons (especially Sandy/tutorial) doesn't launch games
 - Free plays are being consumed even when games don't start
 
 **Likely Causes:**
-1. Game start logic might require arcade session (which isn't being received due to Issue 2/3)
+1. **Game start logic requires arcade session** - This is blocking Sandy (tutorial) which should work without session
 2. Free play tracking might be happening before game actually starts
 3. Game launch might be blocked by validation checks
+4. **Button click handler might not be working** or has errors
+
+**URGENT FIX NEEDED FOR SANDY:**
+```typescript
+// ❌ WRONG - This blocks Sandy
+async function startGame(mode: string) {
+  if (!getArcadeSession()) {
+    showError("Arcade session required")
+    return  // ❌ Blocks Sandy!
+  }
+  // ...
+}
+
+// ✅ CORRECT - Sandy always works
+async function startGame(mode: string) {
+  // Sandy should ALWAYS launch, no checks
+  if (mode.toLowerCase() === "sandy") {
+    console.log('✅ Launching Sandy tutorial (always allowed)')
+    await launchGame('sandy')
+    return  // Exit early, no other checks needed
+  }
+  
+  // Other modes continue with existing logic...
+}
+```
 
 **Fix Required:**
 1. **Don't consume free plays until game actually launches:**
