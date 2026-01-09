@@ -453,3 +453,4 @@ async function launchGame(mode: string) {
 - Messages are being sent properly
 - The issue is 100% on Ape In side
 
+

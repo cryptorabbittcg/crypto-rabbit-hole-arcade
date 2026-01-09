@@ -53,14 +53,23 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
     let hasSentIdentity = false // Guard to prevent duplicate sends
     let identitySentTimeout: NodeJS.Timeout | null = null
 
+    // Get the iframe's origin from its src URL
+    const getIframeOrigin = (): string | null => {
+      if (!iframe?.src) return null
+      try {
+        const url = new URL(iframe.src)
+        return url.origin
+      } catch {
+        return null
+      }
+    }
+
     const sendSessionToIframe = () => {
       // Prevent duplicate sends - only send once per iframe load
       if (hasSentIdentity) {
         console.log("⏭️ Identity already sent, skipping duplicate send")
         return
       }
-      // Don't check contentWindow here - it can cause cross-origin errors
-      // Just try to send the message and let it fail gracefully if needed
       
       let session = getGameSession()
       
@@ -125,10 +134,14 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
           return
         }
 
+        // Get the iframe's exact origin from its src URL
+        const targetOrigin = getIframeOrigin()
+        if (!targetOrigin) {
+          console.warn("⚠️ Cannot determine iframe origin from src URL, falling back to '*'")
+          // Fallback to '*' only if we can't determine origin
+        }
+
         // Send session data to iframe
-        // For cross-origin iframes, we need to use "*" or the iframe's actual origin
-        // Since we can't reliably get the iframe's origin due to CORS, we use "*"
-        // Ape In will validate the origin on its side
         const messagePayload = {
           type: "ARCADE_IDENTITY",
           session: session,
@@ -145,23 +158,13 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
         
         // Log the exact message structure being sent
         console.log("📤 Sending identity message:", JSON.stringify(messagePayload, null, 2))
-        console.log("📤 Message structure breakdown:", {
-          "event.data.type": messagePayload.type,
-          "event.data.session": "Full GameSession object (see below)",
-          "event.data.sessionId": messagePayload.sessionId,
-          "event.data.userId": messagePayload.userId,
-          "event.data.username": messagePayload.username,
-          "event.data.address": messagePayload.address,
-          "event.data.thirdwebClientId": messagePayload.thirdwebClientId,
-          "event.data.tickets": messagePayload.tickets,
-          "event.data.points": messagePayload.points,
-        })
+        console.log("📤 Target origin:", targetOrigin || "*")
         console.log("📤 Full session object:", JSON.stringify(session, null, 2))
         
-        // Use "*" for cross-origin iframes - Ape In will validate the origin
-        contentWindow.postMessage(messagePayload, "*")
+        // Use exact origin if available, otherwise fallback to '*' for cross-origin iframes
+        contentWindow.postMessage(messagePayload, targetOrigin || "*")
         hasSentIdentity = true // Mark as sent to prevent duplicates
-        console.log("✅ postMessage called with target origin: '*' - Identity sent successfully")
+        console.log(`✅ postMessage called with target origin: '${targetOrigin || "*"}' - Identity sent successfully`)
         
         // Clear any pending retry intervals since we've successfully sent
         if (retryInterval) {
@@ -257,11 +260,13 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
       ]
       
       if (!allowedOrigins.includes(event.origin)) {
+        console.log("⚠️ Message from unauthorized origin:", event.origin, "- ignoring")
         return
       }
 
-      if (event.data?.type === "REQUEST_ARCADE_IDENTITY") {
-        console.log("📥 Received identity request from iframe - sending identity...")
+      // Handle ARCADE_SESSION_REQUEST (child requesting session)
+      if (event.data?.type === "ARCADE_SESSION_REQUEST" || event.data?.type === "REQUEST_ARCADE_IDENTITY") {
+        console.log("📥 Received session request from iframe - sending identity...")
         // Reset the flag to allow sending again if requested
         hasSentIdentity = false
         // Send immediately when requested
