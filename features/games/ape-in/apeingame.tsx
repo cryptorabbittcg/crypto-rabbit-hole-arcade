@@ -209,12 +209,28 @@ export function ApeInGame({
   }, [])
 
   // Handle intro completion (SmartBotIntro passes skip: boolean)
-  const handleIntroComplete = useCallback((skip: boolean = false) => {
+  const handleIntroComplete = useCallback(async (skip: boolean = false) => {
+    console.log('🎬 Intro completed, starting game...', { skip, selectedMode, gameId })
     setShowIntro(false)
     if (selectedMode) {
       markIntroCompleted(selectedMode)
     }
-  }, [selectedMode, markIntroCompleted])
+    
+    // Ensure game state is set to playing after intro completes
+    if (gameId) {
+      try {
+        // Refresh game state to ensure it's properly initialized
+        const gameState = await gameAPI.getGameState(gameId)
+        if (gameState) {
+          setGameState(gameState)
+          // If game is still in waiting state, we'll transition to playing on first card draw
+          // The draw card route will handle the transition
+        }
+      } catch (error) {
+        console.error('Failed to refresh game state after intro:', error)
+      }
+    }
+  }, [selectedMode, markIntroCompleted, gameId, setGameState])
 
   // Handle game end (called from GameBoard)
   const handleGameEnd = useCallback((result: {
@@ -320,6 +336,7 @@ export function ApeInGame({
       <SmartBotIntro
         mode={selectedMode}
         onComplete={handleIntroComplete}
+        autoPlay={true} // Auto-start game after intro completes (matches original behavior)
       />
     )
   }

@@ -41,9 +41,16 @@ export async function POST(
       )
     }
 
-    // Start game if in waiting state
+    // Start game if in waiting state (first draw starts the game and round 1)
     if (gameState.gameStatus === 'waiting') {
       gameState.gameStatus = 'playing'
+      // Ensure round 1 is set when game starts (first draw initiates round 1)
+      if (gameState.roundCount === 0) {
+        gameState.roundCount = 1
+      }
+      // Update game state to reflect game start
+      const { updateGame } = await import('@/lib/ape-in/game-store')
+      updateGame(gameId, gameState)
     }
 
     // Draw card using weighted drawing (no physical deck)
@@ -56,9 +63,16 @@ export async function POST(
 
     const card = GameService.drawCard(gameId, gameState.playerId)
 
-    console.log('✅ Card drawn:', card.name)
+    // Return updated game state along with card for frontend sync
+    const updatedState = GameService.getGameData(gameId)
+    
+    console.log('✅ Card drawn:', card.name, 'Round:', updatedState.roundCount, 'Game Status:', updatedState.gameStatus)
 
-    return NextResponse.json(card)
+    // Return card with gameState for frontend to sync
+    return NextResponse.json({
+      ...card,
+      gameState: updatedState
+    })
   } catch (error: any) {
     console.error('❌ Error drawing card:', error)
     return NextResponse.json(

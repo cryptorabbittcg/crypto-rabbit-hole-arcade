@@ -44,12 +44,12 @@ export class GameService {
       opponentTurnScore: 0,
       currentCard: null,
       lastRoll: null,
-      roundCount: 0,
+      roundCount: 1, // Start at round 1 (first round begins when game starts)
       maxRounds,
       unlimitedRounds: noRoundLimit,
       winningScore,
       isPlayerTurn: true,
-      gameStatus: mode === 'pvp' || mode === 'multiplayer' ? 'waiting' : 'playing',
+      gameStatus: mode === 'pvp' || mode === 'multiplayer' ? 'waiting' : 'waiting', // Start in waiting until intro completes
       winner: null,
       apeInActive: false,
       usedBearishFlags: [],
@@ -288,9 +288,16 @@ export class GameService {
       gameState.winner = gameState.opponentName || 'Opponent'
     }
 
-    // Increment round ONLY when AI player completes their turn
+    // Increment round ONLY when AI player completes their turn (not on player's turn)
+    // Rounds start at 1, so we increment after the bot's first turn completes
     if (!isPlayer && gameState.gameStatus !== 'finished') {
-      gameState.roundCount += 1
+      // Only increment if we're past round 1 (bot has completed at least one turn)
+      if (gameState.roundCount >= 1) {
+        gameState.roundCount += 1
+      } else {
+        // This shouldn't happen, but ensure round is at least 1
+        gameState.roundCount = 1
+      }
     }
 
     // Check max rounds (only for games with round limits)

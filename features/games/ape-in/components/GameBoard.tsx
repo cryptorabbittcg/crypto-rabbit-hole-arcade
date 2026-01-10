@@ -4,7 +4,7 @@ import Card from './Card'
 import Dice from './Dice'
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { gameAPI } from '../lib/api'
-import { GameMode } from '../types/game'
+import { GameMode, GameState } from '../types/game'
 import { verifyApeInGameWithZkVerify, mockVerifyApeInGame, createGameStateFromGame, type ApeInGameState, type GameMove } from '../lib/zkverify'
 import { useArcade } from '@/components/providers'
 import { isRankedMode } from '../utils/constants'
@@ -110,14 +110,25 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
     }
   }
 
-  // Detect round changes and show popup
+  // Detect round changes and show popup (including initial round 1)
   React.useEffect(() => {
-    if (roundCount > currentRound && !isBotPlaying) {
+    // Show round popup when game starts (round 1) or when round changes
+    // Only show if game is playing and not during bot turn
+    if (roundCount >= 1 && roundCount !== currentRound && !isBotPlaying && (gameStatus === 'playing' || gameStatus === 'waiting')) {
       setCurrentRound(roundCount)
       setShowRoundPopup(true)
       setTimeout(() => setShowRoundPopup(false), 2500)
     }
-  }, [roundCount, currentRound, isBotPlaying])
+  }, [roundCount, currentRound, isBotPlaying, gameStatus])
+  
+  // Show round 1 popup when game first starts playing (after intro)
+  React.useEffect(() => {
+    if (gameStatus === 'playing' && roundCount === 1 && currentRound === 0 && !isBotPlaying && !showRoundPopup) {
+      setCurrentRound(1)
+      setShowRoundPopup(true)
+      setTimeout(() => setShowRoundPopup(false), 2500)
+    }
+  }, [gameStatus, roundCount, currentRound, isBotPlaying, showRoundPopup])
 
   const handleDrawCard = async () => {
     if (!isPlayerTurn || isDrawing) return
@@ -126,36 +137,51 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
     setFloatingMessage(null)
 
     try {
-      const card = await gameAPI.drawCard(gameId)
+      const response = await gameAPI.drawCard(gameId)
+      
+      // Handle response - API returns card with optional gameState
+      const card = response as Card & { gameState?: GameState }
+      const updatedGameState = (response as any).gameState || null
       
       // Track move for zkVerify
       const move: GameMove = {
         type: 'draw_card',
         value: card.value,
         timestamp: Date.now(),
-        round: roundCount
+        round: updatedGameState?.roundCount || roundCount
       }
       setGameMoves(prev => [...prev, move])
       setCardsDrawn(prev => [...prev, card.value])
       
-      // Refresh game state to sync
-      await refreshGameState()
+      // Update game state if provided (from first draw that starts the game)
+      if (updatedGameState) {
+        setGameState(updatedGameState)
+        // Update current card - new card always replaces current card
+        // (Ape In! effect is tracked separately in gameState.apeInActive)
+        setCurrentCard(card)
+      } else {
+        // Fallback: refresh game state to sync
+        await refreshGameState()
+        setCurrentCard(card)
+      }
 
       if (card.name === 'Ape In!') {
-        // Ape In! card - show message, keep card visible until next draw
+        // Ape In! card - show message, effect activates (next card will be doubled)
         setFloatingMessage({text: '🚀 APE IN ACTIVATED! Next card value DOUBLED!'})
         useGameStore.getState().activateApeIn()
         
-        // Clear the floating message after 2 seconds but keep the Ape In! card visible
+        // Clear the floating message after 2 seconds
+        // Note: Ape In! card stays visible until player draws next card
         setTimeout(() => {
           setFloatingMessage(null)
         }, 2000)
       }
 
       setIsDrawing(false)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to draw card:', error)
-      setFloatingMessage({text: 'Failed to draw card. Please try again.'})
+      const errorMessage = error?.message || error?.error || 'Failed to draw card. Please try again.'
+      setFloatingMessage({text: errorMessage})
       setIsDrawing(false)
     }
   }
@@ -193,22 +219,19 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
             sats: result.turnScore
           })
           
-          // Wait for message to display, THEN clear card (but keep Ape In! cards visible)
+          // Wait for message to display, THEN clear card
+          // Note: If Ape In! was active, the card value was already doubled and effect consumed
           setTimeout(async () => {
             setFloatingMessage(null)
-            // Only clear card if it's not an Ape In! card - Ape In! cards stay until next draw
-            if (!currentCard || currentCard.name !== "Ape In!") {
-              setCurrentCard(null)
-            }
+            // Clear the card (backend already cleared it after successful roll)
+            setCurrentCard(null)
             await refreshGameState()
           }, 2000)
         } else {
           // Player busted - show message then replay bot turn
           setFloatingMessage({text: result.message || 'Busted! Turn ended.'})
-          // Only clear card if it's not an Ape In! card - Ape In! cards stay until next draw
-          if (!currentCard || currentCard.name !== "Ape In!") {
-            setCurrentCard(null)
-          }
+          // Clear the card (turn ended, card is consumed)
+          setCurrentCard(null)
           
           setTimeout(async () => {
             setFloatingMessage(null)
@@ -735,9 +758,6 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
                 onClick={!isPlayerTurn || (!!currentCard && currentCard.type !== 'Special') || isDrawing || isBotPlaying ? undefined : handleDrawCard}
               />
             </div>
-            {!currentCard && !isDrawing && !isBotPlaying && (
-              <div className="text-xs text-slate-500 animate-pulse">👆 Click to draw</div>
-            )}
             {isBotPlaying && (
               <div className="text-sm text-emerald-400 font-semibold animate-pulse">
                 {opponentName}'s Turn
