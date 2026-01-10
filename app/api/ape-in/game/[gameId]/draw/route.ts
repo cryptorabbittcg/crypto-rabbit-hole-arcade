@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getGame, updateGame } from "@/lib/ape-in/game-store"
-import { drawCard } from "@/lib/ape-in/game-logic"
+import { GameService } from "@/lib/ape-in/game-service"
 
 export async function POST(
   request: NextRequest,
@@ -16,16 +15,15 @@ export async function POST(
       )
     }
 
-    const stored = getGame(gameId)
+    // Get game to check state
+    const gameState = GameService.getGameData(gameId)
 
-    if (!stored) {
+    if (!gameState) {
       return NextResponse.json(
         { error: "Game not found" },
         { status: 404 }
       )
     }
-
-    const { gameState, deck } = stored
 
     // Check if it's player's turn
     if (!gameState.isPlayerTurn) {
@@ -48,29 +46,23 @@ export async function POST(
       gameState.gameStatus = 'playing'
     }
 
-    // Draw card
-    const { card, remainingDeck } = drawCard(deck)
-
-    if (!card) {
+    // Draw card using weighted drawing (no physical deck)
+    if (!gameState.playerId) {
       return NextResponse.json(
-        { error: "Deck is empty" },
+        { error: "Player ID not found" },
         { status: 400 }
       )
     }
 
-    // Update game state
-    gameState.currentCard = card
-
-    // Update stored game
-    updateGame(gameId, gameState, remainingDeck)
+    const card = GameService.drawCard(gameId, gameState.playerId)
 
     console.log('✅ Card drawn:', card.name)
 
     return NextResponse.json(card)
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error drawing card:', error)
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: error.message || "Internal server error" },
       { status: 500 }
     )
   }

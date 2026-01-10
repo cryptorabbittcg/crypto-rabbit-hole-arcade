@@ -1,6 +1,6 @@
 // API Client for Ape In Game
 // Uses Next.js API routes (relative URLs)
-import { Card, GameState, LeaderboardEntry, GameMode } from '../types/game'
+import { Card, GameState, LeaderboardEntry, GameMode, BotAction, RollResult } from '../types/game'
 
 const API_BASE_URL = '/api/ape-in'
 
@@ -111,17 +111,17 @@ export const gameAPI = {
     })
   },
 
-  // Roll dice
-  rollDice: async (gameId: string): Promise<{ value: number; success: boolean; message?: string }> => {
-    return apiCall<{ value: number; success: boolean; message?: string }>(
+  // Roll dice - returns RollResult with botActions if player busted
+  rollDice: async (gameId: string): Promise<RollResult> => {
+    return apiCall<RollResult>(
       `/game/${gameId}/roll`,
       { method: 'POST' }
     )
   },
 
-  // Stack (end turn)
-  stackSats: async (gameId: string): Promise<GameState> => {
-    return apiCall<GameState>(`/game/${gameId}/stack`, {
+  // Stack (end turn) - returns GameState with botActions if bot turn occurs
+  stackSats: async (gameId: string): Promise<GameState & { botActions?: BotAction[] }> => {
+    return apiCall<GameState & { botActions?: BotAction[] }>(`/game/${gameId}/stack`, {
       method: 'POST',
     })
   },

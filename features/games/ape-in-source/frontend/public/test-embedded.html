@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Embedded Ape In Game</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #1e293b;
+      color: white;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .header {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    iframe {
+      width: 100%;
+      height: 800px;
+      border: 2px solid #475569;
+      border-radius: 8px;
+      background: #0f172a;
+    }
+    .controls {
+      margin-top: 20px;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #4f46e5;
+    }
+    .info {
+      margin-top: 10px;
+      padding: 10px;
+      background: rgba(59, 130, 246, 0.1);
+      border-radius: 4px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🧪 Test Embedded Ape In Game</h1>
+      <p>This page simulates the Arcade Hub parent window. The iframe below should receive identity via postMessage.</p>
+    </div>
+
+    <iframe id="gameIframe" src="http://localhost:3000"></iframe>
+
+    <div class="controls">
+      <h3>Control Panel</h3>
+      <button onclick="sendIdentity()">Send Identity to Game</button>
+      <button onclick="sendPong()">Send PONG Response</button>
+      <button onclick="clearIdentity()">Clear Identity</button>
+      <div class="info" id="info">
+        Click "Send Identity to Game" to send test identity to the embedded game.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const iframe = document.getElementById('gameIframe');
+    
+    // Test identity data
+    const testIdentity = {
+      address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
+      chainId: '33111',
+      displayName: 'Test Player',
+      username: 'testplayer',
+      avatarUrl: 'https://via.placeholder.com/150',
+      sessionId: 'test-session-' + Date.now(),
+      userId: 'test-user-001'
+    };
+
+    // Wait for iframe to load
+    iframe.addEventListener('load', () => {
+      console.log('✅ Iframe loaded');
+      // Auto-send identity after a short delay
+      setTimeout(() => {
+        sendIdentity();
+      }, 1000);
+    });
+
+    // Listen for messages from iframe
+    window.addEventListener('message', (event) => {
+      // Validate origin (in production, check against allowlist)
+      if (event.origin.startsWith('http://localhost') || event.origin.startsWith('http://127.0.0.1')) {
+        console.log('📥 Received message from iframe:', event.data);
+        
+        if (event.data.type === 'ARCADE_REQUEST_IDENTITY') {
+          console.log('🔄 Game requested identity, sending...');
+          sendIdentity();
+        } else if (event.data.type === 'ARCADE_PING') {
+          console.log('🏓 Received PING, sending PONG...');
+          sendPong();
+        }
+      } else {
+        console.warn('⚠️ Rejected message from unauthorized origin:', event.origin);
+      }
+    });
+
+    function sendIdentity() {
+      const message = {
+        type: 'ARCADE_IDENTITY',
+        data: testIdentity,
+        timestamp: Date.now()
+      };
+      
+      iframe.contentWindow?.postMessage(message, '*');
+      document.getElementById('info').innerHTML = `
+        ✅ Sent identity to game:<br>
+        Address: ${testIdentity.address}<br>
+        Name: ${testIdentity.displayName}<br>
+        Session: ${testIdentity.sessionId}
+      `;
+      console.log('📤 Sent identity to iframe:', message);
+    }
+
+    function sendPong() {
+      const message = {
+        type: 'ARCADE_PONG',
+        timestamp: Date.now()
+      };
+      
+      iframe.contentWindow?.postMessage(message, '*');
+      console.log('🏓 Sent PONG to iframe');
+    }
+
+    function clearIdentity() {
+      document.getElementById('info').innerHTML = 'Identity cleared. Click "Send Identity to Game" to send again.';
+      console.log('🗑️ Identity cleared');
+    }
+  </script>
+</body>
+</html>
+

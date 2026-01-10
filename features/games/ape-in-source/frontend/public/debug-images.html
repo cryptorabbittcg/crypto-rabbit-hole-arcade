@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Debug Test</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #1e293b; color: #f8fafc; }
+        .container { max-width: 800px; margin: auto; background-color: #334155; padding: 20px; border-radius: 8px; }
+        .test-section { margin-bottom: 30px; padding: 15px; background-color: #475569; border-radius: 5px; }
+        .test-image { width: 100px; height: 100px; border: 2px solid #a78bfa; margin: 10px; border-radius: 50%; object-fit: cover; }
+        .status { font-weight: bold; margin-left: 10px; }
+        .status.loaded { color: #4ade80; }
+        .status.failed { color: #ef4444; }
+        h1, h2 { color: #a78bfa; }
+        .url-test { margin: 10px 0; padding: 10px; background-color: #1e293b; border-radius: 3px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Image Debug Test Page</h1>
+        <p>Testing different ways to load the bot portrait images...</p>
+
+        <div class="test-section">
+            <h2>Test 1: Direct Path with Cache Busting</h2>
+            <div class="url-test">URL: /assets/bots/sandy.png?v=1234567890</div>
+            <img id="test1" class="test-image" src="/assets/bots/sandy.png?v=1234567890" alt="Sandy Test 1">
+            <div id="status1" class="status">Loading...</div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 2: Direct Path without Cache Busting</h2>
+            <div class="url-test">URL: /assets/bots/sandy.png</div>
+            <img id="test2" class="test-image" src="/assets/bots/sandy.png" alt="Sandy Test 2">
+            <div id="status2" class="status">Loading...</div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 3: All Bot Portraits</h2>
+            <div id="all-bots"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Console Logs</h2>
+            <div id="console-logs" style="background-color: #1e293b; padding: 10px; border-radius: 3px; font-family: monospace; max-height: 200px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <script>
+        const bots = ['sandy', 'aida', 'lana', 'enj1n', 'nifty'];
+        const logs = [];
+
+        function log(message) {
+            logs.push(`${new Date().toLocaleTimeString()}: ${message}`);
+            document.getElementById('console-logs').innerHTML = logs.join('<br>');
+            console.log(message);
+        }
+
+        function testImage(img, statusId, testName) {
+            img.onload = function() {
+                document.getElementById(statusId).textContent = '✅ Loaded';
+                document.getElementById(statusId).className = 'status loaded';
+                log(`${testName}: Image loaded successfully`);
+            };
+            
+            img.onerror = function() {
+                document.getElementById(statusId).textContent = '❌ Failed';
+                document.getElementById(statusId).className = 'status failed';
+                log(`${testName}: Image failed to load`);
+            };
+        }
+
+        // Test individual images
+        testImage(document.getElementById('test1'), 'status1', 'Test 1 (Cache Bust)');
+        testImage(document.getElementById('test2'), 'status2', 'Test 2 (No Cache Bust)');
+
+        // Test all bots
+        const allBotsDiv = document.getElementById('all-bots');
+        bots.forEach((bot, index) => {
+            const container = document.createElement('div');
+            container.style.margin = '10px 0';
+            
+            const img = document.createElement('img');
+            img.className = 'test-image';
+            img.src = `/assets/bots/${bot}.png`;
+            img.alt = `${bot} avatar`;
+            
+            const status = document.createElement('div');
+            status.className = 'status';
+            status.textContent = 'Loading...';
+            status.id = `bot-status-${index}`;
+            
+            const label = document.createElement('div');
+            label.textContent = `${bot}.png`;
+            label.style.fontFamily = 'monospace';
+            label.style.fontSize = '12px';
+            label.style.color = '#94a3b8';
+            
+            container.appendChild(label);
+            container.appendChild(img);
+            container.appendChild(status);
+            allBotsDiv.appendChild(container);
+            
+            testImage(img, `bot-status-${index}`, `Bot ${bot}`);
+        });
+
+        log('Image debug test initialized');
+    </script>
+</body>
+</html>

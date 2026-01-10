@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createApeInGame, buildDeck } from "@/lib/ape-in/game-logic"
-import { storeGame } from "@/lib/ape-in/game-store"
+import { GameService } from "@/lib/ape-in/game-service"
 import { GameMode } from "@/features/games/ape-in/types/game"
-import { isRankedMode } from "@/features/games/ape-in/utils/constants"
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,19 +38,13 @@ export async function POST(request: NextRequest) {
 
     console.log('🎮 Creating game:', { mode, playerName, walletAddress: walletAddress?.slice(0, 10) + '...' })
 
-    // Create game state
-    const gameState = createApeInGame({
-      mode: mode as GameMode,
+    // Create game using GameService (uses weighted card drawing, no deck needed)
+    const gameState = GameService.createGame(
+      mode as GameMode,
       playerName,
       walletAddress,
-      isDailyFree: isDailyFree || false,
-    })
-
-    // Build card deck
-    const deck = buildDeck(mode as GameMode)
-
-    // Store game
-    storeGame(gameState.gameId, gameState, deck)
+      isDailyFree || false
+    )
 
     console.log('✅ Game created:', gameState.gameId)
 

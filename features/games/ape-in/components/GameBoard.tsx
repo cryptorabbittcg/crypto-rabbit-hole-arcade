@@ -371,9 +371,17 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
         await gameAPI.forfeitGame(gameId)
         setFloatingMessage({text: 'Game forfeited.'})
         // Game will end and result submission will pick up FORFEIT status
-        setTimeout(() => {
-          window.location.href = '/'
-        }, 2000)
+        // Use onGameEnd callback instead of navigate (for arcade hub integration)
+        if (onGameEnd) {
+          setTimeout(() => {
+            onGameEnd({
+              winner: opponentName || 'Opponent',
+              playerScore: 0,
+              opponentScore: opponentScore,
+              hasForfeited: true,
+            })
+          }, 2000)
+        }
       } catch (error) {
         console.error('Failed to forfeit:', error)
         setHasForfeited(false) // Reset on error
@@ -614,12 +622,12 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
           <div className="flex items-center justify-center space-x-3">
             {/* Bot Avatar in Game Over Screen */}
             <img 
-              src={`/assets/bots/${gameMode}.gif`} 
+              src={`/features/games/ape-in/assets/images/bots/${gameMode}.gif`} 
               alt={`${gameMode} avatar`} 
               className="w-8 h-8 object-cover rounded-full border-2 border-purple-500/50 shadow-lg" 
               onError={(e) => {
                 console.log(`GIF failed for ${gameMode} Game Over, trying PNG...`);
-                e.currentTarget.src = `/assets/bots/${gameMode}.png`;
+                e.currentTarget.src = `/features/games/ape-in/assets/images/bots/${gameMode}.png`;
               }}
               onLoad={(e) => {
                 console.log(`Successfully loaded GIF Game Over portrait for ${gameMode}`);
@@ -628,7 +636,20 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
             <span>{opponentName} Score: <span className="score-display">{opponentScore}</span></span>
           </div>
         </div>
-        <button onClick={() => window.location.href = '/'} className="btn-primary text-lg">
+        <button 
+          onClick={() => {
+            // Use onGameEnd callback to signal game restart (parent handles navigation)
+            if (onGameEnd) {
+              onGameEnd({
+                winner: winner || 'Draw',
+                playerScore,
+                opponentScore,
+                hasForfeited: false,
+              })
+            }
+          }} 
+          className="btn-primary text-lg"
+        >
           Play Again
         </button>
       </motion.div>
@@ -678,12 +699,12 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
           {/* Bot Avatar */}
           <div className="flex justify-center mb-2">
             <img 
-              src={`/assets/bots/${gameMode}.gif`} 
+              src={`/features/games/ape-in/assets/images/bots/${gameMode}.gif`} 
               alt={`${gameMode} avatar`} 
               className="w-8 h-8 sm:w-10 sm:h-10 object-cover rounded-full border-2 border-purple-500/50 shadow-lg cursor-pointer hover:scale-110 transition-transform duration-200" 
               onError={(e) => {
                 console.log(`GIF failed for ${gameMode} GameBoard, trying PNG...`);
-                e.currentTarget.src = `/assets/bots/${gameMode}.png`;
+                e.currentTarget.src = `/features/games/ape-in/assets/images/bots/${gameMode}.png`;
               }}
               onLoad={(e) => {
                 console.log(`Successfully loaded GIF GameBoard score portrait for ${gameMode}`);
@@ -901,12 +922,12 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
             <div className="text-center">
               <div className="w-32 h-32 mx-auto mb-4 rounded-full overflow-hidden border-4 border-purple-500/50 shadow-xl">
                 <img 
-                  src={`/assets/bots/${gameMode}.gif`} 
+                  src={`/features/games/ape-in/assets/images/bots/${gameMode}.gif`} 
                   alt={`${gameMode} avatar`} 
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     console.log(`GIF failed for ${gameMode} enlarged, trying PNG...`);
-                    e.currentTarget.src = `/assets/bots/${gameMode}.png`;
+                    e.currentTarget.src = `/features/games/ape-in/assets/images/bots/${gameMode}.png`;
                   }}
                   onLoad={(e) => {
                     console.log(`Successfully loaded GIF enlarged portrait for ${gameMode}`);

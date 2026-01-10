@@ -71,6 +71,13 @@ export interface GameState {
   gameStatus: 'waiting' | 'playing' | 'finished'
   winner: string | null
   apeInActive: boolean
+  // Additional fields from original implementation
+  usedBearishFlags?: string[]  // Track used bearish penalties to prevent repeats
+  gameLog?: any[]               // Game action log for debugging
+  playerName?: string           // Player name
+  opponentName?: string         // Opponent name
+  playerId?: string             // Player ID
+  opponentId?: string           // Opponent ID
 }
 
 export interface Player {
@@ -94,6 +101,26 @@ export interface DiceRoll {
   value: number
   success: boolean
   message?: string
+}
+
+export interface BotAction {
+  type: 'draw' | 'roll' | 'ape_in' | 'stack' | 'decision'
+  card?: Card
+  value?: number
+  success?: boolean
+  turnScore?: number
+  message?: string
+  finalScore?: number
+  diceProfile?: string
+}
+
+export interface RollResult {
+  value: number
+  success: boolean
+  message?: string
+  satsGained?: number          // Points gained this roll
+  turnScore?: number           // Current turn score after roll
+  botActions?: BotAction[]     // Full bot turn if player busted
 }
 
 export interface GameAction {

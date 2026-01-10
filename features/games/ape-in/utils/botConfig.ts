@@ -1,5 +1,22 @@
 import { GameMode } from '../types/game'
 
+export interface RiskConfig {
+  basePush?: number
+  behindPush?: number
+  behindGap?: number
+  midMin?: number
+  midMax?: number
+  midPush?: number
+  highStack?: number
+  stackAt?: number
+  stackBias?: number
+}
+
+export interface JitterConfig {
+  enabled: boolean
+  pct: number
+}
+
 export interface BotConfig {
   name: string
   difficulty: string
@@ -9,6 +26,12 @@ export interface BotConfig {
   personality: string
   price: number
   hasDailyFree: boolean
+  // AI-specific configuration (only for single-player bot modes)
+  targetScores?: number[]
+  risk?: RiskConfig
+  jitter?: JitterConfig
+  diceModes?: string[]
+  noRoundLimit?: boolean
 }
 
 export const BOT_CONFIGS: Record<GameMode, BotConfig> = {
@@ -20,7 +43,11 @@ export const BOT_CONFIGS: Record<GameMode, BotConfig> = {
     description: 'Learn the ropes with Sandy. Perfect for beginners!',
     personality: 'Friendly and encouraging',
     price: 0,
-    hasDailyFree: false
+    hasDailyFree: false,
+    targetScores: [21],
+    risk: { basePush: 0.10, behindPush: 0.20, behindGap: 50 },
+    jitter: { enabled: false, pct: 0.0 },
+    diceModes: ['sandy']
   },
   aida: {
     name: 'Aida',
@@ -30,7 +57,11 @@ export const BOT_CONFIGS: Record<GameMode, BotConfig> = {
     description: 'Strategic and efficient. A balanced challenge.',
     personality: 'Strategic and analytical',
     price: 0.10,
-    hasDailyFree: true
+    hasDailyFree: true,
+    targetScores: [21, 26, 40],
+    risk: { midMin: 21, midMax: 39, midPush: 0.50, highStack: 40, behindGap: 30, behindPush: 0.60 },
+    jitter: { enabled: true, pct: 0.10 },
+    diceModes: ['aida', 'aida_aggressive']
   },
   lana: {
     name: 'Lana',
@@ -40,7 +71,11 @@ export const BOT_CONFIGS: Record<GameMode, BotConfig> = {
     description: 'High-risk, high-reward gameplay. Can you keep up?',
     personality: 'Bold and daring',
     price: 0.10,
-    hasDailyFree: false
+    hasDailyFree: false,
+    targetScores: [30],
+    risk: { stackAt: 30, stackBias: 0.70 },
+    jitter: { enabled: true, pct: 0.10 },
+    diceModes: ['lana', 'lana_aggressive']
   },
   enj1n: {
     name: 'En-J1n',
@@ -50,7 +85,12 @@ export const BOT_CONFIGS: Record<GameMode, BotConfig> = {
     description: 'Relentless and aggressive. Only for the brave!',
     personality: 'Calculated chaos',
     price: 0.10,
-    hasDailyFree: true
+    hasDailyFree: true,
+    targetScores: [34, 42, 55],
+    risk: { behindGap: 20, stackAt: 50, basePush: 0.75 },
+    jitter: { enabled: true, pct: 0.10 },
+    diceModes: ['enj1n', 'enj1n_aggressive'],
+    noRoundLimit: true
   },
   nifty: {
     name: 'Nifty',
@@ -60,7 +100,12 @@ export const BOT_CONFIGS: Record<GameMode, BotConfig> = {
     description: 'Unpredictable and creative strategies await.',
     personality: 'Clever and unpredictable',
     price: 0.10,
-    hasDailyFree: false
+    hasDailyFree: false,
+    targetScores: [50],
+    risk: { stackAt: 50, behindGap: 20 },
+    jitter: { enabled: true, pct: 0.10 },
+    diceModes: ['nifty', 'nifty_aggressive'],
+    noRoundLimit: true
   },
   pvp: {
     name: 'PvP',

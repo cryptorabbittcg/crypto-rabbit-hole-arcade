@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getGame } from "@/lib/ape-in/game-store"
+import { GameService } from "@/lib/ape-in/game-service"
 
 export async function GET(
   request: NextRequest,
@@ -15,20 +15,13 @@ export async function GET(
       )
     }
 
-    const game = getGame(gameId)
+    const gameState = GameService.getGameData(gameId)
 
-    if (!game) {
-      return NextResponse.json(
-        { error: "Game not found" },
-        { status: 404 }
-      )
-    }
-
-    return NextResponse.json(game.gameState)
-  } catch (error) {
+    return NextResponse.json(gameState)
+  } catch (error: any) {
     console.error('❌ Error getting game:', error)
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: error.message || "Internal server error" },
       { status: 500 }
     )
   }

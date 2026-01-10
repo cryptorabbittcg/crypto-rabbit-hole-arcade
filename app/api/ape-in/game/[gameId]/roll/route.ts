@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getGame, updateGame } from "@/lib/ape-in/game-store"
-import { rollDice, calculateDiceSuccess, applyCardPenalty, checkGameWon } from "@/lib/ape-in/game-logic"
-import { GameState } from "@/features/games/ape-in/types/game"
+import { GameService } from "@/lib/ape-in/game-service"
 
 export async function POST(
   request: NextRequest,
@@ -17,16 +15,15 @@ export async function POST(
       )
     }
 
-    const stored = getGame(gameId)
+    // Get game to check state
+    const gameState = GameService.getGameData(gameId)
 
-    if (!stored) {
+    if (!gameState) {
       return NextResponse.json(
         { error: "Game not found" },
         { status: 404 }
       )
     }
-
-    const { gameState } = stored
 
     // Check if it's player's turn
     if (!gameState.isPlayerTurn) {
@@ -52,71 +49,47 @@ export async function POST(
       )
     }
 
-    // Roll dice
-    const roll = rollDice()
-    gameState.lastRoll = roll
+    if (!gameState.playerId) {
+      return NextResponse.json(
+        { error: "Player ID not found" },
+        { status: 400 }
+      )
+    }
 
-    // Calculate success
-    const { success, message } = calculateDiceSuccess(gameState.currentCard, roll)
+    // Roll dice using GameService (handles all game logic)
+    const rollResult = GameService.rollDiceAction(gameId, gameState.playerId, "balanced")
 
-    if (success) {
-      // Add card value to turn score
-      let turnScore = gameState.playerTurnScore + gameState.currentCard.value
-
-      // Apply penalty if Bearish card
-      if (gameState.currentCard.type === 'Bearish' && gameState.currentCard.penalty) {
-        turnScore = applyCardPenalty(gameState.playerTurnScore, gameState.currentCard.penalty)
+    // If player busted, execute bot turn and return bot actions
+    let botActions: any[] | undefined = undefined
+    if (!rollResult.success && gameState.mode !== 'pvp' && gameState.mode !== 'multiplayer' && gameState.mode !== 'tournament') {
+      // Player busted - bot's turn
+      const updatedState = GameService.getGameData(gameId)
+      if (updatedState.gameStatus === 'playing') {
+        botActions = GameService.executeBotTurn(gameId)
       }
-
-      gameState.playerTurnScore = Math.max(0, turnScore)
-
-      // Check for Ape In activation (Special card)
-      if (gameState.currentCard.type === 'Special' && gameState.currentCard.name === 'Ape_In') {
-        gameState.apeInActive = true
-      }
-    } else {
-      // Failed roll - turn score resets, turn ends
-      gameState.playerTurnScore = 0
-      gameState.isPlayerTurn = false
-      gameState.currentCard = null
-      gameState.roundCount += 1
     }
 
-    // Check for game win
-    const { isWon, winner } = checkGameWon(
-      gameState.playerScore + gameState.playerTurnScore,
-      gameState.opponentScore,
-      gameState.winningScore,
-      gameState.roundCount,
-      gameState.maxRounds
-    )
-
-    if (isWon) {
-      gameState.gameStatus = 'finished'
-      const gameStateWithNames = gameState as GameState & { playerName?: string; opponentName?: string }
-      gameState.winner = winner === 'player' ? gameStateWithNames.playerName || 'Player' : gameStateWithNames.opponentName || 'Opponent'
+    // Check for game win after roll
+    const finalState = GameService.getGameData(gameId)
+    const response: any = {
+      value: rollResult.value,
+      success: rollResult.success,
+      message: rollResult.message,
+      satsGained: rollResult.satsGained,
+      turnScore: rollResult.turnScore,
     }
 
-    // Clear current card after roll
-    const currentCard = gameState.currentCard
-    if (!success || isWon) {
-      gameState.currentCard = null
+    if (botActions) {
+      response.botActions = botActions
     }
 
-    // Update stored game
-    updateGame(gameId, gameState, stored.deck)
+    console.log('✅ Dice rolled:', rollResult.value, rollResult.success ? 'Success' : 'Failed', botActions ? `(Bot turn: ${botActions.length} actions)` : '')
 
-    console.log('✅ Dice rolled:', roll, success ? 'Success' : 'Failed')
-
-    return NextResponse.json({
-      value: roll,
-      success,
-      message,
-    })
-  } catch (error) {
+    return NextResponse.json(response)
+  } catch (error: any) {
     console.error('❌ Error rolling dice:', error)
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: error.message || "Internal server error" },
       { status: 500 }
     )
   }

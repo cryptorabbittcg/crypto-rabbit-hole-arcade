@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getGame, updateGame } from "@/lib/ape-in/game-store"
-import { GameState } from "@/features/games/ape-in/types/game"
+import { GameService } from "@/lib/ape-in/game-service"
 
 export async function POST(
   request: NextRequest,
@@ -16,16 +15,15 @@ export async function POST(
       )
     }
 
-    const stored = getGame(gameId)
+    // Get game to check state
+    const gameState = GameService.getGameData(gameId)
 
-    if (!stored) {
+    if (!gameState) {
       return NextResponse.json(
         { error: "Game not found" },
         { status: 404 }
       )
     }
-
-    const { gameState } = stored
 
     // Check if game is active
     if (gameState.gameStatus !== 'playing' && gameState.gameStatus !== 'waiting') {
@@ -35,22 +33,23 @@ export async function POST(
       )
     }
 
-    // Forfeit: opponent wins
-    gameState.gameStatus = 'finished'
-    const gameStateWithNames = gameState as GameState & { opponentName?: string }
-    gameState.winner = gameStateWithNames.opponentName || 'Opponent'
-    gameState.playerTurnScore = 0 // Reset turn score
+    if (!gameState.playerId) {
+      return NextResponse.json(
+        { error: "Player ID not found" },
+        { status: 400 }
+      )
+    }
 
-    // Update stored game
-    updateGame(gameId, gameState, stored.deck)
+    // Forfeit: opponent wins
+    const forfeitedState = GameService.forfeitGame(gameId, gameState.playerId)
 
     console.log('✅ Game forfeited:', gameId)
 
-    return NextResponse.json(gameState)
-  } catch (error) {
+    return NextResponse.json(forfeitedState)
+  } catch (error: any) {
     console.error('❌ Error forfeiting game:', error)
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: error.message || "Internal server error" },
       { status: 500 }
     )
   }

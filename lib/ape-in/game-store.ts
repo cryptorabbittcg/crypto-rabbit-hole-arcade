@@ -1,13 +1,13 @@
 /**
  * Ape In Game Store
  * Stores active game states in memory (can be extended to use Vercel KV or Supabase)
+ * Note: Original implementation uses weighted card drawing (no physical deck)
  */
 
-import { GameState, Card } from "@/features/games/ape-in/types/game"
+import { GameState } from "@/features/games/ape-in/types/game"
 
 interface StoredGame {
   gameState: GameState
-  deck: Card[]
   createdAt: number
   updatedAt: number
 }
@@ -18,22 +18,24 @@ const gameStore = new Map<string, StoredGame>()
 
 /**
  * Store a game
+ * Note: No deck parameter - original uses weighted drawing, not physical deck
  */
-export function storeGame(gameId: string, gameState: GameState, deck: Card[]): void {
+export function storeGame(gameId: string, gameState: GameState): void {
   gameStore.set(gameId, {
     gameState,
-    deck,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   })
   
-  // Cleanup old games (older than 24 hours)
-  const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000
-  for (const [id, game] of gameStore.entries()) {
-    if (game.updatedAt < oneDayAgo) {
-      gameStore.delete(id)
-    }
-  }
+    // Cleanup old games (older than 24 hours)
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000
+    const keysToDelete: string[] = []
+    gameStore.forEach((game, id) => {
+      if (game.updatedAt < oneDayAgo) {
+        keysToDelete.push(id)
+      }
+    })
+    keysToDelete.forEach(id => gameStore.delete(id))
 }
 
 /**
@@ -45,8 +47,9 @@ export function getGame(gameId: string): StoredGame | null {
 
 /**
  * Update game state
+ * Note: No deck parameter - original uses weighted drawing, not physical deck
  */
-export function updateGame(gameId: string, gameState: GameState, deck: Card[]): void {
+export function updateGame(gameId: string, gameState: GameState): void {
   const existing = gameStore.get(gameId)
   if (!existing) {
     throw new Error(`Game ${gameId} not found`)
@@ -54,7 +57,6 @@ export function updateGame(gameId: string, gameState: GameState, deck: Card[]): 
   
   gameStore.set(gameId, {
     gameState,
-    deck,
     createdAt: existing.createdAt,
     updatedAt: Date.now(),
   })
