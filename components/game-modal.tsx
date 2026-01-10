@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { useEffect, useRef } from "react"
 import { useArcade } from "@/components/providers"
 import { CryptokuGame } from "@/features/games/cryptoku/cryptokugame"
+import ApeInGame from "@/features/games/ape-in/apeingame"
 import { getGameSession } from "@/lib/game-session"
 
 interface GameModalProps {
@@ -40,14 +41,16 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
     }
   }, [isOpen])
 
-  // Send session data to iframe when it loads (for Ape In cross-origin communication)
+  // Send session data to iframe when it loads (for external games via iframe)
+  // NOTE: Ape In is now integrated as a component, so this is only for other iframe games
   useEffect(() => {
     if (!isOpen || !iframeRef.current) return
 
     const iframe = iframeRef.current
     const isApeIn = gameTitle === "Ape In!"
 
-    if (!isApeIn) return
+    // Skip postMessage logic for Ape In - it's now a direct component
+    if (isApeIn) return
 
     let retryInterval: NodeJS.Timeout | null = null
     let hasSentIdentity = false // Guard to prevent duplicate sends
@@ -316,6 +319,7 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
   if (!isOpen) return null
 
   const isCryptoku = gameTitle === "Cryptoku!"
+  const isApeIn = gameTitle === "Ape In!"
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm animate-in fade-in duration-300">
@@ -357,6 +361,30 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
                 //   console.log("🎫 Adding ticket for Cryptoku win")
                 //   addTickets(1)
                 // }
+              }}
+            />
+          </div>
+        ) : isApeIn ? (
+          <div className="w-full h-full overflow-auto bg-black">
+            <ApeInGame
+              playerAddress={address}
+              profileUsername={profile.username}
+              profileAvatarUrl={profile.avatar}
+              onGameStart={() => {
+                console.log("🎮 Ape In game started")
+              }}
+              onGameEnd={(result) => {
+                console.log("🎮 Ape In game ended:", result)
+                // Add points when game ends (only for ranked modes with points > 0)
+                if (result.points !== undefined && result.points > 0) {
+                  console.log("💰 Adding points from Ape In:", result.points, "from mode:", result.mode)
+                  addPoints(result.points)
+                } else {
+                  console.log("ℹ️ No points to add (tutorial mode or 0 points):", {
+                    mode: result.mode,
+                    points: result.points,
+                  })
+                }
               }}
             />
           </div>

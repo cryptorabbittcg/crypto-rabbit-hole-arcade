@@ -166,7 +166,7 @@ export default function ArcadeHub() {
             title="Ape In!"
             subtitle="ACTION • ARCADE"
             description="Fast paced competitive push-your-luck card and dice game built for ApeChain."
-            url="https://ape-in-game.vercel.app"
+            url="#" // Built-in component - no iframe needed
             players={38}
             color="pink"
             onPlay={setActiveGame}

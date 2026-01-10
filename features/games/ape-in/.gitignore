@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+*.db
+*.sqlite
+
+# Node
+node_modules/
+dist/
+.vite/
+.cache/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# Build
+build/
+.next/
+out/
+
+# Vercel
+.vercel
+
+# Testing
+.coverage
+.pytest_cache/
+coverage/
+
+# Temporary
+tmp/
+temp/
+*.tmp
