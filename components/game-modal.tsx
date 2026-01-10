@@ -386,6 +386,7 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
                   })
                 }
               }}
+              onClose={onClose}
             />
           </div>
         ) : (

@@ -8,10 +8,14 @@ import { useArcade } from '@/components/providers'
 import { PaymentService } from '../lib/paymentService'
 import { BOT_CONFIGS } from '../utils/botConfig'
 import { PlayBalanceService } from '../lib/playBalanceService'
+import StatsModal from './StatsModal'
+import LeaderboardModal from './LeaderboardModal'
+import { X } from 'lucide-react'
 
 interface MainMenuProps {
   onSelectMode: (mode: GameMode) => void
   playerAddress: string | null
+  onClose?: () => void // Callback to close Ape In and return to Arcade Hub
 }
 
 interface GameModeCard {
@@ -120,7 +124,7 @@ function getGameModes(): GameModeCard[] {
   ]
 }
 
-export default function MainMenu({ onSelectMode, playerAddress }: MainMenuProps) {
+export default function MainMenu({ onSelectMode, playerAddress, onClose }: MainMenuProps) {
   const { address, profile } = useArcade()
   const identity = {
     address: playerAddress || address || null,
@@ -131,6 +135,8 @@ export default function MainMenu({ onSelectMode, playerAddress }: MainMenuProps)
   const [hoveredGuide, setHoveredGuide] = useState<string | null>(null)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [paymentLoading, setPaymentLoading] = useState<string | null>(null)
+  const [showStatsModal, setShowStatsModal] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
   
   // Get game modes with safety checks (called during render, not module load)
   const gameModes = getGameModes()
@@ -229,11 +235,45 @@ export default function MainMenu({ onSelectMode, playerAddress }: MainMenuProps)
       </div>
 
       <div className="container mx-auto px-2 sm:px-4 pt-2 sm:pt-4 pb-2 sm:pb-4 relative z-20 max-w-6xl">
+        {/* Top bar with My Stats, Leaderboard, and Close button */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="flex flex-wrap items-center justify-center gap-2 md:gap-3 mb-3 sm:mb-4"
+        >
+          <button
+            onClick={() => setShowStatsModal(true)}
+            className="px-2.5 py-1.5 md:px-3 md:py-1.5 rounded-lg border border-slate-600 bg-gradient-to-b from-slate-800 to-slate-900 font-bold text-xs md:text-sm hover:shadow-lg hover:shadow-purple-400/20 transition-all"
+          >
+            📊 My Stats
+          </button>
+
+          <button
+            onClick={() => setShowLeaderboard(true)}
+            className="px-2.5 py-1.5 md:px-3 md:py-1.5 rounded-lg border border-slate-600 bg-gradient-to-b from-slate-800 to-slate-900 font-bold text-xs md:text-sm hover:shadow-lg hover:shadow-purple-400/20 transition-all"
+          >
+            🏆 Leaderboard
+          </button>
+
+          {/* Close button to return to Arcade Hub */}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="px-2.5 py-1.5 md:px-3 md:py-1.5 rounded-lg border-2 border-red-500/50 bg-red-500/20 hover:bg-red-500/30 font-bold text-xs md:text-sm hover:shadow-lg hover:shadow-red-500/30 transition-all text-red-400 hover:text-red-300"
+              title="Return to Arcade Hub"
+            >
+              <X className="w-4 h-4 inline mr-1" />
+              Exit
+            </button>
+          )}
+        </motion.div>
+
         {/* Compact Hero Section - Tagline directly under banner */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
           className="text-center mb-3 sm:mb-6"
         >
           <p className="text-xs sm:text-sm md:text-base text-slate-400 max-w-2xl mx-auto px-2 leading-relaxed">
@@ -362,6 +402,16 @@ export default function MainMenu({ onSelectMode, playerAddress }: MainMenuProps)
           </div>
         </motion.div>
       </div>
+
+      {/* Stats Modal */}
+      {showStatsModal && (
+        <StatsModal onClose={() => setShowStatsModal(false)} />
+      )}
+
+      {/* Leaderboard Modal */}
+      {showLeaderboard && (
+        <LeaderboardModal onClose={() => setShowLeaderboard(false)} />
+      )}
     </div>
   )
 }

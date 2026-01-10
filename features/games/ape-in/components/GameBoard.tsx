@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '../store/gameStore'
 import Card from './Card'
 import Dice from './Dice'
@@ -9,6 +9,7 @@ import { verifyApeInGameWithZkVerify, mockVerifyApeInGame, createGameStateFromGa
 import { useArcade } from '@/components/providers'
 import { isRankedMode } from '../utils/constants'
 import { calculatePoints } from '../utils/scoring'
+import { X } from 'lucide-react'
 
 interface GameBoardProps {
   gameId: string
@@ -22,9 +23,10 @@ interface GameBoardProps {
     opponentScore: number
     hasForfeited: boolean
   }) => void
+  onReturnToMenu?: () => void // Callback to return to main menu
 }
 
-export default function GameBoard({ gameId, playerName, opponentName, gameMode, onPlayIntro, onGameEnd }: GameBoardProps) {
+export default function GameBoard({ gameId, playerName, opponentName, gameMode, onPlayIntro, onGameEnd, onReturnToMenu }: GameBoardProps) {
   const { address, profile } = useArcade()
   const [playerProfile, setPlayerProfile] = useState<{pfp?: string, avatar?: string} | null>(null)
   const [gameStartTime, setGameStartTime] = useState(() => Date.now()) // Track game start for duration
@@ -60,6 +62,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
     updateScore,
     toggleTurn,
     setGameState,
+    resetGame,
   } = useGameStore()
 
   // Load player profile for PFP display
@@ -91,6 +94,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
   const [isBotPlaying, setIsBotPlaying] = useState(false)
   const [showRoundPopup, setShowRoundPopup] = useState(false)
   const [currentRound, setCurrentRound] = useState(1)
+  const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
   
   // zkVerify verification state
   const [isVerifying, setIsVerifying] = useState(false)
@@ -378,38 +382,46 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
   }
 
   const handleForfeit = async () => {
-    if (window.confirm('Are you sure you want to forfeit?')) {
-      try {
-        // Mark as forfeited for result submission
-        setHasForfeited(true)
-        
-        // Track forfeit move for zkVerify
-        const move: GameMove = {
-          type: 'forfeit',
-          timestamp: Date.now(),
-          round: roundCount
-        }
-        setGameMoves(prev => [...prev, move])
-        
-        await gameAPI.forfeitGame(gameId)
-        setFloatingMessage({text: 'Game forfeited.'})
-        // Game will end and result submission will pick up FORFEIT status
-        // Use onGameEnd callback instead of navigate (for arcade hub integration)
-        if (onGameEnd) {
-          setTimeout(() => {
-            onGameEnd({
-              winner: opponentName || 'Opponent',
-              playerScore: 0,
-              opponentScore: opponentScore,
-              hasForfeited: true,
-            })
-          }, 2000)
-        }
-      } catch (error) {
-        console.error('Failed to forfeit:', error)
-        setHasForfeited(false) // Reset on error
+    // Show confirmation dialog instead of browser confirm
+    setShowForfeitConfirm(true)
+  }
+
+  const confirmForfeit = async () => {
+    setShowForfeitConfirm(false)
+    try {
+      // Mark as forfeited for result submission
+      setHasForfeited(true)
+      
+      // Track forfeit move for zkVerify
+      const move: GameMove = {
+        type: 'forfeit',
+        timestamp: Date.now(),
+        round: roundCount
       }
+      setGameMoves(prev => [...prev, move])
+      
+      await gameAPI.forfeitGame(gameId)
+      setFloatingMessage({text: 'Game forfeited.'})
+      // Game will end and result submission will pick up FORFEIT status
+      // Use onGameEnd callback instead of navigate (for arcade hub integration)
+      if (onGameEnd) {
+        setTimeout(() => {
+          onGameEnd({
+            winner: opponentName || 'Opponent',
+            playerScore: 0,
+            opponentScore: opponentScore,
+            hasForfeited: true,
+          })
+        }, 2000)
+      }
+    } catch (error) {
+      console.error('Failed to forfeit:', error)
+      setHasForfeited(false) // Reset on error
     }
+  }
+
+  const cancelForfeit = () => {
+    setShowForfeitConfirm(false)
   }
 
   // zkVerify verification handler
@@ -659,28 +671,122 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
             <span>{opponentName} Score: <span className="score-display">{opponentScore}</span></span>
           </div>
         </div>
-        <button 
-          onClick={() => {
-            // Use onGameEnd callback to signal game restart (parent handles navigation)
-            if (onGameEnd) {
-              onGameEnd({
-                winner: winner || 'Draw',
-                playerScore,
-                opponentScore,
-                hasForfeited: false,
-              })
-            }
-          }} 
-          className="btn-primary text-lg"
-        >
-          Play Again
-        </button>
+        <div className="flex gap-4 justify-center">
+          {hasForfeited ? (
+            <button 
+              onClick={() => {
+                // Return to menu after forfeit
+                resetGame()
+                if (onReturnToMenu) {
+                  onReturnToMenu()
+                } else if (onGameEnd) {
+                  // Fallback to onGameEnd if onReturnToMenu not provided
+                  onGameEnd({
+                    winner: opponentName || 'Opponent',
+                    playerScore: 0,
+                    opponentScore,
+                    hasForfeited: true,
+                  })
+                }
+              }} 
+              className="btn-primary text-lg"
+            >
+              Return to Menu
+            </button>
+          ) : (
+            <button 
+              onClick={() => {
+                // Use onGameEnd callback to signal game restart (parent handles navigation)
+                if (onGameEnd) {
+                  onGameEnd({
+                    winner: winner || 'Draw',
+                    playerScore,
+                    opponentScore,
+                    hasForfeited: false,
+                  })
+                }
+              }} 
+              className="btn-primary text-lg"
+            >
+              Play Again
+            </button>
+          )}
+        </div>
       </motion.div>
     )
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 relative">
+      {/* X Button (Exit/Forfeit) - Top Right Corner */}
+      <div className="absolute top-0 right-0 z-50">
+        <button
+          onClick={handleForfeit}
+          className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 text-red-400 hover:text-red-300 transition-all shadow-lg hover:shadow-red-500/30"
+          title="Exit Game (Forfeit)"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Forfeit Confirmation Dialog */}
+      <AnimatePresence>
+        {showForfeitConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center bg-black/60 z-50 p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                cancelForfeit()
+              }
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-600 p-6 rounded-2xl w-full max-w-md shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center mb-6">
+                <div className="text-5xl mb-4">⚠️</div>
+                <h3 className="text-2xl font-bold text-white mb-2">Forfeit Game?</h3>
+                <p className="text-slate-300 mb-4">
+                  Are you sure you want to forfeit this game? This action cannot be undone.
+                </p>
+                <div className="bg-slate-700/50 rounded-lg p-4 mb-4 text-left">
+                  <div className="text-sm text-slate-400 mb-2">Current Status:</div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-slate-300">Your Score:</span>
+                    <span className="font-bold text-cyan-400">{playerScore}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-300">Opponent Score:</span>
+                    <span className="font-bold text-purple-400">{opponentScore}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelForfeit}
+                  className="flex-1 px-4 py-2 rounded-lg border border-slate-600 bg-slate-700/50 hover:bg-slate-700 font-bold text-slate-300 hover:text-white transition-all"
+                >
+                  No, Continue
+                </button>
+                <button
+                  onClick={confirmForfeit}
+                  className="flex-1 px-4 py-2 rounded-lg border-2 border-red-500 bg-red-600/20 hover:bg-red-600/30 font-bold text-red-400 hover:text-red-300 transition-all shadow-lg hover:shadow-red-500/30"
+                >
+                  Yes, Forfeit
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Compact Score Display */}
       <div className="grid grid-cols-2 gap-3">
         <div className="game-board text-center py-3">
@@ -848,7 +954,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
                 onClick={handleForfeit}
                 className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-red-600 hover:bg-red-700 rounded-lg font-semibold text-xs sm:text-sm shadow-lg transition-all"
               >
-                🏳️ Forfeit
+                🏳️ Forfeit Game
               </button>
             </div>
           </div>

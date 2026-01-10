@@ -26,6 +26,7 @@ export interface ApeInGameProps {
     metadata?: any
     points?: number // Points earned
   }) => void
+  onClose?: () => void // Callback to close Ape In and return to Arcade Hub
 }
 
 const gameNames: Record<GameMode, string> = {
@@ -46,6 +47,7 @@ export function ApeInGame({
   mode = 'sandy', // Default to Sandy (tutorial)
   onGameStart,
   onGameEnd,
+  onClose,
 }: ApeInGameProps) {
   console.log('🎯 ApeInGame component rendered', { mode, playerAddress, profileUsername })
   
@@ -266,6 +268,16 @@ export function ApeInGame({
       hasForfeited,
     })
     
+    // If forfeited, return to main menu after a short delay
+    if (hasForfeited) {
+      setTimeout(() => {
+        resetGame()
+        setGameId('')
+        setSelectedMode(undefined)
+        setShowMainMenu(true)
+      }, 2500) // Wait 2.5 seconds to show forfeit message
+    }
+    
     // Call parent callback
     onGameEnd?.({
       score: playerScore,
@@ -280,7 +292,7 @@ export function ApeInGame({
       },
       points,
     })
-  }, [selectedMode, onGameEnd])
+  }, [selectedMode, onGameEnd, resetGame])
 
   // Loading state
   if (isLoading) {
@@ -326,6 +338,7 @@ export function ApeInGame({
       <MainMenu
         onSelectMode={handleModeSelected}
         playerAddress={playerAddress}
+        onClose={onClose}
       />
     )
   }
@@ -352,6 +365,14 @@ export function ApeInGame({
     )
   }
 
+  // Handle return to menu (for forfeited games)
+  const handleReturnToMenu = useCallback(() => {
+    resetGame()
+    setGameId('')
+    setSelectedMode(undefined)
+    setShowMainMenu(true)
+  }, [resetGame])
+
   return (
     <div className="min-h-[600px] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <GameBoard
@@ -361,6 +382,7 @@ export function ApeInGame({
         gameMode={selectedMode}
         onPlayIntro={handleIntroComplete}
         onGameEnd={handleGameEnd}
+        onReturnToMenu={handleReturnToMenu}
       />
     </div>
   )
