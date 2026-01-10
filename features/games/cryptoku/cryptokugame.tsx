@@ -89,8 +89,8 @@ const TOKENS = [
 
 const DIFF: Record<Difficulty, number> = {
   noob: 40,
-  degen: 28,
-  ape: 20,
+  degen: 32,
+  ape: 25,
 }
 
 const TUTORIAL_SLIDES = [
@@ -591,6 +591,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
   const [highlightClear, setHighlightClear] = useState(false)
   const [completedSections, setCompletedSections] = useState<Set<string>>(new Set())
   const [showConfetti, setShowConfetti] = useState(false)
+  const [hintedCell, setHintedCell] = useState<[number, number] | null>(null)
 
   const animatedTokensRef = useRef<Set<number>>(new Set())
   const completedSectionsRef = useRef<Set<string>>(new Set())
@@ -917,6 +918,12 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
       })
       setHintCooldownTime(30)
       setHintsUsedInGame((prev) => prev + 1)
+      
+      // Set hinted cell for green pulse animation (3 seconds)
+      setHintedCell([r, c])
+      setTimeout(() => {
+        setHintedCell(null)
+      }, 3000)
     } catch (error) {
       console.error("Error using hint:", error)
       showToastMessage("Failed to use hint")
@@ -1523,6 +1530,30 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
             opacity: 0;
           }
         }
+
+        @keyframes hint-pulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7), 0 0 0 0 rgba(34, 197, 94, 0.5);
+            transform: scale(1);
+          }
+          33% {
+            box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.4), 0 0 0 12px rgba(34, 197, 94, 0.25);
+            transform: scale(1.08);
+          }
+          66% {
+            box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.3), 0 0 0 16px rgba(34, 197, 94, 0.15);
+            transform: scale(1.05);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0), 0 0 0 0 rgba(34, 197, 94, 0);
+            transform: scale(1);
+          }
+        }
+
+        .hint-pulse {
+          animation: hint-pulse 3s ease-in-out;
+          border-color: #22c55e !important;
+        }
       `}</style>
       {showSplash && <SplashScreen onEnter={handleSplashComplete} />}
 
@@ -1608,7 +1639,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
                     : "opacity-50 cursor-not-allowed"
                 }`}
               >
-                🔵 Degen — 28 clues (Medium) • Ranked {!playerAddress && "(Login Required)"}
+                🔵 Degen — 32 clues (Medium) • Ranked {!playerAddress && "(Login Required)"}
               </button>
               <button
                 onClick={() => {
@@ -1625,7 +1656,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
                     : "opacity-50 cursor-not-allowed"
                 }`}
               >
-                🟡 Ape — 20 clues (Hard) • Ranked {!playerAddress && "(Login Required)"}
+                🟡 Ape — 25 clues (Hard) • Ranked {!playerAddress && "(Login Required)"}
               </button>
             </div>
 
@@ -1791,6 +1822,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
                   const isSameSymbol =
                     selected && val !== 0 && val === userBoard[selected[0]][selected[1]]
                   const isIncorrect = val !== 0 && !isGiven && solutionBoard[r][c] !== val
+                  const isHintedCell = hintedCell && hintedCell[0] === r && hintedCell[1] === c
 
                   const boxR = Math.floor(r / 3)
                   const boxC = Math.floor(c / 3)
@@ -1819,11 +1851,11 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
                         <div
                           className={`w-7 h-7 md:w-10 md:h-10 rounded-full flex items-center justify-center token-glow border-2 ${
                             isSameSymbol ? "ring-2 ring-cyan-400 ring-offset-2" : ""
-                          }`}
+                          } ${isHintedCell ? "hint-pulse ring-2 ring-green-500 ring-offset-2" : ""}`}
                           data-token-value={val}
                           style={{
                             color: TOKENS[val - 1].color,
-                            borderColor: TOKENS[val - 1].color,
+                            borderColor: isHintedCell ? "#22c55e" : TOKENS[val - 1].color,
                             background:
                               "radial-gradient(60% 60% at 50% 35%, rgba(255,255,255,0.12), transparent), #0c1122",
                           }}
