@@ -603,7 +603,7 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
   const animatedTokensRef = useRef<Set<number>>(new Set())
   const completedSectionsRef = useRef<Set<string>>(new Set())
 
-  // Load hints balance from API
+  // Load hints balance from API (only on mount or when playerAddress changes)
   useEffect(() => {
     if (!playerAddress) return
 
@@ -612,16 +612,22 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
         const response = await fetch(`/api/cryptoku/hints/balance?address=${encodeURIComponent(playerAddress)}`)
         if (response.ok) {
           const data = await response.json()
-          setHintBalance(data.hintBalance)
-          setGamesUntilNextFreeHint(data.gamesUntilNextFreeHint)
+          // Validate and set balance - don't allow it to increase unexpectedly
+          if (data.hintBalance !== undefined && typeof data.hintBalance === 'number' && data.hintBalance >= 0) {
+            setHintBalance(data.hintBalance)
+          }
+          if (data.gamesUntilNextFreeHint !== undefined) {
+            setGamesUntilNextFreeHint(data.gamesUntilNextFreeHint)
+          }
         }
       } catch (error) {
         console.error("Error fetching hints balance:", error)
+        // Don't reset balance on error - keep current state
       }
     }
 
     fetchHintsBalance()
-  }, [playerAddress])
+  }, [playerAddress]) // Only fetch when playerAddress changes, not on every render
 
 
   // Timer ticking
@@ -971,6 +977,10 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
       showToastMessage(`Hint cooling down... ${hintCooldownTime}s remaining`)
       return
     }
+    if (hintBalance <= 0) {
+      showToastMessage("No hints remaining. Purchase more hints to continue.")
+      return
+    }
     if (!playerAddress) {
       showToastMessage("Player address required")
       return
@@ -1003,7 +1013,16 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
       }
 
       const data = await response.json()
-      setHintBalance(data.hintBalance)
+      
+      // Validate the API response - ensure balance is correctly decremented
+      const newBalance = data.hintBalance !== undefined ? data.hintBalance : hintBalance - 1
+      if (newBalance < 0) {
+        console.error("Invalid hint balance from API:", newBalance)
+        showToastMessage("Error: Invalid hint balance")
+        return
+      }
+      
+      setHintBalance(Math.max(0, newBalance))
 
       // Apply hint to board
       const [r, c] = empties[Math.floor(Math.random() * empties.length)]
@@ -1029,7 +1048,7 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
       console.error("Error using hint:", error)
       showToastMessage("Failed to use hint")
     }
-  }, [gameHasStarted, hintCooldownTime, userBoard, solutionBoard, playerAddress, showToastMessage])
+  }, [gameHasStarted, hintCooldownTime, hintBalance, userBoard, solutionBoard, playerAddress, showToastMessage])
 
   const purchaseHint = useCallback(async () => {
     if (!playerAddress) {
@@ -1059,23 +1078,39 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
     }
   }, [playerAddress, showToastMessage])
 
-  // Track completed tokens (all 9 correctly placed)
+  // Track token usage and completed tokens (all 9 correctly placed)
   useEffect(() => {
     const newTokenUsage: Record<number, number> = {}
     for (let tokenId = 1; tokenId <= 9; tokenId++) newTokenUsage[tokenId] = 0
 
+    // Count ALL tokens on the board (both presets and user-placed)
+    // This includes tokens that are correctly placed
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const val = userBoard[r][c]
+        if (val !== 0) {
+          newTokenUsage[val] = (newTokenUsage[val] || 0) + 1
+        }
+      }
+    }
+
+    // Track correctly placed tokens separately for completion detection
+    const correctlyPlacedCount: Record<number, number> = {}
+    for (let tokenId = 1; tokenId <= 9; tokenId++) correctlyPlacedCount[tokenId] = 0
+    
     for (let r = 0; r < 9; r++) {
       for (let c = 0; c < 9; c++) {
         const val = userBoard[r][c]
         if (val !== 0 && val === solutionBoard[r][c]) {
-          newTokenUsage[val] = (newTokenUsage[val] || 0) + 1
+          correctlyPlacedCount[val] = (correctlyPlacedCount[val] || 0) + 1
         }
       }
     }
 
     const newlyCompletedTokens: number[] = []
     for (let tokenId = 1; tokenId <= 9; tokenId++) {
-      if (newTokenUsage[tokenId] === 9 && !animatedTokensRef.current.has(tokenId)) {
+      // A token is completed when all 9 instances are correctly placed
+      if (correctlyPlacedCount[tokenId] === 9 && !animatedTokensRef.current.has(tokenId)) {
         newlyCompletedTokens.push(tokenId)
         animatedTokensRef.current.add(tokenId)
       }
@@ -2011,23 +2046,25 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
               }}
             >
               {TOKENS.map((token) => {
-                const isFullyUsed = tokenUsage[token.id] >= 9
+                const tokenCount = tokenUsage[token.id] || 0
+                // Only disable if all 9 instances are correctly placed (token is completed)
+                // Don't disable based on total count, because user might need to replace incorrectly placed tokens
+                const isTypeCompleted = completedTokens.has(token.id)
                 const isHighlighted =
                   selected && userBoard[selected[0]][selected[1]] === token.id
-                const isTypeCompleted = completedTokens.has(token.id)
                 return (
                   <button
                     key={token.id}
                     data-selector-token={token.id}
                     onClick={() => placeValue(token.id)}
-                    disabled={isFullyUsed || isTypeCompleted}
+                    disabled={isTypeCompleted}
                     className={`relative flex-shrink-0 rounded-full p-0.5 md:p-1 transition-transform touch-manipulation ${
-                      isFullyUsed || isTypeCompleted
+                      isTypeCompleted
                         ? "opacity-30 cursor-not-allowed grayscale"
                         : "cursor-pointer hover:scale-105 active:scale-95"
                     } ${isHighlighted ? "ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-900" : ""}`}
-                    title={`${token.name} (${tokenUsage[token.id]}/9)${
-                      isFullyUsed ? " - All placed!" : ""
+                    title={`${token.name} (${tokenCount}/9)${
+                      isTypeCompleted ? " - All placed!" : ""
                     }`}
                   >
                     <span

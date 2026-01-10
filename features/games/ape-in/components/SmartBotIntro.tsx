@@ -149,23 +149,38 @@ const BOT_EMOJIS: Record<GameMode, string> = {
 }
 
 export default function SmartBotIntro({ gameMode, onComplete, autoPlay = false }: SmartBotIntroProps) {
-  // Safety check: ensure gameMode is valid
-  if (!gameMode || !BOT_CONFIGS[gameMode]) {
-    console.error(`⚠️ Invalid gameMode passed to SmartBotIntro: ${gameMode}, defaulting to Sandy`)
-    // Auto-complete with skip if invalid mode
-    onComplete(true)
-    return null
-  }
-
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0)
   const [isTyping, setIsTyping] = useState(true)
   const [showButtons, setShowButtons] = useState(false)
+
+  // Safety check: ensure gameMode is valid - use useEffect to avoid calling onComplete during render
+  useEffect(() => {
+    if (!gameMode || !BOT_CONFIGS[gameMode]) {
+      console.error(`⚠️ Invalid gameMode passed to SmartBotIntro: ${gameMode}, defaulting to Sandy`)
+      // Auto-complete with skip if invalid mode - call in useEffect to avoid render-time state updates
+      // Use a small delay to ensure it's not called during render
+      const timer = setTimeout(() => {
+        onComplete(true)
+      }, 0)
+      return () => clearTimeout(timer)
+    }
+  }, [gameMode, onComplete])
+
+  // If invalid gameMode, don't render anything (but don't call onComplete during render)
+  if (!gameMode || !BOT_CONFIGS[gameMode]) {
+    return null
+  }
 
   const introMessages = generateBotIntros(gameMode)
   const botColor = BOT_COLORS[gameMode] || BOT_COLORS.sandy
   const botEmoji = BOT_EMOJIS[gameMode] || BOT_EMOJIS.sandy
 
   useEffect(() => {
+    // Skip if invalid gameMode
+    if (!gameMode || !BOT_CONFIGS[gameMode]) {
+      return
+    }
+    
     console.log('🎬 SmartBotIntro effect:', { currentMessageIndex, introMessagesLength: introMessages.length, autoPlay })
     
     if (currentMessageIndex < introMessages.length) {
@@ -191,9 +206,11 @@ export default function SmartBotIntro({ gameMode, onComplete, autoPlay = false }
         }
       }, 2000)
 
-      return () => clearTimeout(timer)
+      return () => {
+        clearTimeout(timer)
+      }
     }
-  }, [currentMessageIndex, introMessages.length, autoPlay, onComplete])
+  }, [currentMessageIndex, introMessages.length, autoPlay, gameMode, onComplete])
 
   const handleStartGame = () => {
     console.log('🎬 Start game button clicked')

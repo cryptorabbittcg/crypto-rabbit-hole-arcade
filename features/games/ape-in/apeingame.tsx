@@ -65,10 +65,13 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
   const [playTokenError, setPlayTokenError] = useState<string | null>(null)
   const [gameInitError, setGameInitError] = useState<string | null>(null)
   const [showForfeitConfirmFromModal, setShowForfeitConfirmFromModal] = useState(false)
-  const { setGameState, gameStatus, setPlayToken, setRunId, resetGame, opponentName: storeOpponentName } = useGameStore()
+  const { setGameState, gameStatus, setPlayToken, setRunId, resetGame } = useGameStore()
   const { hasCompletedIntro, markIntroCompleted } = useIntroTracking()
   const gameStartTimeRef = useRef<number | null>(null)
   const hasCalledOnGameStart = useRef(false)
+  const isInitializingRef = useRef(false)
+  const initGameIdRef = useRef<string>('')
+  const cancelInitRef = useRef(false)
 
   // Handle mode selection from main menu (original Ape In flow)
   const handleModeSelected = useCallback((selectedMode: GameMode) => {
@@ -87,17 +90,34 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
       return
     }
 
-    // Prevent multiple initializations
+    // Prevent multiple initializations - check if we're already initializing this exact mode
+    const currentInitKey = `${selectedMode}-${playerAddress || 'guest'}`
+    if (isInitializingRef.current && initGameIdRef.current === currentInitKey) {
+      console.log('⚠️ Already initializing this mode, skipping')
+      return
+    }
+    
     if (gameId && !isLoading) {
       console.log('⚠️ Already initialized, skipping')
       return
     }
+
+    // Mark as initializing and reset cancel flag
+    isInitializingRef.current = true
+    initGameIdRef.current = currentInitKey
+    cancelInitRef.current = false
 
     const initGame = async () => {
       setIsLoading(true)
       try {
         console.log('🎮 Initializing game for mode:', selectedMode)
         console.log('👤 Player address:', playerAddress)
+        
+        // Check if cancelled before proceeding
+        if (cancelInitRef.current || initGameIdRef.current !== currentInitKey) {
+          console.log('⚠️ Initialization cancelled')
+          return
+        }
         
         // Sandy (tutorial) should always launch, no checks
         if (selectedMode === 'sandy') {
@@ -113,9 +133,21 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
           console.log('📝 Player name for Sandy:', name)
           setPlayerName(name)
           
+          // Check if cancelled before API call
+          if (cancelInitRef.current || initGameIdRef.current !== currentInitKey) {
+            console.log('⚠️ Initialization cancelled before API call')
+            return
+          }
+          
           // Create game via API
           console.log('🚀 Creating Sandy tutorial game via API...')
           const game = await gameAPI.createGame('sandy', name, undefined, false)
+          
+          // Check if cancelled after API call
+          if (cancelInitRef.current || initGameIdRef.current !== currentInitKey) {
+            console.log('⚠️ Initialization cancelled after API call')
+            return
+          }
           
           if (!game || !game.gameId) {
             throw new Error('Game creation failed: No game ID returned')
@@ -125,6 +157,7 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
           setGameState(game)
           
           // Initialize intro state (only if not completed before)
+          // Use hasCompletedIntro directly (memoized) - don't call it in dependency array
           const shouldShowIntro = !hasCompletedIntro('sandy')
           console.log('🎬 Should show intro:', shouldShowIntro)
           if (shouldShowIntro) {
@@ -137,6 +170,7 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
           
           console.log('✅ Sandy tutorial initialization complete')
           gameStartTimeRef.current = Date.now()
+          isInitializingRef.current = false
           return
         }
         
@@ -154,6 +188,12 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
         console.log('📝 Player name:', name)
         setPlayerName(name)
 
+        // Check if cancelled before proceeding
+        if (cancelInitRef.current || initGameIdRef.current !== currentInitKey) {
+          console.log('⚠️ Initialization cancelled before ranked mode setup')
+          return
+        }
+
         // TODO: Check if ranked mode requires play token
         const isRanked = isRankedMode(selectedMode)
         console.log('🎯 Mode is ranked:', isRanked)
@@ -161,15 +201,28 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
         if (isRanked && !playerAddress) {
           setPlayTokenError('Player address required for ranked games')
           setIsLoading(false)
+          isInitializingRef.current = false
           return
         }
 
         // TODO: Request play token for ranked modes
         // TODO: Process payment if needed
         
+        // Check if cancelled before API call
+        if (cancelInitRef.current || initGameIdRef.current !== currentInitKey) {
+          console.log('⚠️ Initialization cancelled before ranked API call')
+          return
+        }
+        
         // Create game via API
         console.log('🚀 Creating game via API...')
         const game = await gameAPI.createGame(selectedMode, name, playerAddress || undefined, false)
+        
+        // Check if cancelled after API call
+        if (cancelInitRef.current || initGameIdRef.current !== currentInitKey) {
+          console.log('⚠️ Initialization cancelled after ranked API call')
+          return
+        }
         
         if (!game || !game.gameId) {
           throw new Error('Game creation failed: No game ID returned')
@@ -191,17 +244,31 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
         
         console.log('✅ Game initialization complete')
         gameStartTimeRef.current = Date.now()
+        isInitializingRef.current = false
         
       } catch (error) {
-        console.error('❌ Failed to initialize game:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Failed to initialize game. Please try again.'
-        setGameInitError(errorMessage)
-        setIsLoading(false)
+        // Only set error if initialization wasn't cancelled
+        if (!cancelInitRef.current && initGameIdRef.current === currentInitKey) {
+          console.error('❌ Failed to initialize game:', error)
+          const errorMessage = error instanceof Error ? error.message : 'Failed to initialize game. Please try again.'
+          setGameInitError(errorMessage)
+          setIsLoading(false)
+        }
+        isInitializingRef.current = false
       }
     }
 
     initGame()
-  }, [selectedMode, playerAddress, profileUsername, setGameState, hasCompletedIntro])
+
+    // Cleanup function to cancel initialization if dependencies change
+    return () => {
+      // Only cancel if this is still the current initialization
+      if (initGameIdRef.current === currentInitKey) {
+        cancelInitRef.current = true
+        isInitializingRef.current = false
+      }
+    }
+  }, [selectedMode, playerAddress, profileUsername]) // Removed hasCompletedIntro and setGameState from deps to prevent re-runs
 
   // Call onGameStart callback
   useEffect(() => {
@@ -227,12 +294,14 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
     }
     
     // Ensure game state is set to playing after intro completes
-    if (gameId) {
+    const currentGameId = gameId // Capture in closure
+    if (currentGameId) {
       try {
         // Refresh game state to ensure it's properly initialized
-        const gameState = await gameAPI.getGameState(gameId)
+        const gameState = await gameAPI.getGameState(currentGameId)
         if (gameState) {
-          setGameState(gameState)
+          // Use Zustand's setGameState directly (stable reference, no need in deps)
+          useGameStore.getState().setGameState(gameState)
           // If game is still in waiting state, we'll transition to playing on first card draw
           // The draw card route will handle the transition
         }
@@ -240,7 +309,7 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
         console.error('Failed to refresh game state after intro:', error)
       }
     }
-  }, [selectedMode, markIntroCompleted, gameId, setGameState])
+  }, [selectedMode, markIntroCompleted, gameId]) // Removed setGameState - use Zustand's stable action directly
 
   // Handle game end (called from GameBoard)
   const handleGameEnd = useCallback((result: {
@@ -398,21 +467,26 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
 
   // Handle game exit/forfeit confirmation when X button is clicked from game modal
   const handleGameExit = useCallback(() => {
-    // Check if game is in progress (gameId exists and gameStatus is 'playing' or 'waiting')
+    // Get current state directly from store to check game status
     const currentState = useGameStore.getState()
-    const isGameInProgress = gameId && (currentState.gameStatus === 'playing' || currentState.gameStatus === 'waiting')
+    const currentGameId = gameId // Capture current gameId
     
-    if (isGameInProgress && !showMainMenu && !showIntro && !showSplash) {
+    // Check if game is in progress
+    // Only show forfeit confirmation if we have a gameId and the game is actually playing/waiting
+    // We check the store state directly to avoid dependency issues
+    const isGameInProgress = currentGameId && (currentState.gameStatus === 'playing' || currentState.gameStatus === 'waiting')
+    
+    if (isGameInProgress) {
       // Game is in progress, show forfeit confirmation dialog
       setShowForfeitConfirmFromModal(true)
       return true // Return true to indicate forfeit confirmation is showing
     } else {
-      // No active game, just return to menu or close
-      if (showMainMenu) {
-        // We're in menu, close to hub
+      // No active game - determine what to do based on current state
+      if (!currentGameId) {
+        // No game ID means we're in menu, close to hub
         onClose?.()
       } else {
-        // Return to menu
+        // Has gameId but game not in progress - return to menu
         resetGame()
         setGameId('')
         setSelectedMode(undefined)
@@ -420,7 +494,7 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
       }
       return false
     }
-  }, [gameId, showMainMenu, showIntro, showSplash, onClose, resetGame])
+  }, [gameId, onClose, resetGame]) // Minimal dependencies to prevent infinite loops
 
   // Expose handleGameExit via ref for parent component (game modal)
   useImperativeHandle(ref, () => ({
@@ -443,6 +517,7 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
       const currentMaxRounds = currentState.maxRounds
       const currentPlayerScore = currentState.playerScore
       const currentOpponentScore = currentState.opponentScore
+      const currentOpponentName = currentState.opponentName // Get from store state
       
       // Reset game state and return to menu
       setShowForfeitConfirmFromModal(false)
@@ -462,7 +537,7 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
           score: currentPlayerScore,
           mode: selectedMode || 'sandy',
           metadata: {
-            winner: storeOpponentName || 'Opponent',
+            winner: currentOpponentName || 'Opponent',
             opponentScore: currentOpponentScore,
             roundsPlayed: currentRoundCount,
             roundsRemaining,
@@ -476,7 +551,7 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
       console.error('Failed to forfeit from modal:', error)
       setShowForfeitConfirmFromModal(false)
     }
-  }, [gameId, onGameEnd, onClose, resetGame, selectedMode, storeOpponentName])
+  }, [gameId, onGameEnd, onClose, resetGame, selectedMode])
 
   // Cancel forfeit from game modal - return to game
   const cancelForfeitFromModal = useCallback(() => {
@@ -534,7 +609,7 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
       <GameBoard
         gameId={gameId}
         playerName={playerName}
-        opponentName={storeOpponentName || (selectedMode ? gameNames[selectedMode] : 'Opponent') || 'Opponent'}
+        opponentName={useGameStore.getState().opponentName || (selectedMode ? gameNames[selectedMode] : 'Opponent') || 'Opponent'}
         gameMode={selectedMode}
         onPlayIntro={handleIntroComplete}
         onGameEnd={handleGameEnd}

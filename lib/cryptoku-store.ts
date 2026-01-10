@@ -73,8 +73,33 @@ export async function getCryptokuHints(address: string): Promise<PlayerHints> {
       return cached
     }
     
-    // Return default hints if not in cache
+    // IMPORTANT: Only return default hints if this is the FIRST time accessing this address
+    // Don't reset hints that have already been used. This prevents hints from being restored
+    // after they've been consumed. We'll check localStorage as a backup persistence layer.
+    if (typeof window !== "undefined") {
+      const localStorageKey = `cryptoku_hints_${normalizedAddress}`
+      const stored = window.localStorage.getItem(localStorageKey)
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored) as PlayerHints
+          // Only use stored value if it's valid and balance is >= 0
+          if (parsed && typeof parsed.hintBalance === 'number' && parsed.hintBalance >= 0) {
+            inMemoryCache.set(normalizedAddress, parsed)
+            return parsed
+          }
+        } catch (e) {
+          console.warn("Failed to parse stored hints from localStorage:", e)
+        }
+      }
+    }
+    
+    // Only set default if truly no existing data found
     inMemoryCache.set(normalizedAddress, HINTS_DEFAULT)
+    // Also store in localStorage as backup
+    if (typeof window !== "undefined") {
+      const localStorageKey = `cryptoku_hints_${normalizedAddress}`
+      window.localStorage.setItem(localStorageKey, JSON.stringify(HINTS_DEFAULT))
+    }
     return HINTS_DEFAULT
   }
   
@@ -86,8 +111,30 @@ export async function getCryptokuHints(address: string): Promise<PlayerHints> {
       return hints
     }
     
+    // Check localStorage as backup before returning default
+    if (typeof window !== "undefined") {
+      const localStorageKey = `cryptoku_hints_${normalizedAddress}`
+      const stored = window.localStorage.getItem(localStorageKey)
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored) as PlayerHints
+          if (parsed && typeof parsed.hintBalance === 'number' && parsed.hintBalance >= 0) {
+            inMemoryCache.set(normalizedAddress, parsed)
+            return parsed
+          }
+        } catch (e) {
+          console.warn("Failed to parse stored hints from localStorage:", e)
+        }
+      }
+    }
+    
     // Return default if not found and update cache
     inMemoryCache.set(normalizedAddress, HINTS_DEFAULT)
+    // Also store in localStorage as backup
+    if (typeof window !== "undefined") {
+      const localStorageKey = `cryptoku_hints_${normalizedAddress}`
+      window.localStorage.setItem(localStorageKey, JSON.stringify(HINTS_DEFAULT))
+    }
     return HINTS_DEFAULT
   } catch (error) {
     console.error(`Error getting hints for ${normalizedAddress}:`, error)
@@ -96,8 +143,30 @@ export async function getCryptokuHints(address: string): Promise<PlayerHints> {
     if (cached) {
       return cached
     }
-    // Return default hints on error and update cache
+    // Try localStorage as final fallback before returning default
+    if (typeof window !== "undefined") {
+      const localStorageKey = `cryptoku_hints_${normalizedAddress}`
+      const stored = window.localStorage.getItem(localStorageKey)
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored) as PlayerHints
+          if (parsed && typeof parsed.hintBalance === 'number' && parsed.hintBalance >= 0) {
+            inMemoryCache.set(normalizedAddress, parsed)
+            return parsed
+          }
+        } catch (e) {
+          console.warn("Failed to parse stored hints from localStorage:", e)
+        }
+      }
+    }
+    
+    // Return default hints on error and update cache (last resort)
     inMemoryCache.set(normalizedAddress, HINTS_DEFAULT)
+    // Store in localStorage as backup
+    if (typeof window !== "undefined") {
+      const localStorageKey = `cryptoku_hints_${normalizedAddress}`
+      window.localStorage.setItem(localStorageKey, JSON.stringify(HINTS_DEFAULT))
+    }
     return HINTS_DEFAULT
   }
 }
@@ -119,6 +188,12 @@ export async function updateCryptokuHints(
     // Update in-memory cache
     inMemoryCache.set(normalizedAddress, updated)
     
+    // Also persist to localStorage as backup
+    if (typeof window !== "undefined") {
+      const localStorageKey = `cryptoku_hints_${normalizedAddress}`
+      window.localStorage.setItem(localStorageKey, JSON.stringify(updated))
+    }
+    
     console.log(`Hint balance updated in-memory for ${normalizedAddress}: ${updated.hintBalance} hints remaining`)
     return updated
   }
@@ -133,6 +208,11 @@ export async function updateCryptokuHints(
         await kv.set(key, updated)
         // Update cache after successful KV write
         inMemoryCache.set(normalizedAddress, updated)
+        // Also persist to localStorage as backup
+        if (typeof window !== "undefined") {
+          const localStorageKey = `cryptoku_hints_${normalizedAddress}`
+          window.localStorage.setItem(localStorageKey, JSON.stringify(updated))
+        }
         return updated
       } catch (kvError) {
         console.error(`KV set operation failed for ${normalizedAddress}:`, kvError)
@@ -142,6 +222,11 @@ export async function updateCryptokuHints(
     
     // KV unavailable - use in-memory cache as fallback
     inMemoryCache.set(normalizedAddress, updated)
+    // Also persist to localStorage as backup
+    if (typeof window !== "undefined") {
+      const localStorageKey = `cryptoku_hints_${normalizedAddress}`
+      window.localStorage.setItem(localStorageKey, JSON.stringify(updated))
+    }
     console.warn(`Hint balance updated in-memory (KV unavailable) for ${normalizedAddress}: ${updated.hintBalance} hints remaining`)
     return updated
   } catch (error) {
@@ -154,6 +239,11 @@ export async function updateCryptokuHints(
       
       // Update cache even on error
       inMemoryCache.set(normalizedAddress, updated)
+      // Also persist to localStorage as backup
+      if (typeof window !== "undefined") {
+        const localStorageKey = `cryptoku_hints_${normalizedAddress}`
+        window.localStorage.setItem(localStorageKey, JSON.stringify(updated))
+      }
       console.warn("Error occurred, using in-memory cache fallback")
       return updated
     } catch (fallbackError) {
@@ -164,6 +254,11 @@ export async function updateCryptokuHints(
         hintBalance: Math.max(0, HINTS_DEFAULT.hintBalance - 1),
       }
       inMemoryCache.set(normalizedAddress, safeDefault)
+      // Also persist to localStorage as backup
+      if (typeof window !== "undefined") {
+        const localStorageKey = `cryptoku_hints_${normalizedAddress}`
+        window.localStorage.setItem(localStorageKey, JSON.stringify(safeDefault))
+      }
       return safeDefault
     }
   }

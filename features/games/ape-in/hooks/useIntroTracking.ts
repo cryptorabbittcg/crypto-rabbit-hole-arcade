@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useArcade } from '@/components/providers'
 import { GameMode } from '../types/game'
 
@@ -24,16 +24,16 @@ export function useIntroTracking() {
   }, [introTracking])
 
   // Check if intro has been completed for a specific game mode
-  const hasCompletedIntro = (gameMode: GameMode): boolean => {
+  const hasCompletedIntro = useCallback((gameMode: GameMode): boolean => {
     const completed = introTracking[walletAddress]?.[gameMode] === true
     console.log(`🎬 Intro tracking for ${gameMode}:`, completed)
     console.log('📊 Current intro tracking state:', introTracking)
     console.log('👤 Wallet address:', walletAddress)
     return completed
-  }
+  }, [introTracking, walletAddress])
 
   // Mark intro as completed for a specific game mode
-  const markIntroCompleted = (gameMode: GameMode) => {
+  const markIntroCompleted = useCallback((gameMode: GameMode) => {
     setIntroTracking(prev => ({
       ...prev,
       [walletAddress]: {
@@ -41,18 +41,18 @@ export function useIntroTracking() {
         [gameMode]: true
       }
     }))
-  }
+  }, [walletAddress])
 
   // Reset intro completion (for testing or user preference)
-  const resetIntroCompletion = () => {
+  const resetIntroCompletion = useCallback(() => {
     setIntroTracking(prev => ({
       ...prev,
       [walletAddress]: {}
     }))
-  }
+  }, [walletAddress])
 
   // Reset intro completion for a specific game mode
-  const resetIntroForMode = (gameMode: GameMode) => {
+  const resetIntroForMode = useCallback((gameMode: GameMode) => {
     setIntroTracking(prev => ({
       ...prev,
       [walletAddress]: {
@@ -60,7 +60,7 @@ export function useIntroTracking() {
         [gameMode]: false
       }
     }))
-  }
+  }, [walletAddress])
 
   return {
     hasCompletedIntro,
