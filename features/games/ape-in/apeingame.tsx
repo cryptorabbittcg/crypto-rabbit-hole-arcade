@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import GameBoard from "./components/GameBoard"
 import SmartBotIntro from "./components/SmartBotIntro"
 import WelcomeSplash from "./components/WelcomeSplash"
-import { ModeSelectionScreen } from "./components/ModeSelectionScreen"
+import { MainMenu } from "./components/MainMenu"
 import { useGameStore } from "./store/gameStore"
 import { GameMode } from "./types/game"
 import { isRankedMode } from "./utils/constants"
@@ -52,21 +52,21 @@ export function ApeInGame({
   const [selectedMode, setSelectedMode] = useState<GameMode | undefined>(mode) // Use prop if provided, otherwise undefined
   const [playerName, setPlayerName] = useState('')
   const [gameId, setGameId] = useState('')
-  const [showIntro, setShowIntro] = useState(true)
+  const [showIntro, setShowIntro] = useState(false) // Don't auto-show intro
   const [showSplash, setShowSplash] = useState(true)
-  const [showModeSelection, setShowModeSelection] = useState(!mode) // Show mode selection if no mode provided
+  const [showMainMenu, setShowMainMenu] = useState(false) // Main menu after splash
   const [playTokenError, setPlayTokenError] = useState<string | null>(null)
   const { setGameState, gameStatus, setPlayToken, setRunId, resetGame } = useGameStore()
   const { hasCompletedIntro, markIntroCompleted } = useIntroTracking()
   const gameStartTimeRef = useRef<number | null>(null)
   const hasCalledOnGameStart = useRef(false)
 
-  // Handle mode selection
+  // Handle mode selection from main menu (original Ape In flow)
   const handleModeSelected = useCallback((selectedMode: GameMode) => {
-    console.log('✅ Mode selected:', selectedMode)
+    console.log('✅ Mode selected from main menu:', selectedMode)
     setSelectedMode(selectedMode)
-    setShowModeSelection(false)
-    // Game will initialize automatically when selectedMode changes
+    setShowMainMenu(false)
+    // Will trigger game initialization in useEffect when selectedMode changes
   }, [])
 
   // Initialize game when mode is selected
@@ -115,13 +115,18 @@ export function ApeInGame({
           setGameId(game.gameId)
           setGameState(game)
           
-          // Initialize intro state
+          // Initialize intro state (only if not completed before)
           const shouldShowIntro = !hasCompletedIntro('sandy')
           console.log('🎬 Should show intro:', shouldShowIntro)
-          setShowIntro(shouldShowIntro)
+          if (shouldShowIntro) {
+            setShowIntro(true)
+            setIsLoading(false) // Wait for intro
+          } else {
+            setShowIntro(false)
+            setIsLoading(false) // Game ready
+          }
           
           console.log('✅ Sandy tutorial initialization complete')
-          setIsLoading(false)
           gameStartTimeRef.current = Date.now()
           return
         }
@@ -164,13 +169,18 @@ export function ApeInGame({
         setGameId(game.gameId)
         setGameState(game)
         
-        // Initialize intro state
+        // Initialize intro state (only if not completed before)
         const shouldShowIntro = !hasCompletedIntro(selectedMode)
         console.log('🎬 Should show intro:', shouldShowIntro)
-        setShowIntro(shouldShowIntro)
+        if (shouldShowIntro) {
+          setShowIntro(true)
+          setIsLoading(false) // Wait for intro
+        } else {
+          setShowIntro(false)
+          setIsLoading(false) // Game ready
+        }
         
         console.log('✅ Game initialization complete')
-        setIsLoading(false)
         gameStartTimeRef.current = Date.now()
         
       } catch (error) {
@@ -193,11 +203,9 @@ export function ApeInGame({
   // Handle splash screen
   const handleSplashComplete = useCallback(() => {
     setShowSplash(false)
-    // After splash, if no mode provided, show mode selection
-    if (!mode) {
-      setShowModeSelection(true)
-    }
-  }, [mode])
+    // After splash, always show main menu (original Ape In flow)
+    setShowMainMenu(true)
+  }, [])
 
   // Handle intro completion
   const handleIntroComplete = useCallback(() => {
@@ -295,10 +303,10 @@ export function ApeInGame({
     return <WelcomeSplash onStart={handleSplashComplete} />
   }
 
-  // Mode selection screen (if no mode provided)
-  if (showModeSelection) {
+  // Main menu screen (original Ape In menu after splash)
+  if (showMainMenu) {
     return (
-      <ModeSelectionScreen
+      <MainMenu
         onSelectMode={handleModeSelected}
         playerAddress={playerAddress}
       />

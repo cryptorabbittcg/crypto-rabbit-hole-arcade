@@ -6,15 +6,16 @@ import { GameMode } from '../types/game'
 import { BOT_CONFIGS } from '../utils/botConfig'
 import { isRankedMode } from '../utils/constants'
 
-interface ModeSelectionScreenProps {
+interface MainMenuProps {
   onSelectMode: (mode: GameMode) => void
   playerAddress: string | null
   onBack?: () => void
 }
 
-const AVAILABLE_MODES: GameMode[] = ['sandy', 'aida', 'lana', 'enj1n', 'nifty'] // Only single-player bot modes for now
+// All available game modes (original Ape In menu)
+const AVAILABLE_MODES: GameMode[] = ['sandy', 'aida', 'lana', 'enj1n', 'nifty'] // All single-player bot modes
 
-export function ModeSelectionScreen({ onSelectMode, playerAddress, onBack }: ModeSelectionScreenProps) {
+export function MainMenu({ onSelectMode, playerAddress, onBack }: MainMenuProps) {
   const [selectedMode, setSelectedMode] = useState<GameMode | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
 
