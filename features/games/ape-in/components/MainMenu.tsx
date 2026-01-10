@@ -25,86 +25,100 @@ interface GameModeCard {
   price: number
 }
 
-// Generate game modes from bot config
-const gameModes: GameModeCard[] = [
-  {
-    mode: 'sandy',
-    name: BOT_CONFIGS.sandy.name,
-    description: BOT_CONFIGS.sandy.description,
-    color: 'from-yellow-500 to-orange-500',
-    difficulty: BOT_CONFIGS.sandy.difficulty,
-    icon: '🟡',
-    rarity: 'common',
-    price: BOT_CONFIGS.sandy.price,
-  },
-  {
-    mode: 'aida',
-    name: BOT_CONFIGS.aida.name,
-    description: BOT_CONFIGS.aida.description,
-    color: 'from-purple-500 to-pink-500',
-    difficulty: BOT_CONFIGS.aida.difficulty,
-    icon: '🟣',
-    rarity: 'uncommon',
-    price: BOT_CONFIGS.aida.price,
-  },
-  {
-    mode: 'lana',
-    name: BOT_CONFIGS.lana.name,
-    description: BOT_CONFIGS.lana.description,
-    color: 'from-blue-500 to-cyan-500',
-    difficulty: BOT_CONFIGS.lana.difficulty,
-    icon: '🔵',
-    rarity: 'rare',
-    price: BOT_CONFIGS.lana.price,
-  },
-  {
-    mode: 'enj1n',
-    name: BOT_CONFIGS.enj1n.name,
-    description: BOT_CONFIGS.enj1n.description,
-    color: 'from-red-500 to-orange-600',
-    difficulty: BOT_CONFIGS.enj1n.difficulty,
-    icon: '🔴',
-    rarity: 'epic',
-    price: BOT_CONFIGS.enj1n.price,
-  },
-  {
-    mode: 'nifty',
-    name: BOT_CONFIGS.nifty.name,
-    description: BOT_CONFIGS.nifty.description,
-    color: 'from-orange-500 to-yellow-500',
-    difficulty: BOT_CONFIGS.nifty.difficulty,
-    icon: '🟠',
-    rarity: 'rare',
-    price: BOT_CONFIGS.nifty.price,
-  },
-  {
-    mode: 'pvp',
-    name: 'PvP',
-    description: 'Face off against another player in real-time!',
-    color: 'from-pink-500 to-purple-600',
-    icon: '⚔️',
-    rarity: 'epic',
-    price: 0.1,
-  },
-  {
-    mode: 'multiplayer',
-    name: 'Multiplayer',
-    description: '3-10 players compete for the top spot!',
-    color: 'from-green-500 to-teal-500',
-    icon: '👥',
-    rarity: 'epic',
-    price: 0.1,
-  },
-  {
-    mode: 'tournament',
-    name: 'Tournament',
-    description: 'Compete in brackets for ultimate glory!',
-    color: 'from-indigo-500 to-purple-600',
-    icon: '🏆',
-    rarity: 'legendary',
-    price: 0.1,
-  },
-]
+// Generate game modes from bot config (with safety checks)
+function getGameModes(): GameModeCard[] {
+  // Safety check for BOT_CONFIGS
+  if (!BOT_CONFIGS || typeof BOT_CONFIGS !== 'object') {
+    console.error('⚠️ BOT_CONFIGS not available, using fallback game modes')
+    return [
+      { mode: 'sandy', name: 'Sandy', description: 'Tutorial mode', color: 'from-yellow-500 to-orange-500', difficulty: 'Tutorial', icon: '🟡', rarity: 'common', price: 0 },
+      { mode: 'aida', name: 'Aida', description: 'Medium difficulty', color: 'from-purple-500 to-pink-500', difficulty: 'Medium', icon: '🟣', rarity: 'uncommon', price: 0.1 },
+      { mode: 'lana', name: 'Lana', description: 'Hard difficulty', color: 'from-blue-500 to-cyan-500', difficulty: 'Hard', icon: '🔵', rarity: 'rare', price: 0.1 },
+      { mode: 'enj1n', name: 'En-J1n', description: 'Expert difficulty', color: 'from-red-500 to-orange-600', difficulty: 'Expert', icon: '🔴', rarity: 'epic', price: 0.1 },
+      { mode: 'nifty', name: 'Nifty', description: 'Medium-Hard difficulty', color: 'from-orange-500 to-yellow-500', difficulty: 'Medium-Hard', icon: '🟠', rarity: 'rare', price: 0.1 },
+    ]
+  }
+
+  return [
+    {
+      mode: 'sandy',
+      name: BOT_CONFIGS.sandy?.name || 'Sandy',
+      description: BOT_CONFIGS.sandy?.description || 'Tutorial mode',
+      color: 'from-yellow-500 to-orange-500',
+      difficulty: BOT_CONFIGS.sandy?.difficulty || 'Tutorial',
+      icon: '🟡',
+      rarity: 'common',
+      price: BOT_CONFIGS.sandy?.price ?? 0,
+    },
+    {
+      mode: 'aida',
+      name: BOT_CONFIGS.aida?.name || 'Aida',
+      description: BOT_CONFIGS.aida?.description || 'Medium difficulty',
+      color: 'from-purple-500 to-pink-500',
+      difficulty: BOT_CONFIGS.aida?.difficulty || 'Medium',
+      icon: '🟣',
+      rarity: 'uncommon',
+      price: BOT_CONFIGS.aida?.price ?? 0.1,
+    },
+    {
+      mode: 'lana',
+      name: BOT_CONFIGS.lana?.name || 'Lana',
+      description: BOT_CONFIGS.lana?.description || 'Hard difficulty',
+      color: 'from-blue-500 to-cyan-500',
+      difficulty: BOT_CONFIGS.lana?.difficulty || 'Hard',
+      icon: '🔵',
+      rarity: 'rare',
+      price: BOT_CONFIGS.lana?.price ?? 0.1,
+    },
+    {
+      mode: 'enj1n',
+      name: BOT_CONFIGS.enj1n?.name || 'En-J1n',
+      description: BOT_CONFIGS.enj1n?.description || 'Expert difficulty',
+      color: 'from-red-500 to-orange-600',
+      difficulty: BOT_CONFIGS.enj1n?.difficulty || 'Expert',
+      icon: '🔴',
+      rarity: 'epic',
+      price: BOT_CONFIGS.enj1n?.price ?? 0.1,
+    },
+    {
+      mode: 'nifty',
+      name: BOT_CONFIGS.nifty?.name || 'Nifty',
+      description: BOT_CONFIGS.nifty?.description || 'Medium-Hard difficulty',
+      color: 'from-orange-500 to-yellow-500',
+      difficulty: BOT_CONFIGS.nifty?.difficulty || 'Medium-Hard',
+      icon: '🟠',
+      rarity: 'rare',
+      price: BOT_CONFIGS.nifty?.price ?? 0.1,
+    },
+    {
+      mode: 'pvp',
+      name: 'PvP',
+      description: 'Face off against another player in real-time!',
+      color: 'from-pink-500 to-purple-600',
+      icon: '⚔️',
+      rarity: 'epic',
+      price: 0.1,
+    },
+    {
+      mode: 'multiplayer',
+      name: 'Multiplayer',
+      description: '3-10 players compete for the top spot!',
+      color: 'from-green-500 to-teal-500',
+      icon: '👥',
+      rarity: 'epic',
+      price: 0.1,
+    },
+    {
+      mode: 'tournament',
+      name: 'Tournament',
+      description: 'Compete in brackets for ultimate glory!',
+      color: 'from-indigo-500 to-purple-600',
+      icon: '🏆',
+      rarity: 'legendary',
+      price: 0.1,
+    },
+  ]
+}
 
 export default function MainMenu({ onSelectMode, playerAddress }: MainMenuProps) {
   const { address, profile } = useArcade()
@@ -117,6 +131,9 @@ export default function MainMenu({ onSelectMode, playerAddress }: MainMenuProps)
   const [hoveredGuide, setHoveredGuide] = useState<string | null>(null)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [paymentLoading, setPaymentLoading] = useState<string | null>(null)
+  
+  // Get game modes with safety checks (called during render, not module load)
+  const gameModes = getGameModes()
 
   const handleModeSelect = async (mode: GameMode) => {
     setPaymentError(null)

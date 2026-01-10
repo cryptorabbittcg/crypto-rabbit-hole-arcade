@@ -12,6 +12,7 @@ import { isRankedMode } from "./utils/constants"
 import { calculatePoints } from "./utils/scoring"
 import { useIntroTracking } from "./hooks/useIntroTracking"
 import { gameAPI } from "./lib/api"
+import { BOT_CONFIGS } from "./utils/botConfig"
 
 export interface ApeInGameProps {
   playerAddress: string | null // Hub identity - required
@@ -56,7 +57,7 @@ export function ApeInGame({
   const [showSplash, setShowSplash] = useState(true)
   const [showMainMenu, setShowMainMenu] = useState(false) // Main menu after splash
   const [playTokenError, setPlayTokenError] = useState<string | null>(null)
-  const { setGameState, gameStatus, setPlayToken, setRunId, resetGame } = useGameStore()
+  const { setGameState, gameStatus, setPlayToken, setRunId, resetGame, opponentName: storeOpponentName } = useGameStore()
   const { hasCompletedIntro, markIntroCompleted } = useIntroTracking()
   const gameStartTimeRef = useRef<number | null>(null)
   const hasCalledOnGameStart = useRef(false)
@@ -207,8 +208,8 @@ export function ApeInGame({
     setShowMainMenu(true)
   }, [])
 
-  // Handle intro completion
-  const handleIntroComplete = useCallback(() => {
+  // Handle intro completion (SmartBotIntro passes skip: boolean)
+  const handleIntroComplete = useCallback((skip: boolean = false) => {
     setShowIntro(false)
     if (selectedMode) {
       markIntroCompleted(selectedMode)
@@ -313,8 +314,8 @@ export function ApeInGame({
     )
   }
 
-  // Intro screen
-  if (showIntro && selectedMode) {
+  // Intro screen - ensure selectedMode is valid before rendering
+  if (showIntro && selectedMode && BOT_CONFIGS[selectedMode]) {
     return (
       <SmartBotIntro
         mode={selectedMode}
@@ -339,7 +340,7 @@ export function ApeInGame({
       <GameBoard
         gameId={gameId}
         playerName={playerName}
-        opponentName={(gameState as any)?.opponentName || (selectedMode ? gameNames[selectedMode] : 'Opponent') || 'Opponent'}
+        opponentName={storeOpponentName || (selectedMode ? gameNames[selectedMode] : 'Opponent') || 'Opponent'}
         gameMode={selectedMode}
         onPlayIntro={handleIntroComplete}
         onGameEnd={handleGameEnd}

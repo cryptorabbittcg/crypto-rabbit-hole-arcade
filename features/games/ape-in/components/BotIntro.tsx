@@ -10,8 +10,41 @@ interface BotIntroProps {
 
 // Generate dynamic bot intros based on config
 const generateBotIntros = (gameMode: GameMode): string[] => {
+  // Safety check: ensure BOT_CONFIGS is available
+  if (!BOT_CONFIGS || typeof BOT_CONFIGS !== 'object') {
+    console.error('⚠️ BOT_CONFIGS is not available, using default Sandy config')
+    return [
+      "🐰 Sandy: Welcome to the future of gaming...",
+      "🚀 APE IN! - ApeChain's first Push-Your-Luck game!",
+      "🦍 In this epic game of Risk vs Reward, you'll face off against me!",
+      "🎯 First to stack 150 sats wins the game!",
+      "🎴 Draw cards, 🎲 roll dice, and ⚠️ dodge bearish penalties!",
+      "📈 Push your luck to the limit… or risk losing it all!",
+      "🌟 Ready to become an Ape In! legend?",
+      "➡️ Let's APE IN!"
+    ]
+  }
+
   const config = BOT_CONFIGS[gameMode]
-  const winningScore = config.winningScore
+  // Safety check: fallback to Sandy config if mode not found
+  if (!config || typeof config !== 'object' || typeof config.winningScore !== 'number') {
+    console.error(`⚠️ Bot config not found or invalid for mode: ${gameMode}, using Sandy defaults`)
+    // Use Sandy config as fallback
+    const sandyConfig = BOT_CONFIGS['sandy']
+    if (sandyConfig && typeof sandyConfig.winningScore === 'number') {
+      return generateBotIntros('sandy') // Recursively call with safe mode
+    } else {
+      // Ultimate fallback if even Sandy config is broken
+      return [
+        "🐰 Welcome to APE IN!",
+        "🚀 ApeChain's first Push-Your-Luck game!",
+        "🎯 First to stack 150 sats wins!",
+        "➡️ Let's APE IN!"
+      ]
+    }
+  }
+  
+  const winningScore = config.winningScore || 150 // Fallback value
   
   const baseIntros: Record<GameMode, string[]> = {
   sandy: [
@@ -177,12 +210,12 @@ export default function BotIntro({ gameMode, onComplete }: BotIntroProps) {
           >
             {/* Bot Portrait */}
             <img 
-              src={`/assets/bots/${gameMode}.gif`} 
+              src={`/features/games/ape-in/assets/images/bots/${gameMode}.gif`} 
               alt={`${gameMode} avatar`} 
               className="w-full h-full object-cover rounded-full" 
               onError={(e) => {
                 console.log(`GIF failed for ${gameMode}, trying PNG...`);
-                e.currentTarget.src = `/assets/bots/${gameMode}.png`;
+                e.currentTarget.src = `/features/games/ape-in/assets/images/bots/${gameMode}.png`;
               }}
               onLoad={(e) => {
                 console.log(`Successfully loaded GIF header portrait for ${gameMode}`);
@@ -221,12 +254,12 @@ export default function BotIntro({ gameMode, onComplete }: BotIntroProps) {
               className="flex-shrink-0"
             >
               <img 
-                src={`/assets/bots/${gameMode}.gif`} 
+                src={`/features/games/ape-in/assets/images/bots/${gameMode}.gif`} 
                 alt={`${gameMode} avatar`} 
                 className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-full border-2 border-purple-500/50 shadow-lg" 
                 onError={(e) => {
                   console.log(`GIF failed for ${gameMode} message, trying PNG...`);
-                  e.currentTarget.src = `/assets/bots/${gameMode}.png`;
+                  e.currentTarget.src = `/features/games/ape-in/assets/images/bots/${gameMode}.png`;
                 }}
                 onLoad={(e) => {
                   console.log(`Successfully loaded GIF message portrait for ${gameMode}`);
