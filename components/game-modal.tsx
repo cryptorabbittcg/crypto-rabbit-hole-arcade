@@ -2,10 +2,10 @@
 
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useCallback } from "react"
 import { useArcade } from "@/components/providers"
-import { CryptokuGame } from "@/features/games/cryptoku/cryptokugame"
-import ApeInGame from "@/features/games/ape-in/apeingame"
+import { CryptokuGame, type CryptokuGameHandle } from "@/features/games/cryptoku/cryptokugame"
+import ApeInGame, { type ApeInGameHandle } from "@/features/games/ape-in/apeingame"
 import { getGameSession } from "@/lib/game-session"
 import { ErrorBoundary } from "@/components/error-boundary"
 
@@ -19,17 +19,46 @@ interface GameModalProps {
 export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProps) {
   const { isConnected, address, connect, profile, addPoints, addTickets, points, tickets } = useArcade()
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const cryptokuRef = useRef<CryptokuGameHandle>(null)
+  const apeInRef = useRef<ApeInGameHandle>(null)
+
+  // Handle close/exit with forfeit confirmation for active games
+  const handleClose = useCallback(() => {
+    const isCryptoku = gameTitle === "Cryptoku!"
+    const isApeIn = gameTitle === "Ape In!"
+    
+    // Check Cryptoku game state
+    if (isCryptoku && cryptokuRef.current) {
+      const forfeitShown = cryptokuRef.current.handleGameExit()
+      // If forfeit confirmation is shown, don't close yet - wait for user decision
+      if (forfeitShown) {
+        return
+      }
+    }
+    
+    // Check Ape In game state
+    if (isApeIn && apeInRef.current) {
+      const forfeitShown = apeInRef.current.handleGameExit()
+      // If forfeit confirmation is shown, don't close yet - wait for user decision
+      if (forfeitShown) {
+        return
+      }
+    }
+    
+    // For other games or if no forfeit needed, just close
+    onClose()
+  }, [gameTitle, onClose])
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
-        onClose()
+        handleClose()
       }
     }
 
     document.addEventListener("keydown", handleEscape)
     return () => document.removeEventListener("keydown", handleEscape)
-  }, [isOpen, onClose])
+  }, [isOpen, handleClose])
 
   useEffect(() => {
     if (isOpen) {
@@ -332,7 +361,7 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
           </h2>
         </div>
         <Button
-          onClick={onClose}
+          onClick={handleClose}
           variant="ghost"
           size="icon"
           className="bg-red-500/20 hover:bg-red-500/40 border-2 border-red-500/50 text-red-400 hover:text-red-300 transition-all shadow-[0_0_20px_hsl(0,100%,50%,0.3)]"
@@ -345,6 +374,7 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
         {isCryptoku ? (
           <div className="w-full h-full overflow-auto bg-black">
             <CryptokuGame
+              ref={cryptokuRef}
               playerAddress={address}
               profileUsername={profile.username}
               profileAvatarUrl={profile.avatar}
@@ -363,6 +393,7 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
                 //   addTickets(1)
                 // }
               }}
+              onClose={onClose}
             />
           </div>
         ) : isApeIn ? (
@@ -399,6 +430,7 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
               }
             >
               <ApeInGame
+                ref={apeInRef}
                 playerAddress={address}
                 profileUsername={profile.username}
                 profileAvatarUrl={profile.avatar}

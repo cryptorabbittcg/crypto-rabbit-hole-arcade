@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 
 import SplashScreen from "@/features/games/cryptoku/components/SplashScreen"
 import RabbitAvatar, { RABBIT_COLORS } from "@/features/games/cryptoku/components/RabbitAvatar"
@@ -25,6 +25,11 @@ export interface CryptokuGameProps {
     score: number
     metadata?: any
   }) => void
+  onClose?: () => void // Callback to close game and return to menu/hub
+}
+
+export interface CryptokuGameHandle {
+  handleGameExit: () => boolean // Returns true if forfeit confirmation is shown, false otherwise
 }
 
 type Board = number[][]
@@ -523,13 +528,14 @@ function digHolesSimple(full: Board, clues: number): Board {
 
 // Main game component --------------------------------------------------------
 
-export const CryptokuGame: React.FC<CryptokuGameProps> = ({
+export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
   playerAddress,
   profileUsername,
   profileAvatarUrl,
   onGameStart,
   onGameEnd,
-}) => {
+  onClose,
+}, ref) => {
   const [solutionBoard, setSolutionBoard] = useState<Board>(() => emptyBoard())
   const [puzzleBoard, setPuzzleBoard] = useState<Board>(() => emptyBoard())
   const [userBoard, setUserBoard] = useState<Board>(() => emptyBoard())
@@ -592,6 +598,7 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
   const [completedSections, setCompletedSections] = useState<Set<string>>(new Set())
   const [showConfetti, setShowConfetti] = useState(false)
   const [hintedCell, setHintedCell] = useState<[number, number] | null>(null)
+  const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
 
   const animatedTokensRef = useRef<Set<number>>(new Set())
   const completedSectionsRef = useRef<Set<string>>(new Set())
@@ -648,6 +655,100 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
     setToast(msg)
     setTimeout(() => setToast(""), 1800)
   }, [])
+
+  // Handle game exit/forfeit confirmation
+  const handleGameExit = useCallback(() => {
+    // If game is in progress, show forfeit confirmation
+    if (gameHasStarted && currentSession && currentSession.status === "in-progress" && !showVictory && !showWelcome) {
+      setShowForfeitConfirm(true)
+      return true // Return true to indicate forfeit confirmation is showing
+    } else {
+      // No active game, just close
+      onClose?.()
+      return false
+    }
+  }, [gameHasStarted, currentSession, showVictory, showWelcome, onClose])
+
+  // Expose handleGameExit via ref for parent component
+  useImperativeHandle(ref, () => ({
+    handleGameExit,
+  }), [handleGameExit])
+
+  // Confirm forfeit - actually forfeit the game
+  const confirmForfeit = useCallback(() => {
+    if (currentSession && currentSession.status === "in-progress" && gameHasStarted && playerAddress) {
+      const timeInSeconds = getCurrentGameTime()
+      
+      // Forfeit the session
+      forfeitGameSession(currentSession.id, errors, hintsUsedInGame)
+
+      // Submit forfeit to API (won't be logged to leaderboard)
+      fetch("/api/cryptoku/submit-result", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerAddress,
+          mode: currentDifficulty.toUpperCase(),
+          runId: runId || `run_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+          timeSeconds: timeInSeconds,
+          hintsUsed: hintsUsedInGame,
+          errors,
+          completed: false,
+          forfeited: true,
+        }),
+      }).catch(console.error)
+
+      // Call onGameEnd with forfeit result
+      onGameEnd?.({
+        score: 0,
+        metadata: {
+          outcome: "forfeit",
+          difficulty: currentDifficulty,
+          timeInSeconds,
+          errors,
+          hintsUsed: hintsUsedInGame,
+          points: 0,
+        },
+      })
+
+      // Reset game state and return to menu
+      setShowForfeitConfirm(false)
+      setShowWelcome(true)
+      setShowSplash(false)
+      setGameHasStarted(false)
+      setIsGamePrepared(false)
+      setCurrentSession(null)
+      setCurrentScore(null)
+      setRunId(null)
+      setGameStartTime(null)
+      setErrors(0)
+      setHintsUsedInGame(0)
+    } else {
+      // No active game, just close
+      onClose?.()
+    }
+  }, [currentSession, gameHasStarted, playerAddress, errors, hintsUsedInGame, getCurrentGameTime, currentDifficulty, runId, onGameEnd, onClose])
+
+  // Cancel forfeit - return to game
+  const cancelForfeit = useCallback(() => {
+    setShowForfeitConfirm(false)
+  }, [])
+
+  // Listen for ESC key to trigger forfeit confirmation if game is in progress
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && gameHasStarted && currentSession && currentSession.status === "in-progress" && !showVictory && !showWelcome && !showForfeitConfirm) {
+        e.preventDefault()
+        handleGameExit()
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [gameHasStarted, currentSession, showVictory, showWelcome, showForfeitConfirm, handleGameExit])
+
+  // Expose handleGameExit via window event or prop - simpler approach
+  // Instead, we'll have parent call a prop callback
+  // For now, handle it when onClose is passed as a callback
 
   const handleSplashComplete = useCallback(() => {
     setShowSplash(false)
@@ -1660,9 +1761,18 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
               </button>
             </div>
 
-            <p className="text-xs text-slate-500 mt-4">
+            <p className="text-xs text-slate-500 mt-4 mb-4">
               Start with 3 free hints • Earn +1 hint every 10 completed ranked games • Verified with zkVerify
             </p>
+
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="w-full mt-4 px-6 py-2.5 rounded-lg border border-slate-600 bg-slate-800/50 hover:bg-slate-700/50 font-semibold text-sm text-slate-300 hover:text-white transition-all hover:shadow-lg hover:shadow-slate-500/20"
+              >
+                Return to Arcade Hub
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -2301,6 +2411,47 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
         </div>
       )}
 
+      {/* Forfeit Confirmation Dialog */}
+      {showForfeitConfirm && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-[200]">
+          <div className="bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-600 p-8 rounded-2xl w-full max-w-md text-center">
+            <div className="text-5xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-bold text-white mb-3">Forfeit Game?</h2>
+            <p className="text-slate-300 mb-4">
+              This game is about to be forfeited and <span className="font-bold text-red-400">0 points will be gained</span>.
+            </p>
+            <p className="text-slate-400 mb-6">Do you wish to forfeit?</p>
+            <div className="bg-slate-700/50 rounded-lg p-4 mb-6 text-left">
+              <div className="text-sm text-slate-300 mb-2">Current Progress:</div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <span className="text-slate-400">Difficulty:</span>
+                <span className="font-bold capitalize">{currentDifficulty}</span>
+                <span className="text-slate-400">Time:</span>
+                <span className="font-bold">{formatTime(getCurrentGameTime())}</span>
+                <span className="text-slate-400">Errors:</span>
+                <span className="font-bold">{errors}</span>
+                <span className="text-slate-400">Hints Used:</span>
+                <span className="font-bold">{hintsUsedInGame}</span>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={cancelForfeit}
+                className="flex-1 px-6 py-3 rounded-lg border border-slate-600 bg-slate-700/50 hover:bg-slate-700 font-bold text-slate-300 hover:text-white transition-all"
+              >
+                No
+              </button>
+              <button
+                onClick={confirmForfeit}
+                className="flex-1 px-6 py-3 rounded-lg border-2 border-red-500 bg-red-600/20 hover:bg-red-600/30 font-bold text-red-400 hover:text-red-300 transition-all shadow-lg hover:shadow-red-500/30"
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toast */}
       {toast && (
         <div className="fixed right-4 bottom-4 bg-slate-800 border border-slate-600 px-4 py-3 rounded-lg shadow-2xl z-50 text-sm">
@@ -2309,7 +2460,9 @@ export const CryptokuGame: React.FC<CryptokuGameProps> = ({
       )}
     </div>
   )
-}
+})
+
+CryptokuGame.displayName = "CryptokuGame"
 
 export default CryptokuGame
 

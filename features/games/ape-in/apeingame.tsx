@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useEffect, useState, useRef } from "react"
+import React, { useCallback, useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import GameBoard from "./components/GameBoard"
 import SmartBotIntro from "./components/SmartBotIntro"
@@ -29,6 +29,10 @@ export interface ApeInGameProps {
   onClose?: () => void // Callback to close Ape In and return to Arcade Hub
 }
 
+export interface ApeInGameHandle {
+  handleGameExit: () => boolean // Returns true if forfeit confirmation is shown, false otherwise
+}
+
 const gameNames: Record<GameMode, string> = {
   sandy: 'Sandy',
   aida: 'Aida',
@@ -40,7 +44,7 @@ const gameNames: Record<GameMode, string> = {
   tournament: 'Tournament',
 }
 
-export function ApeInGame({
+export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
   playerAddress,
   profileUsername,
   profileAvatarUrl,
@@ -48,7 +52,7 @@ export function ApeInGame({
   onGameStart,
   onGameEnd,
   onClose,
-}: ApeInGameProps) {
+}, ref) => {
   console.log('🎯 ApeInGame component rendered', { mode, playerAddress, profileUsername })
   
   const [isLoading, setIsLoading] = useState(true)
@@ -60,6 +64,7 @@ export function ApeInGame({
   const [showMainMenu, setShowMainMenu] = useState(false) // Main menu after splash
   const [playTokenError, setPlayTokenError] = useState<string | null>(null)
   const [gameInitError, setGameInitError] = useState<string | null>(null)
+  const [showForfeitConfirmFromModal, setShowForfeitConfirmFromModal] = useState(false)
   const { setGameState, gameStatus, setPlayToken, setRunId, resetGame, opponentName: storeOpponentName } = useGameStore()
   const { hasCompletedIntro, markIntroCompleted } = useIntroTracking()
   const gameStartTimeRef = useRef<number | null>(null)
@@ -391,8 +396,141 @@ export function ApeInGame({
     setShowMainMenu(true)
   }, [resetGame])
 
+  // Handle game exit/forfeit confirmation when X button is clicked from game modal
+  const handleGameExit = useCallback(() => {
+    // Check if game is in progress (gameId exists and gameStatus is 'playing' or 'waiting')
+    const currentState = useGameStore.getState()
+    const isGameInProgress = gameId && (currentState.gameStatus === 'playing' || currentState.gameStatus === 'waiting')
+    
+    if (isGameInProgress && !showMainMenu && !showIntro && !showSplash) {
+      // Game is in progress, show forfeit confirmation dialog
+      setShowForfeitConfirmFromModal(true)
+      return true // Return true to indicate forfeit confirmation is showing
+    } else {
+      // No active game, just return to menu or close
+      if (showMainMenu) {
+        // We're in menu, close to hub
+        onClose?.()
+      } else {
+        // Return to menu
+        resetGame()
+        setGameId('')
+        setSelectedMode(undefined)
+        setShowMainMenu(true)
+      }
+      return false
+    }
+  }, [gameId, showMainMenu, showIntro, showSplash, onClose, resetGame])
+
+  // Expose handleGameExit via ref for parent component (game modal)
+  useImperativeHandle(ref, () => ({
+    handleGameExit,
+  }), [handleGameExit])
+
+  // Confirm forfeit from game modal X button
+  const confirmForfeitFromModal = useCallback(async () => {
+    if (!gameId) {
+      onClose?.()
+      return
+    }
+
+    try {
+      await gameAPI.forfeitGame(gameId)
+      
+      // Get current game state for forfeit result
+      const currentState = useGameStore.getState()
+      const currentRoundCount = currentState.roundCount
+      const currentMaxRounds = currentState.maxRounds
+      const currentPlayerScore = currentState.playerScore
+      const currentOpponentScore = currentState.opponentScore
+      
+      // Reset game state and return to menu
+      setShowForfeitConfirmFromModal(false)
+      resetGame()
+      setGameId('')
+      setSelectedMode(undefined)
+      setShowMainMenu(true)
+      
+      // Call onGameEnd with forfeit result
+      if (onGameEnd) {
+        const gameDuration = gameStartTimeRef.current 
+          ? Math.floor((Date.now() - gameStartTimeRef.current) / 1000)
+          : 0
+        const roundsRemaining = Math.max(0, currentMaxRounds - currentRoundCount)
+        
+        onGameEnd({
+          score: currentPlayerScore,
+          mode: selectedMode || 'sandy',
+          metadata: {
+            winner: storeOpponentName || 'Opponent',
+            opponentScore: currentOpponentScore,
+            roundsPlayed: currentRoundCount,
+            roundsRemaining,
+            duration: gameDuration,
+            hasForfeited: true,
+          },
+          points: 0, // Forfeits earn 0 points
+        })
+      }
+    } catch (error) {
+      console.error('Failed to forfeit from modal:', error)
+      setShowForfeitConfirmFromModal(false)
+    }
+  }, [gameId, onGameEnd, onClose, resetGame, selectedMode, storeOpponentName])
+
+  // Cancel forfeit from game modal - return to game
+  const cancelForfeitFromModal = useCallback(() => {
+    setShowForfeitConfirmFromModal(false)
+  }, [])
+
   return (
-    <div className="min-h-[600px] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="min-h-[600px] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative">
+      {/* Forfeit Confirmation Dialog from Game Modal X button */}
+      {showForfeitConfirmFromModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-[200]">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-600 p-8 rounded-2xl w-full max-w-md text-center"
+          >
+            <div className="text-5xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-bold text-white mb-3">Forfeit Game?</h2>
+            <p className="text-slate-300 mb-4">
+              This game is about to be forfeited and <span className="font-bold text-red-400">0 points will be gained</span>.
+            </p>
+            <p className="text-slate-400 mb-6">Do you wish to forfeit?</p>
+            <div className="bg-slate-700/50 rounded-lg p-4 mb-6 text-left">
+              <div className="text-sm text-slate-300 mb-2">Current Progress:</div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <span className="text-slate-400">Mode:</span>
+                <span className="font-bold capitalize">{selectedMode || 'Sandy'}</span>
+                <span className="text-slate-400">Round:</span>
+                <span className="font-bold">{useGameStore.getState().roundCount}/{useGameStore.getState().maxRounds}</span>
+                <span className="text-slate-400">Your Score:</span>
+                <span className="font-bold text-cyan-400">{useGameStore.getState().playerScore}</span>
+                <span className="text-slate-400">Opponent Score:</span>
+                <span className="font-bold text-purple-400">{useGameStore.getState().opponentScore}</span>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={cancelForfeitFromModal}
+                className="flex-1 px-6 py-3 rounded-lg border border-slate-600 bg-slate-700/50 hover:bg-slate-700 font-bold text-slate-300 hover:text-white transition-all"
+              >
+                No
+              </button>
+              <button
+                onClick={confirmForfeitFromModal}
+                className="flex-1 px-6 py-3 rounded-lg border-2 border-red-500 bg-red-600/20 hover:bg-red-600/30 font-bold text-red-400 hover:text-red-300 transition-all shadow-lg hover:shadow-red-500/30"
+              >
+                Yes
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       <GameBoard
         gameId={gameId}
         playerName={playerName}
@@ -404,7 +542,9 @@ export function ApeInGame({
       />
     </div>
   )
-}
+})
+
+ApeInGame.displayName = "ApeInGame"
 
 // Export as default for consistency with CryptokuGame
 export default ApeInGame
