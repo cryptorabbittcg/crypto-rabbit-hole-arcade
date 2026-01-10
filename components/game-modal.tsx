@@ -7,6 +7,7 @@ import { useArcade } from "@/components/providers"
 import { CryptokuGame } from "@/features/games/cryptoku/cryptokugame"
 import ApeInGame from "@/features/games/ape-in/apeingame"
 import { getGameSession } from "@/lib/game-session"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 interface GameModalProps {
   isOpen: boolean
@@ -366,28 +367,60 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
           </div>
         ) : isApeIn ? (
           <div className="w-full h-full overflow-auto bg-black">
-            <ApeInGame
-              playerAddress={address}
-              profileUsername={profile.username}
-              profileAvatarUrl={profile.avatar}
-              onGameStart={() => {
-                console.log("🎮 Ape In game started")
-              }}
-              onGameEnd={(result) => {
-                console.log("🎮 Ape In game ended:", result)
-                // Add points when game ends (only for ranked modes with points > 0)
-                if (result.points !== undefined && result.points > 0) {
-                  console.log("💰 Adding points from Ape In:", result.points, "from mode:", result.mode)
-                  addPoints(result.points)
-                } else {
-                  console.log("ℹ️ No points to add (tutorial mode or 0 points):", {
-                    mode: result.mode,
-                    points: result.points,
-                  })
-                }
-              }}
-              onClose={onClose}
-            />
+            <ErrorBoundary
+              fallback={
+                <div className="flex items-center justify-center min-h-screen p-4">
+                  <div className="max-w-md mx-auto p-6 bg-slate-800/90 rounded-xl border border-red-500/30 text-center">
+                    <div className="text-4xl mb-4">⚠️</div>
+                    <h2 className="text-2xl font-bold text-white mb-3">Game Error</h2>
+                    <p className="text-red-300 mb-6">
+                      Something went wrong while loading the game. Please try again.
+                    </p>
+                    <div className="flex gap-3 justify-center">
+                      <Button
+                        onClick={() => {
+                          onClose()
+                        }}
+                        variant="outline"
+                      >
+                        Return to Hub
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          window.location.reload()
+                        }}
+                        variant="default"
+                      >
+                        Refresh Page
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              }
+            >
+              <ApeInGame
+                playerAddress={address}
+                profileUsername={profile.username}
+                profileAvatarUrl={profile.avatar}
+                onGameStart={() => {
+                  console.log("🎮 Ape In game started")
+                }}
+                onGameEnd={(result) => {
+                  console.log("🎮 Ape In game ended:", result)
+                  // Add points when game ends (only for ranked modes with points > 0)
+                  if (result.points !== undefined && result.points > 0) {
+                    console.log("💰 Adding points from Ape In:", result.points, "from mode:", result.mode)
+                    addPoints(result.points)
+                  } else {
+                    console.log("ℹ️ No points to add (tutorial mode or 0 points):", {
+                      mode: result.mode,
+                      points: result.points,
+                    })
+                  }
+                }}
+                onClose={onClose}
+              />
+            </ErrorBoundary>
           </div>
         ) : (
           <iframe

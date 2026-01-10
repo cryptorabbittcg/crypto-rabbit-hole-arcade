@@ -59,6 +59,7 @@ export function ApeInGame({
   const [showSplash, setShowSplash] = useState(true)
   const [showMainMenu, setShowMainMenu] = useState(false) // Main menu after splash
   const [playTokenError, setPlayTokenError] = useState<string | null>(null)
+  const [gameInitError, setGameInitError] = useState<string | null>(null)
   const { setGameState, gameStatus, setPlayToken, setRunId, resetGame, opponentName: storeOpponentName } = useGameStore()
   const { hasCompletedIntro, markIntroCompleted } = useIntroTracking()
   const gameStartTimeRef = useRef<number | null>(null)
@@ -188,6 +189,8 @@ export function ApeInGame({
         
       } catch (error) {
         console.error('❌ Failed to initialize game:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Failed to initialize game. Please try again.'
+        setGameInitError(errorMessage)
         setIsLoading(false)
       }
     }
@@ -306,22 +309,37 @@ export function ApeInGame({
     )
   }
 
-  // Error state
-  if (playTokenError) {
+  // Error state - return to menu instead of hub
+  if (playTokenError || gameInitError) {
     return (
       <div className="flex items-center justify-center min-h-[600px]">
-        <div className="text-center">
-          <p className="text-red-500 mb-4">{playTokenError}</p>
-          <button
-            onClick={() => {
-              setPlayTokenError(null)
-              setIsLoading(true)
-              resetGame()
-            }}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-          >
-            Try Again
-          </button>
+        <div className="text-center max-w-md mx-auto p-6 bg-slate-800/90 rounded-xl border border-red-500/30">
+          <div className="text-4xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-white mb-3">Game Error</h2>
+          <p className="text-red-300 mb-6">{playTokenError || gameInitError}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => {
+                setPlayTokenError(null)
+                setGameInitError(null)
+                resetGame()
+                setGameId('')
+                setSelectedMode(undefined)
+                setShowMainMenu(true)
+              }}
+              className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all"
+            >
+              Return to Menu
+            </button>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="px-6 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 font-semibold transition-all"
+              >
+                Exit to Hub
+              </button>
+            )}
+          </div>
         </div>
       </div>
     )
@@ -347,7 +365,7 @@ export function ApeInGame({
   if (showIntro && selectedMode && BOT_CONFIGS[selectedMode]) {
     return (
       <SmartBotIntro
-        mode={selectedMode}
+        gameMode={selectedMode}
         onComplete={handleIntroComplete}
         autoPlay={true} // Auto-start game after intro completes (matches original behavior)
       />

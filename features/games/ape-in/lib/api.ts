@@ -104,9 +104,9 @@ export const gameAPI = {
     throw new Error('Join game not yet implemented')
   },
 
-  // Draw a card - returns card with optional gameState
-  drawCard: async (gameId: string): Promise<Card | (Card & { gameState?: GameState })> => {
-    return apiCall<Card | (Card & { gameState?: GameState })>(`/game/${gameId}/draw`, {
+  // Draw a card - returns { card, gameState }
+  drawCard: async (gameId: string): Promise<{ card: Card; gameState: GameState }> => {
+    return apiCall<{ card: Card; gameState: GameState }>(`/game/${gameId}/draw`, {
       method: 'POST',
     })
   },

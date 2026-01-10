@@ -67,8 +67,20 @@ export class ErrorBoundary extends Component<Props, State> {
                 <Button onClick={this.handleReset} variant="outline">
                   Try Again
                 </Button>
-                <Button onClick={() => window.location.reload()} variant="default">
-                  Refresh Page
+                <Button 
+                  onClick={() => {
+                    // Check if we're in a game modal - if so, close it instead of reloading
+                    if (window.location.pathname === '/' || window.location.pathname.includes('hub')) {
+                      // If we're already at hub, just reload
+                      window.location.reload()
+                    } else {
+                      // Otherwise, navigate back to hub
+                      window.location.href = '/'
+                    }
+                  }} 
+                  variant="default"
+                >
+                  {window.location.pathname === '/' ? 'Refresh Page' : 'Return to Hub'}
                 </Button>
               </div>
             </div>

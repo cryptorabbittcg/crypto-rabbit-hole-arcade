@@ -69,8 +69,9 @@ export async function POST(
     console.log('✅ Card drawn:', card.name, 'Round:', updatedState.roundCount, 'Game Status:', updatedState.gameStatus)
 
     // Return card with gameState for frontend to sync
+    // Format: { card: Card, gameState: GameState }
     return NextResponse.json({
-      ...card,
+      card,
       gameState: updatedState
     })
   } catch (error: any) {

@@ -44,7 +44,7 @@ export class GameService {
       opponentTurnScore: 0,
       currentCard: null,
       lastRoll: null,
-      roundCount: 1, // Start at round 1 (first round begins when game starts)
+      roundCount: 0, // Start at 0, will become 1 on first draw
       maxRounds,
       unlimitedRounds: noRoundLimit,
       winningScore,

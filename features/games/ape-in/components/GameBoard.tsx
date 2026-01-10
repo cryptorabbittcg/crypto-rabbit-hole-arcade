@@ -143,9 +143,12 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
     try {
       const response = await gameAPI.drawCard(gameId)
       
-      // Handle response - API returns card with optional gameState
-      const card = response as Card & { gameState?: GameState }
-      const updatedGameState = (response as any).gameState || null
+      // Handle response - API returns { card: Card, gameState: GameState }
+      const { card, gameState: updatedGameState } = response
+      
+      if (!card) {
+        throw new Error('No card returned from API')
+      }
       
       // Track move for zkVerify
       const move: GameMove = {
@@ -160,8 +163,6 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
       // Update game state if provided (from first draw that starts the game)
       if (updatedGameState) {
         setGameState(updatedGameState)
-        // Update current card - new card always replaces current card
-        // (Ape In! effect is tracked separately in gameState.apeInActive)
         setCurrentCard(card)
       } else {
         // Fallback: refresh game state to sync
