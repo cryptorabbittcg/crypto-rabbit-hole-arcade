@@ -112,7 +112,7 @@ function createCard(def: { name: string; type: CardType; value: number; penalty?
 /**
  * Build card deck for a game mode
  */
-function buildDeck(mode: GameMode): Card[] {
+export function buildDeck(mode: GameMode): Card[] {
   const deck: Card[] = []
   
   // Add all cipher cards (multiple copies based on value)

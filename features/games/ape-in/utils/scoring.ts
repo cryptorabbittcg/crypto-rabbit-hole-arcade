@@ -68,36 +68,5 @@ export function calculatePoints(params: PointsCalculationParams): number {
   return Math.round(Math.min(points, maxPoints))
 }
 
-/**
- * Send points to arcade hub via postMessage
- */
-export function sendPointsToArcade(params: {
-  points: number
-  gameMode: GameMode
-  score: number
-  timeSeconds: number
-  roundsRemaining: number
-}): void {
-  if (typeof window === 'undefined') return
-
-  const { points, gameMode, score, timeSeconds, roundsRemaining } = params
-
-  // Only send if embedded and points > 0
-  try {
-    if (window.parent && window.parent !== window.self) {
-      const message = {
-        type: 'APE_IN_GAME_END',
-        points,
-        gameMode,
-        score,
-        timeSeconds,
-        roundsRemaining,
-      }
-
-      window.parent.postMessage(message, '*')
-      console.log('📤 Sent points to arcade hub:', message)
-    }
-  } catch (error) {
-    console.error('❌ Failed to send points to arcade hub:', error)
-  }
-}
+// Note: Points are now handled via onGameEnd callback in GameBoard component
+// This integrates with the arcade hub context instead of using postMessage

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GameMode } from '../types/game'
-import { BOT_CONFIGS } from '../config/botConfig'
+import { BOT_CONFIGS } from '../utils/botConfig'
 
 interface SmartBotIntroProps {
   gameMode: GameMode

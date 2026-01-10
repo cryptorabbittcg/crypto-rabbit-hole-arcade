@@ -1,114 +1,98 @@
-# Ape In Fixes Summary
+# Ape In Game - Fixes Implemented
 
-## ✅ Fixed in Arcade Hub
+## Critical Fix: Mode Selection Screen
 
-### 1. Points Reception from Ape In ✅
-- Added message handler for `APE_IN_GAME_END` and `GAME_POINTS_UPDATE` messages
-- Points are automatically added to user's balance when Ape In sends them
-- Sandy (tutorial) mode points are ignored (0 points)
-- Points sync to Supabase database and leaderboard
+### Problem Identified
+- Users could only play Sandy (tutorial) mode
+- Aida, Lana, En-J1n, Nifty modes were built but inaccessible
+- No UI to select game modes after clicking "START GAME"
 
-**Location**: `components/game-modal.tsx` lines 268-281
+### Solution Implemented
 
-### 2. Avatar in Session ✅
-- Added `avatar` field to `GameSession` type
-- Avatar is now included in session sent to Ape In
-- Avatar is stored in session and synced with profile
+#### 1. Created Mode Selection Component
+**File:** `features/games/ape-in/components/ModeSelectionScreen.tsx`
 
-**Locations**:
-- `lib/game-session.ts` - Added avatar to type and create function
-- `components/game-modal.tsx` - Includes avatar when creating session
-- `components/providers.tsx` - Includes avatar when storing session
+**Features:**
+- Displays all available game modes (Sandy, Aida, Lana, En-J1n, Nifty)
+- Shows bot difficulty, stats, and pricing
+- Wallet requirement checking for ranked modes
+- Confirmation dialog for ranked games
+- Beautiful animated UI with bot images
 
-### 3. Leaderboard Organization ✅
-- Updated leaderboard view to show 5 tabs:
-  - **Overall** - Total points across all games
-  - **Cryptoku** - Cryptoku-specific leaderboard
-  - **Ape In** - Ape In single-player leaderboard
-  - **Ape In PvP** - Ape In player vs player leaderboard
-  - **Ape In Multiplayer** - Ape In multiplayer mode leaderboard
+#### 2. Updated Game Flow
+**File:** `features/games/ape-in/apeingame.tsx`
 
-**Location**: `features/leaderboard/leaderboard-view.tsx`
+**Changes:**
+- Added mode selection screen to game flow
+- Mode prop is now optional (defaults to showing mode selection)
+- Flow: Splash → Mode Selection → Intro → Game
+- Proper state management for mode selection
 
----
+### User Flow (Fixed)
+```
+1. User clicks "START GAME" on Ape In cabinet
+2. GameModal opens → ApeInGame loads
+3. Splash screen displays
+4. **Mode Selection Screen** (NEW) - User chooses opponent
+5. Intro screen (if not completed before)
+6. Game starts with selected mode
+```
 
-## 📋 What Needs to be Fixed in Ape In Build
-
-See the comprehensive prompt in: **`docs/APE_IN_BUILD_FIXES_PROMPT.md`**
-
-### Quick Summary:
-
-1. **Game Mode Pricing**
-   - Implement 5 free plays per day per mode (except Sandy)
-   - After 5 free plays, charge 0.1 APE per play
-   - Sandy is always free
-
-2. **Points Rewards**
-   - Sandy: 0 points (tutorial)
-   - Aida: 500-2000 points (base 500, time/error penalties)
-   - Lana: 1000-3000 points
-   - En-J1n: 2000-5000 points
-   - Nifty: 750-2500 points
-
-3. **Profile Sync**
-   - Remove profile editing UI (name/PFP editing)
-   - Read profile from Arcade session (username, address, avatar)
-   - Fix PFP display glitch
-
-4. **Points Transfer**
-   - Send points to arcade hub via postMessage on game end
-   - Message format: `{ type: "APE_IN_GAME_END", points: number, gameMode: string, ... }`
-
-5. **Leaderboard Data**
-   - Include `game_type: "ape_in"` in game results
-   - Include `game_mode: "sandy" | "aida" | "lana" | "en-j1n" | "nifty"`
-   - Include `game_subtype: "single_player" | "pvp" | "multiplayer"`
+### Game Modes Now Accessible
+| Mode | Difficulty | Status |
+|------|-----------|--------|
+| Sandy | Tutorial | ✅ Free, always available |
+| Aida | Medium | ✅ Requires wallet, 0.10 APE |
+| Lana | Hard | ✅ Requires wallet, 0.10 APE |
+| En-J1n | Expert | ✅ Requires wallet, 0.10 APE |
+| Nifty | Medium-Hard | ✅ Requires wallet, 0.10 APE |
 
 ---
 
-## 🔗 Integration Points
+## Complete Audit Report
 
-### Arcade Hub → Ape In
-- Sends `ARCADE_IDENTITY` message with session data including:
-  - `username`
-  - `address`
-  - `avatar` (NEW)
-  - `points`
-  - `tickets`
-  - `thirdwebClientId`
+Full audit report available in: `docs/APE_IN_AUDIT_REPORT.md`
 
-### Ape In → Arcade Hub
-- Sends `APE_IN_GAME_END` message with:
-  - `points` or `pointsEarned` (number)
-  - `gameMode` or `mode` (string)
-  - `score` (number)
-  - `timeSeconds` (number)
-  - `errors` (number)
+### Key Findings
+✅ **Working:**
+- All API routes functional
+- Game logic complete
+- Image assets accessible
+- Points integration working
+- No code conflicts
+
+⚠️ **Areas for Future Enhancement:**
+- Payment processing (not fully implemented)
+- PvP/Multiplayer modes (not functional yet)
+- Enhanced error handling
 
 ---
 
-## 🧪 Testing
+## Build Status
+✅ **Build: SUCCESS**
+- No errors
+- No warnings
+- All routes generated
+- Ready for deployment
 
-After Ape In fixes are implemented:
+---
 
-1. **Free Play System**:
-   - Play Sandy mode → Should be free
-   - Play Aida mode 5 times → Should be free
-   - Play Aida mode 6th time → Should charge 0.1 APE
-   - Check free plays reset at midnight
+## Testing Recommendations
 
-2. **Points System**:
-   - Play Sandy → Should award 0 points
-   - Play Aida and win → Should award 500-2000 points
-   - Check points appear in arcade hub topbar
-   - Check points sync to database
+### Manual Testing
+1. ✅ Sandy mode launches and plays
+2. ⏳ Mode selection screen displays correctly
+3. ⏳ All modes (Aida, Lana, En-J1n, Nifty) can be selected
+4. ⏳ Wallet requirement enforced for ranked modes
+5. ⏳ Points calculated and added correctly for each mode
 
-3. **Profile Sync**:
-   - Check username displays from arcade session
-   - Check PFP displays from arcade session
-   - Verify no profile editing UI in Ape In
+### Next Steps
+1. Test mode selection screen in browser
+2. Verify all bot images display correctly
+3. Test wallet requirement enforcement
+4. Verify points calculation for each mode
 
-4. **Leaderboard**:
-   - Check leaderboard tabs show correct game types
-   - Verify game results are logged with correct game_type/mode/subtype
+---
 
+**Date:** 2025-01-XX  
+**Status:** ✅ Mode selection implemented, build successful

@@ -78,6 +78,19 @@ const nextConfig = {
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.externals.push("pino-pretty", "encoding", "thread-stream")
+    } else {
+      // Fix for MetaMask SDK trying to import @react-native-async-storage/async-storage
+      // The postinstall script creates a stub in node_modules, but we need to alias it
+      // Use dynamic import path resolution for ES modules
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        '@react-native-async-storage/async-storage': false, // Disable the module entirely
+      }
+      // Add fallback for the module
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        '@react-native-async-storage/async-storage': false,
+      }
     }
     return config
   },

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import GameBoard from "./components/GameBoard"
 import SmartBotIntro from "./components/SmartBotIntro"
 import WelcomeSplash from "./components/WelcomeSplash"
+import { ModeSelectionScreen } from "./components/ModeSelectionScreen"
 import { useGameStore } from "./store/gameStore"
 import { GameMode } from "./types/game"
 import { isRankedMode } from "./utils/constants"
@@ -16,7 +17,7 @@ export interface ApeInGameProps {
   playerAddress: string | null // Hub identity - required
   profileUsername?: string // Hub identity - optional
   profileAvatarUrl?: string // Hub identity - optional
-  mode?: GameMode // Game mode (defaults to 'sandy')
+  mode?: GameMode // Game mode (optional - if not provided, shows mode selection)
   onGameStart?: () => void
   onGameEnd?: (result: {
     score: number
@@ -48,37 +49,49 @@ export function ApeInGame({
   console.log('🎯 ApeInGame component rendered', { mode, playerAddress, profileUsername })
   
   const [isLoading, setIsLoading] = useState(true)
+  const [selectedMode, setSelectedMode] = useState<GameMode | undefined>(mode) // Use prop if provided, otherwise undefined
   const [playerName, setPlayerName] = useState('')
   const [gameId, setGameId] = useState('')
   const [showIntro, setShowIntro] = useState(true)
   const [showSplash, setShowSplash] = useState(true)
+  const [showModeSelection, setShowModeSelection] = useState(!mode) // Show mode selection if no mode provided
   const [playTokenError, setPlayTokenError] = useState<string | null>(null)
   const { setGameState, gameStatus, setPlayToken, setRunId, resetGame } = useGameStore()
   const { hasCompletedIntro, markIntroCompleted } = useIntroTracking()
   const gameStartTimeRef = useRef<number | null>(null)
   const hasCalledOnGameStart = useRef(false)
 
-  // Initialize game
+  // Handle mode selection
+  const handleModeSelected = useCallback((selectedMode: GameMode) => {
+    console.log('✅ Mode selected:', selectedMode)
+    setSelectedMode(selectedMode)
+    setShowModeSelection(false)
+    // Game will initialize automatically when selectedMode changes
+  }, [])
+
+  // Initialize game when mode is selected
   useEffect(() => {
-    if (!mode) {
-      console.error('❌ No mode provided')
+    // Wait for mode selection if not provided
+    if (!selectedMode) {
+      console.log('⏳ Waiting for mode selection...')
       setIsLoading(false)
       return
     }
 
     // Prevent multiple initializations
-    if (isLoading === false) {
+    if (gameId && !isLoading) {
       console.log('⚠️ Already initialized, skipping')
       return
     }
 
     const initGame = async () => {
+      setIsLoading(true)
       try {
-        console.log('🎮 Initializing game for mode:', mode)
+        console.log('🎮 Initializing game for mode:', selectedMode)
         console.log('👤 Player address:', playerAddress)
         
         // Sandy (tutorial) should always launch, no checks
-        if (mode === 'sandy') {
+        if (selectedMode === 'sandy') {
           console.log('✅ Launching Sandy tutorial (always allowed, no checks)')
           
           // Get player name - Sandy works without address
@@ -115,7 +128,7 @@ export function ApeInGame({
         
         // For ranked modes, we'll need payment/play token logic
         // This will be implemented when we create the API routes
-        console.log('🚀 Proceeding to game creation for ranked mode:', mode)
+        console.log('🚀 Proceeding to game creation for ranked mode:', selectedMode)
         
         // Get player name
         let name = profileUsername || 'Player'
@@ -128,7 +141,7 @@ export function ApeInGame({
         setPlayerName(name)
 
         // TODO: Check if ranked mode requires play token
-        const isRanked = isRankedMode(mode)
+        const isRanked = isRankedMode(selectedMode)
         console.log('🎯 Mode is ranked:', isRanked)
         
         if (isRanked && !playerAddress) {
@@ -142,7 +155,7 @@ export function ApeInGame({
         
         // Create game via API
         console.log('🚀 Creating game via API...')
-        const game = await gameAPI.createGame(mode, name, playerAddress || undefined, false)
+        const game = await gameAPI.createGame(selectedMode, name, playerAddress || undefined, false)
         
         if (!game || !game.gameId) {
           throw new Error('Game creation failed: No game ID returned')
@@ -152,7 +165,7 @@ export function ApeInGame({
         setGameState(game)
         
         // Initialize intro state
-        const shouldShowIntro = !hasCompletedIntro(mode)
+        const shouldShowIntro = !hasCompletedIntro(selectedMode)
         console.log('🎬 Should show intro:', shouldShowIntro)
         setShowIntro(shouldShowIntro)
         
@@ -167,7 +180,7 @@ export function ApeInGame({
     }
 
     initGame()
-  }, [mode, playerAddress, profileUsername, isLoading, setGameState, hasCompletedIntro])
+  }, [selectedMode, playerAddress, profileUsername, setGameState, hasCompletedIntro])
 
   // Call onGameStart callback
   useEffect(() => {
@@ -180,13 +193,19 @@ export function ApeInGame({
   // Handle splash screen
   const handleSplashComplete = useCallback(() => {
     setShowSplash(false)
-  }, [])
+    // After splash, if no mode provided, show mode selection
+    if (!mode) {
+      setShowModeSelection(true)
+    }
+  }, [mode])
 
   // Handle intro completion
   const handleIntroComplete = useCallback(() => {
     setShowIntro(false)
-    markIntroCompleted(mode)
-  }, [mode, markIntroCompleted])
+    if (selectedMode) {
+      markIntroCompleted(selectedMode)
+    }
+  }, [selectedMode, markIntroCompleted])
 
   // Handle game end (called from GameBoard)
   const handleGameEnd = useCallback((result: {
@@ -206,14 +225,14 @@ export function ApeInGame({
     
     // Calculate points
     const points = calculatePoints({
-      gameMode: mode,
+      gameMode: selectedMode || 'sandy',
       roundsRemaining,
       maxRounds,
       hasForfeited,
     })
     
     console.log('🎮 Game ended:', {
-      mode,
+      mode: selectedMode,
       winner,
       playerScore,
       opponentScore,
@@ -225,7 +244,7 @@ export function ApeInGame({
     // Call parent callback
     onGameEnd?.({
       score: playerScore,
-      mode,
+      mode: selectedMode || 'sandy',
       metadata: {
         winner,
         opponentScore,
@@ -236,7 +255,7 @@ export function ApeInGame({
       },
       points,
     })
-  }, [mode, onGameEnd])
+  }, [selectedMode, onGameEnd])
 
   // Loading state
   if (isLoading) {
@@ -276,11 +295,21 @@ export function ApeInGame({
     return <WelcomeSplash onStart={handleSplashComplete} />
   }
 
+  // Mode selection screen (if no mode provided)
+  if (showModeSelection) {
+    return (
+      <ModeSelectionScreen
+        onSelectMode={handleModeSelected}
+        playerAddress={playerAddress}
+      />
+    )
+  }
+
   // Intro screen
-  if (showIntro) {
+  if (showIntro && selectedMode) {
     return (
       <SmartBotIntro
-        mode={mode}
+        mode={selectedMode}
         onComplete={handleIntroComplete}
       />
     )
@@ -302,8 +331,8 @@ export function ApeInGame({
       <GameBoard
         gameId={gameId}
         playerName={playerName}
-        opponentName={(gameState as any)?.opponentName || gameNames[mode] || 'Opponent'}
-        gameMode={mode}
+        opponentName={(gameState as any)?.opponentName || (selectedMode ? gameNames[selectedMode] : 'Opponent') || 'Opponent'}
+        gameMode={selectedMode}
         onPlayIntro={handleIntroComplete}
         onGameEnd={handleGameEnd}
       />
