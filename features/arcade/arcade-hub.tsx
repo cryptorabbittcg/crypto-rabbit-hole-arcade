@@ -41,8 +41,14 @@ export default function ArcadeHub() {
     return () => window.removeEventListener("showAuthDialog", handleShowAuthDialog)
   }, [])
 
-  // Fetch leaderboard scores
+  // Fetch leaderboard scores - only when no active game
+  // Pause fetching when game modal is open to prevent background errors
   useEffect(() => {
+    // Don't fetch if a game is active
+    if (activeGame) {
+      return
+    }
+    
     async function fetchLeaderboard() {
       try {
         setLoadingScores(true)
@@ -50,17 +56,23 @@ export default function ArcadeHub() {
         const scores = await leaderboardService.getTopScores(10)
         setLeaderboardScores(scores)
       } catch (error) {
-        console.error("[v0] Error fetching leaderboard:", error)
+        // Silently handle errors - don't log repeatedly to avoid console spam
+        // Supabase is not configured, so this is expected
+        setLeaderboardScores([])
       } finally {
         setLoadingScores(false)
       }
     }
 
     fetchLeaderboard()
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchLeaderboard, 30000)
+    // Refresh every 30 seconds, but only if no active game
+    const interval = setInterval(() => {
+      if (!activeGame) {
+        fetchLeaderboard()
+      }
+    }, 30000)
     return () => clearInterval(interval)
-  }, [])
+  }, [activeGame]) // Re-run when activeGame changes to pause/resume fetching
 
   async function rollEntropy() {
     const id = crypto.randomUUID()

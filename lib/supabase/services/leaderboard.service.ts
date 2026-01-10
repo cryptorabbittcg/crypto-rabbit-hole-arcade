@@ -23,6 +23,11 @@ export class LeaderboardService {
    * Aggregates scores from game_sessions table
    */
   async getTopScores(limit = 10): Promise<LeaderboardScore[]> {
+    // Early return if Supabase is not configured - prevent repeated errors
+    if (!this.supabase || typeof this.supabase.rpc !== 'function') {
+      return []
+    }
+    
     try {
       // Get the highest score per user from game_sessions
       // This query gets each user's best score across all games
@@ -31,6 +36,11 @@ export class LeaderboardService {
       })
 
       if (error) {
+        // Check if it's a network error (Supabase not configured)
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('ERR_NAME_NOT_RESOLVED')) {
+          // Supabase not configured - return empty array silently
+          return []
+        }
         // If the RPC function doesn't exist, fall back to a direct query
         console.warn("[v0] RPC function not found, using direct query:", error)
         return await this.getTopScoresDirect(limit)
@@ -47,7 +57,12 @@ export class LeaderboardService {
         score: entry.max_score || entry.score || 0,
         game_type: entry.game_type,
       }))
-    } catch (err) {
+    } catch (err: any) {
+      // Check if it's a network error (Supabase not configured)
+      if (err?.message?.includes('Failed to fetch') || err?.message?.includes('ERR_NAME_NOT_RESOLVED')) {
+        // Supabase not configured - return empty array silently
+        return []
+      }
       console.error("[v0] Error fetching top scores:", err)
       return []
     }
@@ -57,6 +72,11 @@ export class LeaderboardService {
    * Fallback method using direct query if RPC function doesn't exist
    */
   private async getTopScoresDirect(limit = 10): Promise<LeaderboardScore[]> {
+    // Early return if Supabase is not configured
+    if (!this.supabase || typeof this.supabase.from !== 'function') {
+      return []
+    }
+    
     try {
       // Get highest score per user from game_sessions
       const { data, error } = await this.supabase
@@ -73,6 +93,11 @@ export class LeaderboardService {
         .limit(limit * 2) // Get more to account for duplicates
 
       if (error) {
+        // Check if it's a network error (Supabase not configured)
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('ERR_NAME_NOT_RESOLVED')) {
+          // Supabase not configured - return empty array silently
+          return []
+        }
         console.error("[v0] Error fetching top scores directly:", error)
         return []
       }

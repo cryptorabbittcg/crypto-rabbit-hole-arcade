@@ -21,6 +21,41 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const cryptokuRef = useRef<CryptokuGameHandle>(null)
   const apeInRef = useRef<ApeInGameHandle>(null)
+  
+  // Memoize onGameEnd callbacks to prevent recreation on every render
+  // This prevents infinite loops in ApeInGame's confirmForfeitFromModal
+  const handleApeInGameEnd = useCallback((result: {
+    score: number
+    mode: string
+    metadata?: any
+    points?: number
+  }) => {
+    console.log("🎮 Ape In game ended:", result)
+    // Add points when game ends (only for ranked modes with points > 0)
+    if (result.points !== undefined && result.points > 0) {
+      console.log("💰 Adding points from Ape In:", result.points, "from mode:", result.mode)
+      addPoints(result.points)
+    } else {
+      console.log("ℹ️ No points to add (tutorial mode or 0 points):", {
+        mode: result.mode,
+        points: result.points,
+      })
+    }
+  }, [addPoints])
+  
+  const handleCryptokuGameEnd = useCallback((result: {
+    score: number
+    metadata?: any
+  }) => {
+    console.log("🎮 Cryptoku game ended:", result)
+    // Add points when game ends (only for ranked modes with points > 0)
+    if (result.metadata?.points !== undefined && result.metadata.points > 0) {
+      console.log("💰 Adding points from Cryptoku:", result.metadata.points)
+      addPoints(result.metadata.points)
+    } else {
+      console.log("ℹ️ No points to add (unranked mode or 0 points):", result.metadata)
+    }
+  }, [addPoints])
 
   // Handle close/exit with forfeit confirmation for active games
   const handleClose = useCallback(() => {
@@ -378,21 +413,7 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
               playerAddress={address}
               profileUsername={profile.username}
               profileAvatarUrl={profile.avatar}
-              onGameEnd={(result) => {
-                console.log("🎮 Cryptoku game ended:", result)
-                // Add points when game ends (only for ranked modes with points > 0)
-                if (result.metadata?.points !== undefined && result.metadata.points > 0) {
-                  console.log("💰 Adding points from Cryptoku:", result.metadata.points)
-                  addPoints(result.metadata.points)
-                } else {
-                  console.log("ℹ️ No points to add (unranked mode or 0 points):", result.metadata)
-                }
-                // Tickets are disabled for now - coming soon
-                // if (result.metadata?.outcome === "win") {
-                //   console.log("🎫 Adding ticket for Cryptoku win")
-                //   addTickets(1)
-                // }
-              }}
+              onGameEnd={handleCryptokuGameEnd}
               onClose={onClose}
             />
           </div>
@@ -437,19 +458,7 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
                 onGameStart={() => {
                   console.log("🎮 Ape In game started")
                 }}
-                onGameEnd={(result) => {
-                  console.log("🎮 Ape In game ended:", result)
-                  // Add points when game ends (only for ranked modes with points > 0)
-                  if (result.points !== undefined && result.points > 0) {
-                    console.log("💰 Adding points from Ape In:", result.points, "from mode:", result.mode)
-                    addPoints(result.points)
-                  } else {
-                    console.log("ℹ️ No points to add (tutorial mode or 0 points):", {
-                      mode: result.mode,
-                      points: result.points,
-                    })
-                  }
-                }}
+                onGameEnd={handleApeInGameEnd}
                 onClose={onClose}
               />
             </ErrorBoundary>

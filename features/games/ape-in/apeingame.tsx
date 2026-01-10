@@ -70,6 +70,29 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
   const gameStartTimeRef = useRef<number | null>(null)
   const hasCalledOnGameStart = useRef(false)
   const initializedForModeRef = useRef<string>('') // Track which mode we've initialized for
+  
+  // Refs for confirmForfeitFromModal to prevent dependency loops
+  const gameIdRef = useRef(gameId)
+  const selectedModeRef = useRef(selectedMode)
+  const onGameEndRef = useRef(onGameEnd)
+  const onCloseRef = useRef(onClose)
+  
+  // Update refs when values change (separate effects to avoid loops)
+  useEffect(() => {
+    gameIdRef.current = gameId
+  }, [gameId])
+  
+  useEffect(() => {
+    selectedModeRef.current = selectedMode
+  }, [selectedMode])
+  
+  useEffect(() => {
+    onGameEndRef.current = onGameEnd
+  }, [onGameEnd])
+  
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   // Handle mode selection from main menu (original Ape In flow)
   const handleModeSelected = useCallback((selectedMode: GameMode) => {
@@ -431,14 +454,20 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
   }), [handleGameExit])
 
   // Confirm forfeit from game modal X button
+  // Use refs to store latest values to prevent dependency issues (refs declared above)
   const confirmForfeitFromModal = useCallback(async () => {
-    if (!gameId) {
-      onClose?.()
+    const currentGameId = gameIdRef.current
+    const currentSelectedMode = selectedModeRef.current
+    const currentOnGameEnd = onGameEndRef.current
+    const currentOnClose = onCloseRef.current
+    
+    if (!currentGameId) {
+      currentOnClose?.()
       return
     }
 
     try {
-      await gameAPI.forfeitGame(gameId)
+      await gameAPI.forfeitGame(currentGameId)
       
       // Get current game state for forfeit result
       const currentState = useGameStore.getState()
@@ -456,15 +485,15 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
       setShowMainMenu(true)
       
       // Call onGameEnd with forfeit result
-      if (onGameEnd) {
+      if (currentOnGameEnd) {
         const gameDuration = gameStartTimeRef.current 
           ? Math.floor((Date.now() - gameStartTimeRef.current) / 1000)
           : 0
         const roundsRemaining = Math.max(0, currentMaxRounds - currentRoundCount)
         
-        onGameEnd({
+        currentOnGameEnd({
           score: currentPlayerScore,
-          mode: selectedMode || 'sandy',
+          mode: currentSelectedMode || 'sandy',
           metadata: {
             winner: currentOpponentName || 'Opponent',
             opponentScore: currentOpponentScore,
@@ -480,7 +509,7 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
       console.error('Failed to forfeit from modal:', error)
       setShowForfeitConfirmFromModal(false)
     }
-  }, [gameId, onGameEnd, onClose, resetGame, selectedMode])
+  }, [resetGame]) // Only resetGame in dependencies - use refs for rest
 
   // Cancel forfeit from game modal - return to game
   const cancelForfeitFromModal = useCallback(() => {
