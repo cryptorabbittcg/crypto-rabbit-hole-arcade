@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GameMode } from '../types/game'
 import { BOT_CONFIGS } from '../utils/botConfig'
@@ -153,21 +153,10 @@ export default function SmartBotIntro({ gameMode, onComplete, autoPlay = false }
   const [isTyping, setIsTyping] = useState(true)
   const [showButtons, setShowButtons] = useState(false)
 
-  // Safety check: ensure gameMode is valid - use useEffect to avoid calling onComplete during render
-  useEffect(() => {
-    if (!gameMode || !BOT_CONFIGS[gameMode]) {
-      console.error(`⚠️ Invalid gameMode passed to SmartBotIntro: ${gameMode}, defaulting to Sandy`)
-      // Auto-complete with skip if invalid mode - call in useEffect to avoid render-time state updates
-      // Use a small delay to ensure it's not called during render
-      const timer = setTimeout(() => {
-        onComplete(true)
-      }, 0)
-      return () => clearTimeout(timer)
-    }
-  }, [gameMode, onComplete])
-
-  // If invalid gameMode, don't render anything (but don't call onComplete during render)
+  // Safety check: ensure gameMode is valid - early return without calling onComplete during render
+  // Match original implementation - no useEffect calling onComplete, just return null
   if (!gameMode || !BOT_CONFIGS[gameMode]) {
+    console.error(`⚠️ Invalid gameMode passed to SmartBotIntro: ${gameMode}, returning null`)
     return null
   }
 
@@ -175,16 +164,20 @@ export default function SmartBotIntro({ gameMode, onComplete, autoPlay = false }
   const botColor = BOT_COLORS[gameMode] || BOT_COLORS.sandy
   const botEmoji = BOT_EMOJIS[gameMode] || BOT_EMOJIS.sandy
 
+  // Use ref to store latest onComplete to avoid dependency issues
+  const onCompleteRef = useRef(onComplete)
   useEffect(() => {
-    // Skip if invalid gameMode
-    if (!gameMode || !BOT_CONFIGS[gameMode]) {
-      return
-    }
-    
+    onCompleteRef.current = onComplete
+  }, [onComplete])
+
+  useEffect(() => {
     console.log('🎬 SmartBotIntro effect:', { currentMessageIndex, introMessagesLength: introMessages.length, autoPlay })
     
     if (currentMessageIndex < introMessages.length) {
       setIsTyping(true)
+      let autoStartTimer: NodeJS.Timeout | null = null
+      let nextMessageTimer: NodeJS.Timeout | null = null
+      
       const timer = setTimeout(() => {
         setIsTyping(false)
         if (currentMessageIndex === introMessages.length - 1) {
@@ -193,13 +186,13 @@ export default function SmartBotIntro({ gameMode, onComplete, autoPlay = false }
           // Auto-complete if autoPlay is enabled
           if (autoPlay) {
             console.log('🎬 AutoPlay enabled, will auto-start in 3 seconds')
-            setTimeout(() => {
+            autoStartTimer = setTimeout(() => {
               console.log('🎬 Auto-starting game')
-              onComplete(false)
+              onCompleteRef.current(false) // Use ref to get latest callback
             }, 3000) // Auto-start after 3 seconds
           }
         } else {
-          setTimeout(() => {
+          nextMessageTimer = setTimeout(() => {
             console.log('🎬 Moving to next message')
             setCurrentMessageIndex(prev => prev + 1)
           }, 1000)
@@ -208,18 +201,20 @@ export default function SmartBotIntro({ gameMode, onComplete, autoPlay = false }
 
       return () => {
         clearTimeout(timer)
+        if (autoStartTimer) clearTimeout(autoStartTimer)
+        if (nextMessageTimer) clearTimeout(nextMessageTimer)
       }
     }
-  }, [currentMessageIndex, introMessages.length, autoPlay, gameMode, onComplete])
+  }, [currentMessageIndex, introMessages.length, autoPlay]) // Remove onComplete from deps - use ref instead
 
   const handleStartGame = () => {
     console.log('🎬 Start game button clicked')
-    onComplete(false)
+    onCompleteRef.current(false) // Use ref to get latest callback
   }
 
   const handleSkipIntro = () => {
     console.log('🎬 Skip intro button clicked')
-    onComplete(true)
+    onCompleteRef.current(true) // Use ref to get latest callback
   }
 
   return (
