@@ -1,4 +1,4 @@
-import { createClient } from "../client"
+import { createClient, hasSupabaseConfig } from "../client"
 import type { Profile } from "../database.types"
 
 export class ProfileService {
@@ -8,6 +8,13 @@ export class ProfileService {
     if (supabaseClient) {
       this.supabase = supabaseClient
     }
+  }
+
+  /**
+   * Check if Supabase is configured before making requests
+   */
+  private isConfigured(): boolean {
+    return hasSupabaseConfig()
   }
 
   async getProfile(userId: string): Promise<Profile | null> {
@@ -23,20 +30,19 @@ export class ProfileService {
 
   async getProfileByWallet(walletAddress: string): Promise<Profile | null> {
     try {
-      // Validate Supabase client is initialized
-      if (!this.supabase) {
-        console.error("[v0] Supabase client not initialized")
+      // Check if Supabase is configured before making requests
+      if (!this.isConfigured()) {
+        // Silently return null if Supabase is not configured (prevents error spam)
         return null
       }
 
-      // Test connection first
-      const testQuery = await this.supabase.from("profiles").select("id").limit(1)
-      if (testQuery.error && testQuery.error.code !== "PGRST116") {
-        console.error("[v0] Supabase connection test failed:", testQuery.error)
+      // Validate Supabase client is initialized
+      if (!this.supabase) {
+        console.error("[ProfileService] Supabase client not initialized")
+        return null
       }
 
       const normalizedWallet = walletAddress.toLowerCase()
-      console.log("[v0] Fetching profile for wallet:", normalizedWallet)
 
       const { data, error } = await this.supabase
         .from("profiles")
@@ -46,43 +52,26 @@ export class ProfileService {
 
       if (error) {
         if (error.code === "PGRST116") {
-          // No rows returned - profile doesn't exist yet
-          console.log("[v0] Profile not found for wallet:", normalizedWallet)
+          // No rows returned - profile doesn't exist yet (this is expected)
           return null
         }
-        // Log error in multiple ways to capture all properties
-        console.error("[v0] Error fetching profile by wallet - Raw error:", error)
-        console.error("[v0] Error fetching profile by wallet - Error type:", typeof error)
-        console.error("[v0] Error fetching profile by wallet - Error keys:", Object.keys(error))
-        console.error("[v0] Error fetching profile by wallet - Error properties:", {
-          message: error?.message,
-          code: error?.code,
-          details: error?.details,
-          hint: error?.hint,
-          name: (error as any)?.name,
-          stack: (error as any)?.stack,
-        })
-        console.error("[v0] Error fetching profile by wallet - Wallet:", normalizedWallet)
-        // Try to stringify with a replacer function
-        try {
-          console.error("[v0] Error stringified:", JSON.stringify(error, (key, value) => {
-            if (value && typeof value === 'object') {
-              return Object.getOwnPropertyNames(value).reduce((acc, prop) => {
-                acc[prop] = (value as any)[prop]
-                return acc
-              }, {} as any)
-            }
-            return value
-          }, 2))
-        } catch (e) {
-          console.error("[v0] Could not stringify error:", e)
+        // Only log non-expected errors
+        if (!error.message?.includes("Failed to fetch") && !error.message?.includes("ERR_NAME_NOT_RESOLVED")) {
+          console.warn("[ProfileService] Error fetching profile by wallet:", {
+            code: error.code,
+            message: error.message,
+            wallet: normalizedWallet.substring(0, 10) + "...",
+          })
         }
         return null
       }
 
       return data
-    } catch (err) {
-      console.error("[v0] Exception fetching profile by wallet:", err)
+    } catch (err: any) {
+      // Only log if it's not a network error (prevents spam)
+      if (!err?.message?.includes("Failed to fetch") && !err?.message?.includes("ERR_NAME_NOT_RESOLVED")) {
+        console.error("[ProfileService] Exception fetching profile by wallet:", err?.message || err)
+      }
       return null
     }
   }
@@ -95,14 +84,19 @@ export class ProfileService {
     referral_code?: string
   }): Promise<Profile | null> {
     try {
+      // Check if Supabase is configured before making requests
+      if (!this.isConfigured()) {
+        // Silently return null if Supabase is not configured (prevents error spam)
+        return null
+      }
+
       // Validate Supabase client is initialized
       if (!this.supabase) {
-        console.error("[v0] Supabase client not initialized")
+        console.error("[ProfileService] Supabase client not initialized")
         return null
       }
 
       const normalizedWallet = params.wallet_address.toLowerCase()
-      console.log("[v0] Creating profile for wallet:", normalizedWallet, "username:", params.username)
 
       const insertData = {
         wallet_address: normalizedWallet,
@@ -120,8 +114,6 @@ export class ProfileService {
         experience: 0,
       }
 
-      console.log("[v0] Insert data:", insertData)
-
       const { data, error } = await this.supabase
         .from("profiles")
         .insert(insertData)
@@ -129,43 +121,23 @@ export class ProfileService {
         .single()
 
       if (error) {
-        // Log error in multiple ways to capture all properties
-        console.error("[v0] Error creating profile - Raw error:", error)
-        console.error("[v0] Error creating profile - Error type:", typeof error)
-        console.error("[v0] Error creating profile - Error keys:", Object.keys(error))
-        console.error("[v0] Error creating profile - Error properties:", {
-          message: error?.message,
-          code: error?.code,
-          details: error?.details,
-          hint: error?.hint,
-          name: (error as any)?.name,
-          stack: (error as any)?.stack,
-        })
-        console.error("[v0] Error creating profile - Params:", {
-          wallet_address: normalizedWallet,
-          username: params.username,
-        })
-        // Try to stringify with a replacer function
-        try {
-          console.error("[v0] Error stringified:", JSON.stringify(error, (key, value) => {
-            if (value && typeof value === 'object') {
-              return Object.getOwnPropertyNames(value).reduce((acc, prop) => {
-                acc[prop] = (value as any)[prop]
-                return acc
-              }, {} as any)
-            }
-            return value
-          }, 2))
-        } catch (e) {
-          console.error("[v0] Could not stringify error:", e)
+        // Only log non-network errors
+        if (!error.message?.includes("Failed to fetch") && !error.message?.includes("ERR_NAME_NOT_RESOLVED")) {
+          console.warn("[ProfileService] Error creating profile:", {
+            code: error.code,
+            message: error.message,
+            wallet: normalizedWallet.substring(0, 10) + "...",
+          })
         }
         return null
       }
 
-      console.log("[v0] Profile created successfully:", data)
       return data
-    } catch (err) {
-      console.error("[v0] Exception creating profile:", err)
+    } catch (err: any) {
+      // Only log if it's not a network error (prevents spam)
+      if (!err?.message?.includes("Failed to fetch") && !err?.message?.includes("ERR_NAME_NOT_RESOLVED")) {
+        console.error("[ProfileService] Exception creating profile:", err?.message || err)
+      }
       return null
     }
   }

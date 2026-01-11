@@ -4,61 +4,106 @@ let clientInstance: ReturnType<typeof createBrowserClient> | null = null
 
 /**
  * Check if Supabase is properly configured
+ * Validates that environment variables are set and contain valid values
  */
 export function hasSupabaseConfig(): boolean {
+  // In Next.js, NEXT_PUBLIC_* variables are available via process.env on both client and server
+  // They're replaced at build time with actual values
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  return !!(
-    url &&
-    key &&
+
+  // Validate URL format (should be a valid Supabase URL)
+  const isValidUrl = url && 
+    typeof url === "string" && 
+    url.length > 0 &&
+    (url.startsWith("https://") || url.startsWith("http://")) &&
     !url.includes("placeholder") &&
+    url !== "https://placeholder.supabase.co" &&
+    url !== "https://supabase-not-configured.local" &&
+    url.includes(".supabase.co") // Must be a Supabase URL
+
+  // Validate key format (should be a JWT token, typically starts with "eyJ")
+  const isValidKey = key && 
+    typeof key === "string" && 
+    key.length > 20 && // JWT tokens are typically much longer
     !key.includes("placeholder") &&
-    url !== "https://placeholder.supabase.co"
-  )
+    key !== "not-configured-key"
+
+  return !!(isValidUrl && isValidKey)
+}
+
+/**
+ * Get Supabase environment variables
+ */
+function getSupabaseEnv() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  return { url, key }
 }
 
 export function createClient() {
-  // Return cached instance if already created
+  // Return cached instance if already created (but validate it's still valid)
   if (clientInstance) {
-    return clientInstance
+    // Check if cached instance is still valid
+    const { url, key } = getSupabaseEnv()
+    if (hasSupabaseConfig()) {
+      return clientInstance
+    }
+    // If env vars changed, clear cache and recreate
+    clientInstance = null
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const { url, key } = getSupabaseEnv()
 
   // Guard: Only create client if env vars are properly configured
-  // Never use placeholder.supabase.co - fail gracefully instead
-  if (!url || !key || url.includes("placeholder") || url === "https://placeholder.supabase.co") {
-    console.warn("[v0] Missing or invalid Supabase environment variables:", {
+  if (!hasSupabaseConfig()) {
+    const diagnosticInfo = {
       hasUrl: !!url,
       hasKey: !!key,
-      urlIncludesPlaceholder: url?.includes("placeholder"),
-      urlValue: url?.substring(0, 50), // Log first 50 chars for debugging
-    })
+      urlType: typeof url,
+      keyType: typeof key,
+      urlLength: url?.length || 0,
+      keyLength: key?.length || 0,
+      urlPreview: url ? `${url.substring(0, 30)}...` : "undefined",
+      urlIncludesPlaceholder: url?.includes("placeholder") || false,
+      keyIncludesPlaceholder: key?.includes("placeholder") || false,
+      isClientSide: typeof window !== "undefined",
+    }
     
-    // Return a client that will have errors on operations but won't crash
-    // Services already handle errors, so they'll return null/empty arrays gracefully
-    // This prevents placeholder.supabase.co from being used
+    console.warn("[Supabase] Missing or invalid Supabase environment variables:", diagnosticInfo)
+    console.warn("[Supabase] To fix this, set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file or Vercel project settings")
+    
+    // Return a client that will fail gracefully on operations
+    // Services handle errors and return null/empty arrays
     try {
-      // Use an invalid URL that will fail network requests but allow client creation
-      // Operations will return errors that services can catch and handle
       clientInstance = createBrowserClient(
         "https://supabase-not-configured.local",
-        key || "not-configured-key"
+        "not-configured-key"
       )
       return clientInstance
     } catch (error) {
-      console.error("[v0] Failed to create Supabase client (fallback):", error)
-      // If client creation fails entirely, throw to make the issue obvious
-      throw new Error("Supabase client cannot be created: missing or invalid environment variables")
+      console.error("[Supabase] Failed to create Supabase client (fallback):", error)
+      throw new Error("Supabase client cannot be created: missing or invalid environment variables. Check console for details.")
     }
+  }
+
+  // Validate URL and key are strings before using
+  if (typeof url !== "string" || typeof key !== "string") {
+    console.error("[Supabase] Invalid environment variable types:", {
+      urlType: typeof url,
+      keyType: typeof key,
+    })
+    throw new Error("Supabase environment variables must be strings")
   }
 
   try {
     clientInstance = createBrowserClient(url, key)
     return clientInstance
   } catch (error) {
-    console.error("[v0] Failed to create Supabase client:", error)
+    console.error("[Supabase] Failed to create Supabase client:", error)
+    // Clear instance on error so we can retry
+    clientInstance = null
     throw error
   }
 }
