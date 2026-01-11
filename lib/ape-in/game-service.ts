@@ -161,7 +161,9 @@ export class GameService {
         gameState.currentCard = null
         await updateGame(gameId, gameState)
 
-        const message = wasApeInActive ? "Dodged bearish! (Ape In! negated)" : "Dodged bearish!"
+        const message = wasApeInActive 
+          ? "Great Roll! Your sats are safe! Continue your turn. (Ape In! negated)" 
+          : "Great Roll! Your sats are safe! Continue your turn."
         return { value: roll, success: true, message }
       } else {
         // Apply penalty

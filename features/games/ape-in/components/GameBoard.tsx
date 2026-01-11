@@ -41,6 +41,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
   })
   const [hasForfeited, setHasForfeited] = useState(false) // Track if player forfeited
   const submitLockRef = useRef(false) // Ref-based lock to prevent double submission across renders
+  const [showConfetti, setShowConfetti] = useState(false) // Confetti for wins
   
   const {
     playerScore,
@@ -216,13 +217,24 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
         setIsRolling(false)
 
         if (result.success) {
-          // Show floating success message with sats gained (KEEP CARD VISIBLE)
-          const satsGained = result.satsGained !== undefined ? result.satsGained : currentCard.value
-          console.log('Sats gained:', satsGained, 'Current card value:', currentCard.value, 'Ape In active:', apeInActive) // Debug
-          setFloatingMessage({
-            text: `Great roll! +${satsGained} sats`,
-            sats: result.turnScore
-          })
+          // Check if this is a bearish dodge (message contains "Great Roll! Your sats are safe")
+          const isBearishDodge = result.message?.includes("Great Roll! Your sats are safe") || result.message?.includes("Dodged bearish")
+          
+          if (isBearishDodge) {
+            // Show the dodge message from backend
+            setFloatingMessage({
+              text: result.message || "Great Roll! Your sats are safe! Continue your turn.",
+              sats: result.turnScore
+            })
+          } else {
+            // Show floating success message with sats gained (KEEP CARD VISIBLE)
+            const satsGained = result.satsGained !== undefined ? result.satsGained : currentCard.value
+            console.log('Sats gained:', satsGained, 'Current card value:', currentCard.value, 'Ape In active:', apeInActive) // Debug
+            setFloatingMessage({
+              text: `Great roll! +${satsGained} sats`,
+              sats: result.turnScore
+            })
+          }
           
           // Wait for message to display, THEN clear card
           // Note: If Ape In! was active, the card value was already doubled and effect consumed
@@ -365,17 +377,26 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
       setFloatingMessage({text: 'Banking sats...'})
       const result = await gameAPI.stackSats(gameId)
       
-      setTimeout(async () => {
-        setFloatingMessage(null)
-        
-        // Replay bot's turn if actions are provided
-        if (result.botActions && result.botActions.length > 0) {
-          await replayBotTurn(result.botActions)
-        }
-        
-        // Final state update
+      // Immediately update game state with the result
+      if (result) {
+        setGameState(result)
+      }
+      
+      // Clear the floating message and start bot turn immediately
+      setFloatingMessage(null)
+      
+      // Replay bot's turn if actions are provided (start immediately)
+      if (result.botActions && result.botActions.length > 0) {
+        console.log('🤖 Starting bot turn after stack:', result.botActions.length, 'actions')
+        // Start bot turn immediately after stacking
+        await replayBotTurn(result.botActions)
+        // Final state update after bot turn completes
         await refreshGameState()
-      }, 800)
+      } else {
+        console.log('⚠️ No bot actions returned after stack. Game status:', result?.gameStatus, 'Mode:', result?.mode)
+        // No bot turn (game ended or PvP mode) - just refresh state
+        await refreshGameState()
+      }
     } catch (error) {
       console.error('Failed to stack sats:', error)
       setFloatingMessage({text: 'Failed to stack sats. Please try again.'})
@@ -545,16 +566,99 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
   // Points calculation is now handled by parent component (ApeInGame) via onGameEnd callback
   // No postMessage needed - parent will handle points via arcade hub context
 
+  // Show confetti when player wins
+  useEffect(() => {
+    if (gameStatus === 'finished' && winner === playerName && !showConfetti) {
+      setShowConfetti(true)
+      // Hide confetti after 5 seconds
+      const timer = setTimeout(() => {
+        setShowConfetti(false)
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [gameStatus, winner, playerName, showConfetti])
+
   if (gameStatus === 'finished') {
     const playerWon = winner === playerName
     const isRanked = gameMode ? isRankedMode(gameMode) : false
     
     return (
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="game-board text-center py-12"
-      >
+      <>
+        {/* Confetti for wins */}
+        {showConfetti && playerWon && (
+          <style dangerouslySetInnerHTML={{__html: `
+            .ape-in-confetti {
+              position: fixed;
+              inset: 0;
+              pointer-events: none;
+              overflow: visible;
+              z-index: 9999;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              width: 100vw;
+              height: 100vh;
+            }
+
+            .ape-in-confetti-piece {
+              position: absolute;
+              width: 12px;
+              height: 12px;
+              background: #fbbf24;
+              opacity: 0.9;
+              border-radius: 2px;
+              top: -20px;
+              animation: ape-in-confetti-fall 5s linear forwards;
+            }
+
+            .ape-in-confetti-piece:nth-child(4n) {
+              background: #22c55e;
+            }
+            .ape-in-confetti-piece:nth-child(4n + 1) {
+              background: #38bdf8;
+            }
+            .ape-in-confetti-piece:nth-child(4n + 2) {
+              background: #f97316;
+            }
+            .ape-in-confetti-piece:nth-child(4n + 3) {
+              background: #a855f7;
+            }
+
+            @keyframes ape-in-confetti-fall {
+              0% {
+                transform: translate3d(0, -20px, 0) rotateZ(0deg) rotateY(0deg);
+                opacity: 1;
+              }
+              100% {
+                transform: translate3d(0, calc(100vh + 20px), 0) rotateZ(720deg) rotateY(360deg);
+                opacity: 0;
+              }
+            }
+          `}} />
+        )}
+        {showConfetti && playerWon && (
+          <div className="ape-in-confetti">
+            {Array.from({ length: 300 }, (_, i) => (
+              <div
+                key={i}
+                className="ape-in-confetti-piece"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${-20 - Math.random() * 100}px`,
+                  animationDelay: `${Math.random() * 2}s`,
+                  animationDuration: `${3 + Math.random() * 2}s`,
+                  transform: `rotate(${Math.random() * 360}deg)`,
+                }}
+              />
+            ))}
+          </div>
+        )}
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="game-board text-center py-12"
+        >
         <h2 className="text-5xl font-bold mb-6">
           {playerWon ? '🎉 You Win!' : `${opponentName} Wins This Time!`}
         </h2>
@@ -673,47 +777,30 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
           </div>
         </div>
         <div className="flex gap-4 justify-center">
-          {hasForfeited ? (
-            <button 
-              onClick={() => {
-                // Return to menu after forfeit
-                resetGame()
-                if (onReturnToMenu) {
-                  onReturnToMenu()
-                } else if (onGameEnd) {
-                  // Fallback to onGameEnd if onReturnToMenu not provided
-                  onGameEnd({
-                    winner: opponentName || 'Opponent',
-                    playerScore: 0,
-                    opponentScore,
-                    hasForfeited: true,
-                  })
-                }
-              }} 
-              className="btn-primary text-lg"
-            >
-              Return to Menu
-            </button>
-          ) : (
-            <button 
-              onClick={() => {
-                // Use onGameEnd callback to signal game restart (parent handles navigation)
-                if (onGameEnd) {
-                  onGameEnd({
-                    winner: winner || 'Draw',
-                    playerScore,
-                    opponentScore,
-                    hasForfeited: false,
-                  })
-                }
-              }} 
-              className="btn-primary text-lg"
-            >
-              Play Again
-            </button>
-          )}
+          <button 
+            onClick={() => {
+              // Return to menu (works for both win and loss)
+              resetGame()
+              setShowConfetti(false) // Stop confetti
+              if (onReturnToMenu) {
+                onReturnToMenu()
+              } else if (onGameEnd) {
+                // Fallback to onGameEnd if onReturnToMenu not provided
+                onGameEnd({
+                  winner: hasForfeited ? (opponentName || 'Opponent') : (winner || 'Draw'),
+                  playerScore: hasForfeited ? 0 : playerScore,
+                  opponentScore,
+                  hasForfeited,
+                })
+              }
+            }} 
+            className="btn-primary text-lg px-8 py-3"
+          >
+            Return to Menu
+          </button>
         </div>
       </motion.div>
+      </>
     )
   }
 
