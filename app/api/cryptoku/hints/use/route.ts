@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getCryptokuHints, updateCryptokuHints } from "@/lib/cryptoku-store"
+import { CryptokuHintsService } from "@/lib/supabase/services/cryptoku-hints.service"
+import { ProfileService } from "@/lib/supabase/services/profile.service"
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,37 +11,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Address required" }, { status: 400 })
     }
 
-    const normalizedAddress = address.toLowerCase()
-    const currentHints = await getCryptokuHints(address)
+    const hintsService = new CryptokuHintsService()
+    const profileService = new ProfileService()
+    
+    // Get profile to get user_id
+    const profile = await profileService.getProfileByWallet(address)
+    if (!profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 })
+    }
 
-    if (currentHints.hintBalance <= 0) {
+    // Use hint (atomic operation)
+    const result = await hintsService.useHint(profile.id)
+
+    if (!result.success) {
       return NextResponse.json(
-        { error: "No hints remaining", hintBalance: currentHints.hintBalance },
+        { 
+          error: result.error || "Failed to use hint",
+          hintBalance: result.hints.hintBalance 
+        },
         { status: 400 }
       )
     }
 
-    // Decrement hint balance
-    const updatedHints = await updateCryptokuHints(address, (hints) => ({
-      ...hints,
-      hintBalance: hints.hintBalance - 1,
-    }))
-
     return NextResponse.json({
       success: true,
-      hintBalance: updatedHints.hintBalance,
+      hintBalance: result.hints.hintBalance,
     })
   } catch (error) {
     console.error("Error using hint:", error)
-    // Provide more specific error message
     const errorMessage = error instanceof Error ? error.message : "Unknown error"
-    const isKVError = errorMessage.includes("KV") || errorMessage.includes("not configured")
     
     return NextResponse.json(
       { 
-        error: isKVError 
-          ? "Hint service is not configured. Please contact support." 
-          : `Failed to use hint: ${errorMessage}` 
+        error: `Failed to use hint: ${errorMessage}` 
       },
       { status: 500 }
     )

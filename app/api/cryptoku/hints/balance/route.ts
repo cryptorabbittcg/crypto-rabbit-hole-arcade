@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getCryptokuHints } from "@/lib/cryptoku-store"
+import { CryptokuHintsService } from "@/lib/supabase/services/cryptoku-hints.service"
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,7 +10,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Address required" }, { status: 400 })
     }
 
-    const playerHints = await getCryptokuHints(address)
+    const hintsService = new CryptokuHintsService()
+    const playerHints = await hintsService.getHintsByWallet(address)
 
     return NextResponse.json({
       hintBalance: playerHints.hintBalance,
@@ -18,18 +19,7 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error("Error fetching hints balance:", error)
-    // Provide more specific error message
     const errorMessage = error instanceof Error ? error.message : "Unknown error"
-    const isKVError = errorMessage.includes("KV") || errorMessage.includes("not configured")
-    
-    // Return default hints if KV is not configured (allows game to work)
-    if (isKVError) {
-      console.warn("KV not configured - returning default hints balance")
-      return NextResponse.json({
-        hintBalance: 3,
-        gamesUntilNextFreeHint: 10,
-      })
-    }
     
     return NextResponse.json(
       { 

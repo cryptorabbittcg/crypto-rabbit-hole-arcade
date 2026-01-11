@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import {
   getCryptokuStats,
   updateCryptokuStats,
-  getCryptokuHints,
-  updateCryptokuHints,
-  addCryptokuLeaderboardEntry,
 } from "@/lib/cryptoku-store"
+import { CryptokuHintsService } from "@/lib/supabase/services/cryptoku-hints.service"
+import { CryptokuLeaderboardService } from "@/lib/supabase/services/cryptoku-leaderboard.service"
+import { ProfileService } from "@/lib/supabase/services/profile.service"
 
 // Server-side scoring formula
 function calculateScore(
@@ -126,20 +126,22 @@ export async function POST(request: NextRequest) {
       return newStats
     })
 
-    // Update hints economy: +1 hint every 10 completed ranked games
-    const currentHints = await getCryptokuHints(normalizedAddress)
-    const newTotalRankedCompleted = currentHints.totalRankedCompleted + 1
-    const newHintsEarned = Math.floor(newTotalRankedCompleted / 10) - Math.floor((newTotalRankedCompleted - 1) / 10)
+    // Update hints economy: +1 hint every 10 completed ranked games (atomic operation)
+    const hintsService = new CryptokuHintsService()
+    const profileService = new ProfileService()
+    const profile = await profileService.getProfileByWallet(normalizedAddress)
     
-    const updatedHints = await updateCryptokuHints(normalizedAddress, (hints) => ({
-      ...hints,
-      totalRankedCompleted: newTotalRankedCompleted,
-      hintBalance: hints.hintBalance + (newHintsEarned > 0 ? newHintsEarned : 0),
-      gamesUntilNextFreeHint: 10 - (newTotalRankedCompleted % 10),
-    }))
+    let hintsRewardResult
+    if (profile) {
+      hintsRewardResult = await hintsService.rewardHint(profile.id)
+    } else {
+      // Fallback: no profile exists, skip hint reward
+      hintsRewardResult = { hintsEarned: 0, hints: { hintBalance: 0, gamesUntilNextFreeHint: 10, totalRankedCompleted: 0 } }
+    }
 
-    // Add to leaderboard
-    await addCryptokuLeaderboardEntry({
+    // Add to leaderboard (Supabase)
+    const leaderboardService = new CryptokuLeaderboardService()
+    await leaderboardService.addEntry({
       runId,
       address: normalizedAddress,
       mode,
@@ -156,9 +158,9 @@ export async function POST(request: NextRequest) {
       success: true,
       score,
       cleanStreak: updatedStats.cleanStreak,
-      hintsEarned: newHintsEarned,
-      hintBalance: updatedHints.hintBalance,
-      gamesUntilNextFreeHint: updatedHints.gamesUntilNextFreeHint,
+      hintsEarned: hintsRewardResult.hintsEarned,
+      hintBalance: hintsRewardResult.hints.hintBalance,
+      gamesUntilNextFreeHint: hintsRewardResult.hints.gamesUntilNextFreeHint,
     })
   } catch (error) {
     console.error("Error submitting result:", error)

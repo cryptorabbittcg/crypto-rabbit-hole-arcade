@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getCryptokuLeaderboard } from "@/lib/cryptoku-store"
+import { CryptokuLeaderboardService } from "@/lib/supabase/services/cryptoku-leaderboard.service"
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,11 +10,12 @@ export async function GET(request: NextRequest) {
     // Validate mode
     const validatedMode = mode !== "ALL" && ["DEGEN", "APE"].includes(mode) ? (mode as "DEGEN" | "APE") : "ALL"
 
-    const { entries, total } = await getCryptokuLeaderboard(validatedMode, limit)
+    const leaderboardService = new CryptokuLeaderboardService()
+    const { entries, total } = await leaderboardService.getLeaderboard(validatedMode, limit)
 
     return NextResponse.json({
       entries: entries.map((entry, index) => ({
-        rank: index + 1,
+        rank: index + 1, // Rank based on position in sorted results
         runId: entry.runId,
         address: entry.address,
         mode: entry.mode,
