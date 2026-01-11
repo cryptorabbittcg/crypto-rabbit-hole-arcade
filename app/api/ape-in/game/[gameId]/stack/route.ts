@@ -3,10 +3,12 @@ import { GameService } from "@/lib/ape-in/game-service"
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { gameId: string } }
+  { params }: { params: Promise<{ gameId: string }> | { gameId: string } }
 ) {
   try {
-    const { gameId } = params
+    // Await params if it's a Promise (Next.js 15+), otherwise use directly
+    const resolvedParams = params instanceof Promise ? await params : params
+    const { gameId } = resolvedParams
 
     if (!gameId) {
       return NextResponse.json(
