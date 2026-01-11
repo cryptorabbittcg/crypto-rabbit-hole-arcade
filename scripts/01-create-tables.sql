@@ -296,20 +296,20 @@ CREATE TABLE IF NOT EXISTS pack_openings (
 -- =====================================================
 -- INDEXES FOR PERFORMANCE
 -- =====================================================
-CREATE INDEX idx_profiles_wallet ON profiles(wallet_address);
-CREATE INDEX idx_profiles_username ON profiles(username);
-CREATE INDEX idx_card_inventory_user ON card_inventory(user_id);
-CREATE INDEX idx_card_inventory_staked ON card_inventory(user_id, is_staked);
-CREATE INDEX idx_upgrades_inventory_user ON upgrades_inventory(user_id, is_used);
-CREATE INDEX idx_game_sessions_user ON game_sessions(user_id);
-CREATE INDEX idx_game_sessions_type ON game_sessions(game_type);
-CREATE INDEX idx_pvp_matches_players ON pvp_matches(player1_id, player2_id);
-CREATE INDEX idx_pvp_matches_status ON pvp_matches(match_status);
-CREATE INDEX idx_match_history_user ON match_history(user_id);
-CREATE INDEX idx_transactions_user ON transactions(user_id);
-CREATE INDEX idx_leaderboard_points ON leaderboard(total_points DESC);
-CREATE INDEX idx_achievements_user ON achievements(user_id);
-CREATE INDEX idx_raid_participation_user ON raid_participation(user_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_wallet ON profiles(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_profiles_username ON profiles(username);
+CREATE INDEX IF NOT EXISTS idx_card_inventory_user ON card_inventory(user_id);
+CREATE INDEX IF NOT EXISTS idx_card_inventory_staked ON card_inventory(user_id, is_staked);
+CREATE INDEX IF NOT EXISTS idx_upgrades_inventory_user ON upgrades_inventory(user_id, is_used);
+CREATE INDEX IF NOT EXISTS idx_game_sessions_user ON game_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_game_sessions_type ON game_sessions(game_type);
+CREATE INDEX IF NOT EXISTS idx_pvp_matches_players ON pvp_matches(player1_id, player2_id);
+CREATE INDEX IF NOT EXISTS idx_pvp_matches_status ON pvp_matches(match_status);
+CREATE INDEX IF NOT EXISTS idx_match_history_user ON match_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_leaderboard_points ON leaderboard(total_points DESC);
+CREATE INDEX IF NOT EXISTS idx_achievements_user ON achievements(user_id);
+CREATE INDEX IF NOT EXISTS idx_raid_participation_user ON raid_participation(user_id);
 
 -- =====================================================
 -- UPDATED_AT TRIGGER FUNCTION
@@ -323,12 +323,14 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply trigger to profiles table
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
 CREATE TRIGGER update_profiles_updated_at
   BEFORE UPDATE ON profiles
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
 -- Apply trigger to leaderboard table
+DROP TRIGGER IF EXISTS update_leaderboard_updated_at ON leaderboard;
 CREATE TRIGGER update_leaderboard_updated_at
   BEFORE UPDATE ON leaderboard
   FOR EACH ROW

@@ -21,16 +21,19 @@ ALTER TABLE pack_openings ENABLE ROW LEVEL SECURITY;
 -- PROFILES POLICIES
 -- =====================================================
 -- Users can read all profiles (for leaderboards, PvP matching)
+DROP POLICY IF EXISTS "Profiles are viewable by everyone" ON profiles;
 CREATE POLICY "Profiles are viewable by everyone"
   ON profiles FOR SELECT
   USING (true);
 
 -- Users can insert their own profile
+DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
 CREATE POLICY "Users can insert their own profile"
   ON profiles FOR INSERT
   WITH CHECK (true);
 
 -- Users can update only their own profile
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 CREATE POLICY "Users can update own profile"
   ON profiles FOR UPDATE
   USING (wallet_address = current_setting('app.current_user_wallet', true));
@@ -39,16 +42,19 @@ CREATE POLICY "Users can update own profile"
 -- CARD INVENTORY POLICIES
 -- =====================================================
 -- Users can only see their own cards
+DROP POLICY IF EXISTS "Users can view own cards" ON card_inventory;
 CREATE POLICY "Users can view own cards"
   ON card_inventory FOR SELECT
   USING (user_id::text = current_setting('app.current_user_id', true));
 
 -- Users can insert their own cards
+DROP POLICY IF EXISTS "Users can insert own cards" ON card_inventory;
 CREATE POLICY "Users can insert own cards"
   ON card_inventory FOR INSERT
   WITH CHECK (user_id::text = current_setting('app.current_user_id', true));
 
 -- Users can update their own cards
+DROP POLICY IF EXISTS "Users can update own cards" ON card_inventory;
 CREATE POLICY "Users can update own cards"
   ON card_inventory FOR UPDATE
   USING (user_id::text = current_setting('app.current_user_id', true));
@@ -56,14 +62,17 @@ CREATE POLICY "Users can update own cards"
 -- =====================================================
 -- UPGRADES INVENTORY POLICIES
 -- =====================================================
+DROP POLICY IF EXISTS "Users can view own upgrades" ON upgrades_inventory;
 CREATE POLICY "Users can view own upgrades"
   ON upgrades_inventory FOR SELECT
   USING (user_id::text = current_setting('app.current_user_id', true));
 
+DROP POLICY IF EXISTS "Users can insert own upgrades" ON upgrades_inventory;
 CREATE POLICY "Users can insert own upgrades"
   ON upgrades_inventory FOR INSERT
   WITH CHECK (user_id::text = current_setting('app.current_user_id', true));
 
+DROP POLICY IF EXISTS "Users can update own upgrades" ON upgrades_inventory;
 CREATE POLICY "Users can update own upgrades"
   ON upgrades_inventory FOR UPDATE
   USING (user_id::text = current_setting('app.current_user_id', true));
@@ -71,14 +80,17 @@ CREATE POLICY "Users can update own upgrades"
 -- =====================================================
 -- GAME SESSIONS POLICIES
 -- =====================================================
+DROP POLICY IF EXISTS "Users can view own game sessions" ON game_sessions;
 CREATE POLICY "Users can view own game sessions"
   ON game_sessions FOR SELECT
   USING (user_id::text = current_setting('app.current_user_id', true));
 
+DROP POLICY IF EXISTS "Users can insert own game sessions" ON game_sessions;
 CREATE POLICY "Users can insert own game sessions"
   ON game_sessions FOR INSERT
   WITH CHECK (user_id::text = current_setting('app.current_user_id', true));
 
+DROP POLICY IF EXISTS "Users can update own game sessions" ON game_sessions;
 CREATE POLICY "Users can update own game sessions"
   ON game_sessions FOR UPDATE
   USING (user_id::text = current_setting('app.current_user_id', true));
@@ -87,6 +99,7 @@ CREATE POLICY "Users can update own game sessions"
 -- PVP MATCHES POLICIES
 -- =====================================================
 -- Users can view matches they're involved in
+DROP POLICY IF EXISTS "Users can view own matches" ON pvp_matches;
 CREATE POLICY "Users can view own matches"
   ON pvp_matches FOR SELECT
   USING (
@@ -95,6 +108,7 @@ CREATE POLICY "Users can view own matches"
   );
 
 -- Users can create matches
+DROP POLICY IF EXISTS "Users can create matches" ON pvp_matches;
 CREATE POLICY "Users can create matches"
   ON pvp_matches FOR INSERT
   WITH CHECK (
@@ -103,6 +117,7 @@ CREATE POLICY "Users can create matches"
   );
 
 -- Users can update matches they're involved in
+DROP POLICY IF EXISTS "Users can update own matches" ON pvp_matches;
 CREATE POLICY "Users can update own matches"
   ON pvp_matches FOR UPDATE
   USING (
@@ -113,10 +128,12 @@ CREATE POLICY "Users can update own matches"
 -- =====================================================
 -- MATCH HISTORY POLICIES
 -- =====================================================
+DROP POLICY IF EXISTS "Users can view own match history" ON match_history;
 CREATE POLICY "Users can view own match history"
   ON match_history FOR SELECT
   USING (user_id::text = current_setting('app.current_user_id', true));
 
+DROP POLICY IF EXISTS "Users can insert own match history" ON match_history;
 CREATE POLICY "Users can insert own match history"
   ON match_history FOR INSERT
   WITH CHECK (user_id::text = current_setting('app.current_user_id', true));
@@ -124,10 +141,12 @@ CREATE POLICY "Users can insert own match history"
 -- =====================================================
 -- TRANSACTIONS POLICIES
 -- =====================================================
+DROP POLICY IF EXISTS "Users can view own transactions" ON transactions;
 CREATE POLICY "Users can view own transactions"
   ON transactions FOR SELECT
   USING (user_id::text = current_setting('app.current_user_id', true));
 
+DROP POLICY IF EXISTS "Users can insert own transactions" ON transactions;
 CREATE POLICY "Users can insert own transactions"
   ON transactions FOR INSERT
   WITH CHECK (user_id::text = current_setting('app.current_user_id', true));
@@ -136,16 +155,19 @@ CREATE POLICY "Users can insert own transactions"
 -- LEADERBOARD POLICIES
 -- =====================================================
 -- Everyone can view leaderboard
+DROP POLICY IF EXISTS "Leaderboard is viewable by everyone" ON leaderboard;
 CREATE POLICY "Leaderboard is viewable by everyone"
   ON leaderboard FOR SELECT
   USING (true);
 
 -- Users can insert their own leaderboard entry
+DROP POLICY IF EXISTS "Users can insert own leaderboard entry" ON leaderboard;
 CREATE POLICY "Users can insert own leaderboard entry"
   ON leaderboard FOR INSERT
   WITH CHECK (user_id::text = current_setting('app.current_user_id', true));
 
 -- Users can update their own leaderboard entry
+DROP POLICY IF EXISTS "Users can update own leaderboard entry" ON leaderboard;
 CREATE POLICY "Users can update own leaderboard entry"
   ON leaderboard FOR UPDATE
   USING (user_id::text = current_setting('app.current_user_id', true));
@@ -153,10 +175,12 @@ CREATE POLICY "Users can update own leaderboard entry"
 -- =====================================================
 -- ACHIEVEMENTS POLICIES
 -- =====================================================
+DROP POLICY IF EXISTS "Users can view own achievements" ON achievements;
 CREATE POLICY "Users can view own achievements"
   ON achievements FOR SELECT
   USING (user_id::text = current_setting('app.current_user_id', true));
 
+DROP POLICY IF EXISTS "Users can insert own achievements" ON achievements;
 CREATE POLICY "Users can insert own achievements"
   ON achievements FOR INSERT
   WITH CHECK (user_id::text = current_setting('app.current_user_id', true));
@@ -165,6 +189,7 @@ CREATE POLICY "Users can insert own achievements"
 -- SOCIAL RAIDS POLICIES
 -- =====================================================
 -- Everyone can view active raids
+DROP POLICY IF EXISTS "Active raids are viewable by everyone" ON social_raids;
 CREATE POLICY "Active raids are viewable by everyone"
   ON social_raids FOR SELECT
   USING (is_active = true);
@@ -172,14 +197,17 @@ CREATE POLICY "Active raids are viewable by everyone"
 -- =====================================================
 -- RAID PARTICIPATION POLICIES
 -- =====================================================
+DROP POLICY IF EXISTS "Users can view own raid participation" ON raid_participation;
 CREATE POLICY "Users can view own raid participation"
   ON raid_participation FOR SELECT
   USING (user_id::text = current_setting('app.current_user_id', true));
 
+DROP POLICY IF EXISTS "Users can insert own raid participation" ON raid_participation;
 CREATE POLICY "Users can insert own raid participation"
   ON raid_participation FOR INSERT
   WITH CHECK (user_id::text = current_setting('app.current_user_id', true));
 
+DROP POLICY IF EXISTS "Users can update own raid participation" ON raid_participation;
 CREATE POLICY "Users can update own raid participation"
   ON raid_participation FOR UPDATE
   USING (user_id::text = current_setting('app.current_user_id', true));
@@ -187,10 +215,12 @@ CREATE POLICY "Users can update own raid participation"
 -- =====================================================
 -- PACK OPENINGS POLICIES
 -- =====================================================
+DROP POLICY IF EXISTS "Users can view own pack openings" ON pack_openings;
 CREATE POLICY "Users can view own pack openings"
   ON pack_openings FOR SELECT
   USING (user_id::text = current_setting('app.current_user_id', true));
 
+DROP POLICY IF EXISTS "Users can insert own pack openings" ON pack_openings;
 CREATE POLICY "Users can insert own pack openings"
   ON pack_openings FOR INSERT
   WITH CHECK (user_id::text = current_setting('app.current_user_id', true));
