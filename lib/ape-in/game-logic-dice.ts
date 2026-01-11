@@ -48,10 +48,18 @@ function weightedRandomChoice(choices: number[], weights: number[]): number {
 export function rollDice(profile: string = "balanced"): number {
   const weights = DICE_PROFILES[profile] || DICE_PROFILES["balanced"]
   
-  const choices = Object.keys(weights).map(Number)
-  const weightValues = Object.values(weights)
+  // Ensure choices are sorted (1, 2, 3, 4, 5, 6) to match weights array order
+  const choices = Object.keys(weights).map(Number).sort((a, b) => a - b)
+  const weightValues = choices.map(choice => weights[choice])
   
-  return weightedRandomChoice(choices, weightValues)
+  const result = weightedRandomChoice(choices, weightValues)
+  
+  // Log for debugging (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`🎲 Rolled ${result} using profile "${profile}" (weights: 1=${weights[1]}, 2=${weights[2]}, 3=${weights[3]}, 4=${weights[4]}, 5=${weights[5]}, 6=${weights[6]})`)
+  }
+  
+  return result
 }
 
 /**
