@@ -323,6 +323,118 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
     })
   }, [selectedMode, onGameEnd, resetGame])
 
+  // Handle return to menu (for forfeited games)
+  // MUST be declared before any conditional returns to follow Rules of Hooks
+  const handleReturnToMenu = useCallback(() => {
+    resetGame()
+    setGameId('')
+    setSelectedMode(undefined)
+    setShowMainMenu(true)
+  }, [resetGame])
+
+  // Handle game exit/forfeit confirmation when X button is clicked from game modal
+  // MUST be declared before any conditional returns to follow Rules of Hooks
+  const handleGameExit = useCallback(() => {
+    // Get current state directly from store to check game status
+    const currentState = useGameStore.getState()
+    const currentGameId = gameId // Capture current gameId
+    
+    // Check if game is in progress
+    // Only show forfeit confirmation if we have a gameId and the game is actually playing/waiting
+    // We check the store state directly to avoid dependency issues
+    const isGameInProgress = currentGameId && (currentState.gameStatus === 'playing' || currentState.gameStatus === 'waiting')
+    
+    if (isGameInProgress) {
+      // Game is in progress, show forfeit confirmation dialog
+      setShowForfeitConfirmFromModal(true)
+      return true // Return true to indicate forfeit confirmation is showing
+    } else {
+      // No active game - determine what to do based on current state
+      if (!currentGameId) {
+        // No game ID means we're in menu, close to hub
+        onClose?.()
+      } else {
+        // Has gameId but game not in progress - return to menu
+        resetGame()
+        setGameId('')
+        setSelectedMode(undefined)
+        setShowMainMenu(true)
+      }
+      return false
+    }
+  }, [gameId, onClose, resetGame]) // Minimal dependencies to prevent infinite loops
+
+  // Expose handleGameExit via ref for parent component (game modal)
+  // MUST be declared before any conditional returns to follow Rules of Hooks
+  useImperativeHandle(ref, () => ({
+    handleGameExit,
+  }), [handleGameExit])
+
+  // Confirm forfeit from game modal X button
+  // Use refs to store latest values to prevent dependency issues (refs declared above)
+  // MUST be declared before any conditional returns to follow Rules of Hooks
+  const confirmForfeitFromModal = useCallback(async () => {
+    const currentGameId = gameIdRef.current
+    const currentSelectedMode = selectedModeRef.current
+    const currentOnGameEnd = onGameEndRef.current
+    const currentOnClose = onCloseRef.current
+    
+    if (!currentGameId) {
+      currentOnClose?.()
+      return
+    }
+
+    try {
+      await gameAPI.forfeitGame(currentGameId)
+      
+      // Get current game state for forfeit result
+      const currentState = useGameStore.getState()
+      const currentRoundCount = currentState.roundCount
+      const currentMaxRounds = currentState.maxRounds
+      const currentPlayerScore = currentState.playerScore
+      const currentOpponentScore = currentState.opponentScore
+      const currentOpponentName = currentState.opponentName // Get from store state
+      
+      // Reset game state and return to menu
+      setShowForfeitConfirmFromModal(false)
+      resetGame()
+      setGameId('')
+      setSelectedMode(undefined)
+      setShowMainMenu(true)
+      
+      // Call onGameEnd with forfeit result
+      if (currentOnGameEnd) {
+        const gameDuration = gameStartTimeRef.current 
+          ? Math.floor((Date.now() - gameStartTimeRef.current) / 1000)
+          : 0
+        const roundsRemaining = Math.max(0, currentMaxRounds - currentRoundCount)
+        
+        currentOnGameEnd({
+          score: currentPlayerScore,
+          mode: currentSelectedMode || 'sandy',
+          metadata: {
+            winner: currentOpponentName || 'Opponent',
+            opponentScore: currentOpponentScore,
+            roundsPlayed: currentRoundCount,
+            roundsRemaining,
+            duration: gameDuration,
+            hasForfeited: true,
+          },
+          points: 0, // Forfeits earn 0 points
+        })
+      }
+    } catch (error) {
+      console.error('Failed to forfeit from modal:', error)
+      setShowForfeitConfirmFromModal(false)
+    }
+  }, [resetGame]) // Only resetGame in dependencies - use refs for rest
+
+  // Cancel forfeit from game modal - return to game
+  // MUST be declared before any conditional returns to follow Rules of Hooks
+  const cancelForfeitFromModal = useCallback(() => {
+    setShowForfeitConfirmFromModal(false)
+  }, [])
+
   // Loading state
   if (isLoading) {
     return (
@@ -408,113 +520,6 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
       </div>
     )
   }
-
-  // Handle return to menu (for forfeited games)
-  const handleReturnToMenu = useCallback(() => {
-    resetGame()
-    setGameId('')
-    setSelectedMode(undefined)
-    setShowMainMenu(true)
-  }, [resetGame])
-
-  // Handle game exit/forfeit confirmation when X button is clicked from game modal
-  const handleGameExit = useCallback(() => {
-    // Get current state directly from store to check game status
-    const currentState = useGameStore.getState()
-    const currentGameId = gameId // Capture current gameId
-    
-    // Check if game is in progress
-    // Only show forfeit confirmation if we have a gameId and the game is actually playing/waiting
-    // We check the store state directly to avoid dependency issues
-    const isGameInProgress = currentGameId && (currentState.gameStatus === 'playing' || currentState.gameStatus === 'waiting')
-    
-    if (isGameInProgress) {
-      // Game is in progress, show forfeit confirmation dialog
-      setShowForfeitConfirmFromModal(true)
-      return true // Return true to indicate forfeit confirmation is showing
-    } else {
-      // No active game - determine what to do based on current state
-      if (!currentGameId) {
-        // No game ID means we're in menu, close to hub
-        onClose?.()
-      } else {
-        // Has gameId but game not in progress - return to menu
-        resetGame()
-        setGameId('')
-        setSelectedMode(undefined)
-        setShowMainMenu(true)
-      }
-      return false
-    }
-  }, [gameId, onClose, resetGame]) // Minimal dependencies to prevent infinite loops
-
-  // Expose handleGameExit via ref for parent component (game modal)
-  useImperativeHandle(ref, () => ({
-    handleGameExit,
-  }), [handleGameExit])
-
-  // Confirm forfeit from game modal X button
-  // Use refs to store latest values to prevent dependency issues (refs declared above)
-  const confirmForfeitFromModal = useCallback(async () => {
-    const currentGameId = gameIdRef.current
-    const currentSelectedMode = selectedModeRef.current
-    const currentOnGameEnd = onGameEndRef.current
-    const currentOnClose = onCloseRef.current
-    
-    if (!currentGameId) {
-      currentOnClose?.()
-      return
-    }
-
-    try {
-      await gameAPI.forfeitGame(currentGameId)
-      
-      // Get current game state for forfeit result
-      const currentState = useGameStore.getState()
-      const currentRoundCount = currentState.roundCount
-      const currentMaxRounds = currentState.maxRounds
-      const currentPlayerScore = currentState.playerScore
-      const currentOpponentScore = currentState.opponentScore
-      const currentOpponentName = currentState.opponentName // Get from store state
-      
-      // Reset game state and return to menu
-      setShowForfeitConfirmFromModal(false)
-      resetGame()
-      setGameId('')
-      setSelectedMode(undefined)
-      setShowMainMenu(true)
-      
-      // Call onGameEnd with forfeit result
-      if (currentOnGameEnd) {
-        const gameDuration = gameStartTimeRef.current 
-          ? Math.floor((Date.now() - gameStartTimeRef.current) / 1000)
-          : 0
-        const roundsRemaining = Math.max(0, currentMaxRounds - currentRoundCount)
-        
-        currentOnGameEnd({
-          score: currentPlayerScore,
-          mode: currentSelectedMode || 'sandy',
-          metadata: {
-            winner: currentOpponentName || 'Opponent',
-            opponentScore: currentOpponentScore,
-            roundsPlayed: currentRoundCount,
-            roundsRemaining,
-            duration: gameDuration,
-            hasForfeited: true,
-          },
-          points: 0, // Forfeits earn 0 points
-        })
-      }
-    } catch (error) {
-      console.error('Failed to forfeit from modal:', error)
-      setShowForfeitConfirmFromModal(false)
-    }
-  }, [resetGame]) // Only resetGame in dependencies - use refs for rest
-
-  // Cancel forfeit from game modal - return to game
-  const cancelForfeitFromModal = useCallback(() => {
-    setShowForfeitConfirmFromModal(false)
-  }, [])
 
   return (
     <div className="min-h-[600px] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative">
