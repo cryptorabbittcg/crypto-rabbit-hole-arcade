@@ -149,20 +149,23 @@ const BOT_EMOJIS: Record<GameMode, string> = {
 }
 
 export default function SmartBotIntro({ gameMode, onComplete, autoPlay = false }: SmartBotIntroProps) {
+  // Safety check: ensure gameMode is valid - MUST be before any hooks to avoid hooks violation
+  // If invalid, use safe defaults instead of early return
+  const isValidMode = gameMode && BOT_CONFIGS[gameMode]
+  const safeGameMode = isValidMode ? gameMode : 'sandy' // Fallback to sandy if invalid
+  
+  if (!isValidMode) {
+    console.error(`⚠️ Invalid gameMode passed to SmartBotIntro: ${gameMode}, using Sandy as fallback`)
+  }
+
+  // All hooks must be called unconditionally - this fixes React error #310
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0)
   const [isTyping, setIsTyping] = useState(true)
   const [showButtons, setShowButtons] = useState(false)
 
-  // Safety check: ensure gameMode is valid - early return without calling onComplete during render
-  // Match original implementation - no useEffect calling onComplete, just return null
-  if (!gameMode || !BOT_CONFIGS[gameMode]) {
-    console.error(`⚠️ Invalid gameMode passed to SmartBotIntro: ${gameMode}, returning null`)
-    return null
-  }
-
-  const introMessages = generateBotIntros(gameMode)
-  const botColor = BOT_COLORS[gameMode] || BOT_COLORS.sandy
-  const botEmoji = BOT_EMOJIS[gameMode] || BOT_EMOJIS.sandy
+  const introMessages = generateBotIntros(safeGameMode)
+  const botColor = BOT_COLORS[safeGameMode] || BOT_COLORS.sandy
+  const botEmoji = BOT_EMOJIS[safeGameMode] || BOT_EMOJIS.sandy
 
   // Use ref to store latest onComplete to avoid dependency issues
   const onCompleteRef = useRef(onComplete)
@@ -245,27 +248,27 @@ export default function SmartBotIntro({ gameMode, onComplete, autoPlay = false }
           >
             {/* Bot Portrait */}
             <img 
-              src={`/features/games/ape-in/assets/images/bots/${gameMode}.gif`} 
-              alt={`${gameMode} avatar`} 
+              src={`/features/games/ape-in/assets/images/bots/${safeGameMode}.gif`} 
+              alt={`${safeGameMode} avatar`} 
               className="w-full h-full object-cover rounded-full" 
               onError={(e) => {
-                console.log(`GIF failed for ${gameMode}, trying PNG...`);
-                e.currentTarget.src = `/features/games/ape-in/assets/images/bots/${gameMode}.png`;
+                console.log(`GIF failed for ${safeGameMode}, trying PNG...`);
+                e.currentTarget.src = `/features/games/ape-in/assets/images/bots/${safeGameMode}.png`;
               }}
               onLoad={(e) => {
-                console.log(`Successfully loaded GIF header portrait for ${gameMode}`);
+                console.log(`Successfully loaded GIF header portrait for ${safeGameMode}`);
               }}
             />
           </motion.div>
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
-            {gameMode === 'sandy' && '🐰 Sandy Challenge'}
-            {gameMode === 'aida' && '🧠 Aida Challenge'}
-            {gameMode === 'lana' && '⚡ Lana Challenge'}
-            {gameMode === 'enj1n' && '🔥 En-J1n Challenge'}
-            {gameMode === 'nifty' && '🎨 Nifty Challenge'}
-            {gameMode === 'pvp' && '👥 Player vs Player'}
-            {gameMode === 'multiplayer' && '🌐 Multiplayer Madness'}
-            {gameMode === 'tournament' && '🏆 Tournament Mode'}
+            {safeGameMode === 'sandy' && '🐰 Sandy Challenge'}
+            {safeGameMode === 'aida' && '🧠 Aida Challenge'}
+            {safeGameMode === 'lana' && '⚡ Lana Challenge'}
+            {safeGameMode === 'enj1n' && '🔥 En-J1n Challenge'}
+            {safeGameMode === 'nifty' && '🎨 Nifty Challenge'}
+            {safeGameMode === 'pvp' && '👥 Player vs Player'}
+            {safeGameMode === 'multiplayer' && '🌐 Multiplayer Madness'}
+            {safeGameMode === 'tournament' && '🏆 Tournament Mode'}
           </h2>
           <div className="w-24 h-1 bg-gradient-to-r from-purple-500 to-pink-500 mx-auto rounded-full"></div>
         </div>
@@ -289,15 +292,15 @@ export default function SmartBotIntro({ gameMode, onComplete, autoPlay = false }
               className="flex-shrink-0"
             >
               <img 
-                src={`/features/games/ape-in/assets/images/bots/${gameMode}.gif`} 
-                alt={`${gameMode} avatar`} 
+                src={`/features/games/ape-in/assets/images/bots/${safeGameMode}.gif`} 
+                alt={`${safeGameMode} avatar`} 
                 className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-full border-2 border-purple-500/50 shadow-lg" 
                 onError={(e) => {
-                  console.log(`GIF failed for ${gameMode} message, trying PNG...`);
-                  e.currentTarget.src = `/features/games/ape-in/assets/images/bots/${gameMode}.png`;
+                  console.log(`GIF failed for ${safeGameMode} message, trying PNG...`);
+                  e.currentTarget.src = `/features/games/ape-in/assets/images/bots/${safeGameMode}.png`;
                 }}
                 onLoad={(e) => {
-                  console.log(`Successfully loaded GIF message portrait for ${gameMode}`);
+                  console.log(`Successfully loaded GIF message portrait for ${safeGameMode}`);
                 }}
               />
             </motion.div>
