@@ -19,10 +19,10 @@ export interface PointsCalculationParams {
  * Forfeits: 0 points
  * 
  * Base points by mode:
- * - Aida: 500 base
- * - Lana: 1000 base
- * - En-J1n: 2000 base
- * - Nifty: 750 base
+ * - Aida: 50 base
+ * - Lana: 100 base
+ * - En-J1n: 200 base
+ * - Nifty: 75 base
  * 
  * Bonus formula: base * (1 + (roundsRemaining / maxRounds) * bonusMultiplier)
  * This means completing in fewer rounds gives more points
@@ -43,16 +43,16 @@ export function calculatePoints(params: PointsCalculationParams): number {
   // Base points by mode
   const basePoints: Record<GameMode, number> = {
     sandy: 0,
-    aida: 500,
-    lana: 1000,
-    enj1n: 2000,
-    nifty: 750,
-    pvp: 1000, // Default for PvP
-    multiplayer: 1500, // Default for multiplayer
-    tournament: 2000, // Default for tournament
+    aida: 50,
+    lana: 100,
+    enj1n: 200,
+    nifty: 75,
+    pvp: 100, // Default for PvP
+    multiplayer: 150, // Default for multiplayer
+    tournament: 200, // Default for tournament
   }
 
-  const base = basePoints[gameMode] || 500
+  const base = basePoints[gameMode] || 50
 
   // Bonus multiplier based on rounds remaining
   // More rounds remaining = higher bonus
