@@ -1394,15 +1394,15 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
               // Use a simplified calculation that matches the server formula
               let earned = 0
               if (currentDifficulty === "degen" || currentDifficulty === "ape") {
-                const startingPoints = currentDifficulty === "degen" ? 5000 : 8000
-                const timeDecay = timeInSeconds * 2
-                const hintPenalty = 150 * hintsUsedInGame
-                const errorPenalty = 50 * errors
+                const startingPoints = currentDifficulty === "degen" ? 500 : 800
+                const timeDecay = timeInSeconds * 0.2
+                const hintPenalty = 15 * hintsUsedInGame
+                const errorPenalty = 20 * errors
                 const isCleanRun = hintsUsedInGame === 0 && errors === 0
-                const cleanRunBonus = isCleanRun ? 200 : 0
+                const cleanRunBonus = isCleanRun ? 50 : 0
                 const baseTimeScore = Math.max(0, startingPoints - timeDecay)
                 const rawScore = baseTimeScore - hintPenalty - errorPenalty + cleanRunBonus
-                earned = Math.max(200, Math.round(rawScore)) // Minimum 200
+                earned = Math.max(20, Math.round(rawScore)) // Minimum 20
                 setPointsEarned(earned)
               } else {
                 setPointsEarned(0) // NOOB mode = 0 points
@@ -1438,15 +1438,15 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
             // Calculate points locally if API submission failed (only for ranked modes)
             let earned = 0
             if (currentDifficulty === "degen" || currentDifficulty === "ape") {
-              const startingPoints = currentDifficulty === "degen" ? 5000 : 8000
-              const timeDecay = timeInSeconds * 2
-              const hintPenalty = 150 * hintsUsedInGame
-              const errorPenalty = 50 * errors
+              const startingPoints = currentDifficulty === "degen" ? 500 : 800
+              const timeDecay = timeInSeconds * 0.2
+              const hintPenalty = 15 * hintsUsedInGame
+              const errorPenalty = 20 * errors
               const isCleanRun = hintsUsedInGame === 0 && errors === 0
-              const cleanRunBonus = isCleanRun ? 200 : 0
+              const cleanRunBonus = isCleanRun ? 50 : 0
               const baseTimeScore = Math.max(0, startingPoints - timeDecay)
               const rawScore = baseTimeScore - hintPenalty - errorPenalty + cleanRunBonus
-              earned = Math.max(200, Math.round(rawScore)) // Minimum 200
+              earned = Math.max(20, Math.round(rawScore)) // Minimum 20
               setPointsEarned(earned)
             } else {
               setPointsEarned(0) // NOOB mode = 0 points
