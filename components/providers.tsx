@@ -218,11 +218,11 @@ export function Providers({ children }: { children: ReactNode }) {
           joinedAt: new Date(existingProfile.created_at),
           stats: {
             gamesPlayed: existingProfile.total_games_played || 0,
-            totalScore: existingProfile.total_points || 0,
+            totalScore: (existingProfile as any).points || 0,
             achievements: [],
           },
         })
-        setTickets(existingProfile.ticket_balance || 0)
+        setTickets((existingProfile as any).tickets || (existingProfile as any).ticket_balance || 0)
         // Load points from the 'points' field, not 'ape_balance'
         // Note: The database has both 'ape_balance' (APE tokens) and 'points' (game points)
         const dbPoints = (existingProfile as any).points || 0

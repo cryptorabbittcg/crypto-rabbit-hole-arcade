@@ -39,7 +39,9 @@ export function useProfileSync() {
           username: supabaseProfile.username,
           avatar: supabaseProfile.avatar_url || undefined,
         })
-        setTickets(supabaseProfile.ticket_balance)
+        // Database uses 'tickets' field, types file may be outdated
+        const tickets = (supabaseProfile as any).tickets || (supabaseProfile as any).ticket_balance || 0
+        setTickets(tickets)
         setPoints(supabaseProfile.ape_balance)
 
         // Create and store game session for cross-game access
@@ -47,7 +49,7 @@ export function useProfileSync() {
           userId: supabaseProfile.id,
           username: supabaseProfile.username,
           address: address,
-          tickets: supabaseProfile.ticket_balance,
+          tickets: tickets,
           points: supabaseProfile.ape_balance,
         })
         storeGameSession(session)

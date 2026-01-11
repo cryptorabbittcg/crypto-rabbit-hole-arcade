@@ -221,6 +221,42 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =====================================================
+-- GET TOP GAME SCORES
+-- =====================================================
+CREATE OR REPLACE FUNCTION get_top_game_scores(
+  p_limit INTEGER DEFAULT 10
+)
+RETURNS TABLE (
+  user_id UUID,
+  username TEXT,
+  wallet_address TEXT,
+  max_score INTEGER,
+  game_type TEXT
+) AS $$
+BEGIN
+  RETURN QUERY
+  WITH user_best_scores AS (
+    SELECT DISTINCT ON (gs.user_id)
+      gs.user_id,
+      gs.score as max_score,
+      gs.game_type
+    FROM game_sessions gs
+    ORDER BY gs.user_id, gs.score DESC
+  )
+  SELECT 
+    p.id as user_id,
+    p.username,
+    p.wallet_address,
+    ubs.max_score,
+    ubs.game_type
+  FROM user_best_scores ubs
+  JOIN profiles p ON ubs.user_id = p.id
+  ORDER BY ubs.max_score DESC
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =====================================================
 -- GET LEADERBOARD
 -- =====================================================
 CREATE OR REPLACE FUNCTION get_leaderboard(

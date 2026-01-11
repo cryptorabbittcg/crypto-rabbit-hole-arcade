@@ -101,17 +101,14 @@ export class ProfileService {
       const insertData = {
         wallet_address: normalizedWallet,
         username: params.username,
-        ape_balance: params.ape_balance ?? 0,
-        ticket_balance: params.tickets ?? 0,
+        ape_balance: params.ape_balance ?? 1000,
+        tickets: params.tickets ?? 5,
         referral_code: params.referral_code || null,
         total_games_played: 0,
         total_wins: 0,
         total_losses: 0,
         win_streak: 0,
-        highest_win_streak: 0,
-        total_points: 0,
-        level: 1,
-        experience: 0,
+        best_win_streak: 0,
       }
 
       const { data, error } = await this.supabase
@@ -218,7 +215,9 @@ export class ProfileService {
     }
     // Calculate the changes needed
     const apeChange = balances.ape_balance - profile.ape_balance
-    const ticketChange = balances.ticket_balance - profile.ticket_balance
+    // Access tickets field (database uses 'tickets', types file may be outdated)
+    const currentTickets = (profile as any).tickets || (profile as any).ticket_balance || 0
+    const ticketChange = balances.ticket_balance - currentTickets
     return service.updateBalance(profile.id, apeChange, ticketChange, 0)
   }
 
