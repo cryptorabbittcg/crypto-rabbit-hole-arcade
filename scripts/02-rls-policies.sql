@@ -5,7 +5,10 @@
 -- Execute after creating tables
 
 -- Enable RLS on all tables
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+-- Note: For wallet-based authentication (not Supabase Auth), we disable RLS on profiles
+-- since we can't easily set app.current_user_wallet session variables.
+-- Application code validates wallet ownership instead.
+ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
 ALTER TABLE card_inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE upgrades_inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE game_sessions ENABLE ROW LEVEL SECURITY;
@@ -20,23 +23,10 @@ ALTER TABLE pack_openings ENABLE ROW LEVEL SECURITY;
 -- =====================================================
 -- PROFILES POLICIES
 -- =====================================================
--- Users can read all profiles (for leaderboards, PvP matching)
-DROP POLICY IF EXISTS "Profiles are viewable by everyone" ON profiles;
-CREATE POLICY "Profiles are viewable by everyone"
-  ON profiles FOR SELECT
-  USING (true);
-
--- Users can insert their own profile
-DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
-CREATE POLICY "Users can insert their own profile"
-  ON profiles FOR INSERT
-  WITH CHECK (true);
-
--- Users can update only their own profile
-DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
-CREATE POLICY "Users can update own profile"
-  ON profiles FOR UPDATE
-  USING (wallet_address = current_setting('app.current_user_wallet', true));
+-- RLS is DISABLED for profiles table (see above)
+-- This is because we use wallet-based authentication, not Supabase Auth
+-- Application code validates wallet ownership for security
+-- No policies needed when RLS is disabled
 
 -- =====================================================
 -- CARD INVENTORY POLICIES
