@@ -33,25 +33,55 @@ export async function storeGame(gameId: string, gameState: GameState): Promise<v
     const supabase = await createClient()
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours from now
     
-    const { error } = await supabase
+    // Check if game exists first to handle created_at properly
+    const { data: existing } = await supabase
       .from('ape_in_game_states')
-      .upsert({
-        game_id: gameId,
-        game_state: gameState as any,
-        updated_at: new Date().toISOString(),
-        expires_at: expiresAt,
-      }, {
+      .select('game_id, created_at')
+      .eq('game_id', gameId)
+      .single()
+    
+    const now = new Date().toISOString()
+    const upsertData: any = {
+      game_id: gameId,
+      game_state: gameState as any,
+      updated_at: now,
+      expires_at: expiresAt,
+    }
+    
+    // Only set created_at if this is a new game
+    if (!existing) {
+      upsertData.created_at = now
+    }
+    
+    const { data, error } = await supabase
+      .from('ape_in_game_states')
+      .upsert(upsertData, {
         onConflict: 'game_id'
       })
+      .select()
     
     if (error) {
+      // Check if it's a table not found error
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        console.error(`❌ Table 'ape_in_game_states' does not exist. Please run scripts/06-create-ape-in-game-states-table.sql in Supabase`)
+      }
+      console.error(`❌ Supabase error storing game ${gameId}:`, {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      })
       throw error
     }
     
-    console.log(`✅ Game ${gameId} stored in Supabase successfully`)
+    console.log(`✅ Game ${gameId} stored in Supabase successfully`, data ? `(${data.length} rows affected)` : '')
     return
-  } catch (error) {
-    console.error(`❌ Failed to store game ${gameId} in Supabase, falling back to memory:`, error)
+  } catch (error: any) {
+    console.error(`❌ Failed to store game ${gameId} in Supabase, falling back to memory:`, {
+      error: error?.message || error,
+      code: error?.code,
+      details: error?.details
+    })
     // Fall through to in-memory storage
   }
   
@@ -87,7 +117,15 @@ export async function getGame(gameId: string): Promise<StoredGame | null> {
       if (error.code === 'PGRST116') {
         // No rows returned - game not found
         console.warn(`⚠️ Game ${gameId} not found in Supabase`)
+      } else if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        console.error(`❌ Table 'ape_in_game_states' does not exist. Please run scripts/06-create-ape-in-game-states-table.sql in Supabase`)
+        throw error
       } else {
+        console.error(`❌ Supabase error getting game ${gameId}:`, {
+          code: error.code,
+          message: error.message,
+          details: error.details
+        })
         throw error
       }
     } else if (data) {
@@ -107,8 +145,12 @@ export async function getGame(gameId: string): Promise<StoredGame | null> {
       console.log(`✅ Game ${gameId} retrieved from Supabase`)
       return stored
     }
-  } catch (error) {
-    console.error(`❌ Failed to get game ${gameId} from Supabase, falling back to memory:`, error)
+  } catch (error: any) {
+    console.error(`❌ Failed to get game ${gameId} from Supabase, falling back to memory:`, {
+      error: error?.message || error,
+      code: error?.code,
+      details: error?.details
+    })
     // Fall through to in-memory storage
   }
   
