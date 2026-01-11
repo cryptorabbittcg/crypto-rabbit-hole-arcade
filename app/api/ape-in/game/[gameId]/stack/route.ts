@@ -18,7 +18,16 @@ export async function POST(
     }
 
     // Get game to check state
-    const gameState = GameService.getGameData(gameId)
+    let gameState: any
+    try {
+      gameState = await GameService.getGameData(gameId)
+    } catch (error: any) {
+      console.error('❌ Game not found:', gameId, error.message)
+      return NextResponse.json(
+        { error: "Game not found" },
+        { status: 404 }
+      )
+    }
 
     if (!gameState) {
       return NextResponse.json(
@@ -51,16 +60,16 @@ export async function POST(
     }
 
     // Stack: Add turn score to player score, end turn
-    const updatedState = GameService.stackSats(gameId, gameState.playerId, false)
+    const updatedState = await GameService.stackSats(gameId, gameState.playerId, false)
 
     // If game is still playing and not PvP/multiplayer/tournament, execute bot turn
     let botActions: any[] | undefined = undefined
     if (updatedState.gameStatus === 'playing' && updatedState.mode !== 'pvp' && updatedState.mode !== 'multiplayer' && updatedState.mode !== 'tournament') {
-      botActions = GameService.executeBotTurn(gameId)
+      botActions = await GameService.executeBotTurn(gameId)
     }
 
     // Get final game state
-    const finalState = GameService.getGameData(gameId)
+    const finalState = await GameService.getGameData(gameId)
 
     const response: any = {
       ...finalState,

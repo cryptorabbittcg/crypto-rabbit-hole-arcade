@@ -18,7 +18,16 @@ export async function POST(
     }
 
     // Get game to check state
-    const gameState = GameService.getGameData(gameId)
+    let gameState: any
+    try {
+      gameState = await GameService.getGameData(gameId)
+    } catch (error: any) {
+      console.error('❌ Game not found:', gameId, error.message)
+      return NextResponse.json(
+        { error: "Game not found" },
+        { status: 404 }
+      )
+    }
 
     if (!gameState) {
       return NextResponse.json(
@@ -59,20 +68,20 @@ export async function POST(
     }
 
     // Roll dice using GameService (handles all game logic)
-    const rollResult = GameService.rollDiceAction(gameId, gameState.playerId, "balanced")
+    const rollResult = await GameService.rollDiceAction(gameId, gameState.playerId, "balanced")
 
     // If player busted, execute bot turn and return bot actions
     let botActions: any[] | undefined = undefined
     if (!rollResult.success && gameState.mode !== 'pvp' && gameState.mode !== 'multiplayer' && gameState.mode !== 'tournament') {
       // Player busted - bot's turn
-      const updatedState = GameService.getGameData(gameId)
+      const updatedState = await GameService.getGameData(gameId)
       if (updatedState.gameStatus === 'playing') {
-        botActions = GameService.executeBotTurn(gameId)
+        botActions = await GameService.executeBotTurn(gameId)
       }
     }
 
     // Check for game win after roll
-    const finalState = GameService.getGameData(gameId)
+    const finalState = await GameService.getGameData(gameId)
     const response: any = {
       value: rollResult.value,
       success: rollResult.success,

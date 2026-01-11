@@ -18,14 +18,27 @@ export async function POST(
     }
 
     // Get game to check state
-    const gameState = GameService.getGameData(gameId)
-
-    if (!gameState) {
+    // getGameData throws if game not found, so we catch it
+    let gameState: any
+    try {
+      gameState = await GameService.getGameData(gameId)
+    } catch (error: any) {
+      console.error('❌ Game not found:', gameId, error.message)
       return NextResponse.json(
         { error: "Game not found" },
         { status: 404 }
       )
     }
+
+    if (!gameState) {
+      console.error('❌ Game state is null for:', gameId)
+      return NextResponse.json(
+        { error: "Game not found" },
+        { status: 404 }
+      )
+    }
+    
+    console.log('✅ Game found:', gameId, 'Status:', gameState.gameStatus, 'IsPlayerTurn:', gameState.isPlayerTurn)
 
     // Check if it's player's turn
     if (!gameState.isPlayerTurn) {
@@ -52,7 +65,7 @@ export async function POST(
       }
       // Update game state to reflect game start
       const { updateGame } = await import('@/lib/ape-in/game-store')
-      updateGame(gameId, gameState)
+      await updateGame(gameId, gameState)
     }
 
     // Draw card using weighted drawing (no physical deck)
@@ -63,10 +76,10 @@ export async function POST(
       )
     }
 
-    const card = GameService.drawCard(gameId, gameState.playerId)
+    const card = await GameService.drawCard(gameId, gameState.playerId)
 
     // Return updated game state along with card for frontend sync
-    const updatedState = GameService.getGameData(gameId)
+    const updatedState = await GameService.getGameData(gameId)
     
     console.log('✅ Card drawn:', card.name, 'Round:', updatedState.roundCount, 'Game Status:', updatedState.gameStatus)
 

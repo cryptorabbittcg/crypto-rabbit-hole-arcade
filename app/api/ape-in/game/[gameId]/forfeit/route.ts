@@ -18,7 +18,16 @@ export async function POST(
     }
 
     // Get game to check state
-    const gameState = GameService.getGameData(gameId)
+    let gameState: any
+    try {
+      gameState = await GameService.getGameData(gameId)
+    } catch (error: any) {
+      console.error('❌ Game not found:', gameId, error.message)
+      return NextResponse.json(
+        { error: "Game not found" },
+        { status: 404 }
+      )
+    }
 
     if (!gameState) {
       return NextResponse.json(
@@ -43,7 +52,7 @@ export async function POST(
     }
 
     // Forfeit: opponent wins
-    const forfeitedState = GameService.forfeitGame(gameId, gameState.playerId)
+    const forfeitedState = await GameService.forfeitGame(gameId, gameState.playerId)
 
     console.log('✅ Game forfeited:', gameId)
 

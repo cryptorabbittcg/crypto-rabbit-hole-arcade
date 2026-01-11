@@ -17,7 +17,16 @@ export async function GET(
       )
     }
 
-    const gameState = GameService.getGameData(gameId)
+    let gameState: any
+    try {
+      gameState = await GameService.getGameData(gameId)
+    } catch (error: any) {
+      console.error('❌ Game not found:', gameId, error.message)
+      return NextResponse.json(
+        { error: "Game not found" },
+        { status: 404 }
+      )
+    }
 
     return NextResponse.json(gameState)
   } catch (error: any) {

@@ -14,12 +14,12 @@ export class GameService {
   /**
    * Create a new game
    */
-  static createGame(
+  static async createGame(
     mode: GameMode,
     playerName: string,
     walletAddress?: string,
     isDailyFree: boolean = false
-  ): GameState {
+  ): Promise<GameState> {
     const botConfig = BOT_CONFIGS[mode] || BOT_CONFIGS.sandy
     const winningScore = botConfig.winningScore
     const maxRounds = botConfig.maxRounds
@@ -60,15 +60,15 @@ export class GameService {
       opponentId,
     }
 
-    storeGame(gameId, gameState)
+    await storeGame(gameId, gameState)
     return gameState
   }
 
   /**
    * Get complete game data
    */
-  static getGameData(gameId: string): GameState {
-    const stored = getGame(gameId)
+  static async getGameData(gameId: string): Promise<GameState> {
+    const stored = await getGame(gameId)
     if (!stored) {
       throw new Error('Game not found')
     }
@@ -78,8 +78,8 @@ export class GameService {
   /**
    * Draw a card for a player (weighted drawing, no physical deck)
    */
-  static drawCard(gameId: string, playerId: string): Card {
-    const stored = getGame(gameId)
+  static async drawCard(gameId: string, playerId: string): Promise<Card> {
+    const stored = await getGame(gameId)
     if (!stored) {
       throw new Error('Game not found')
     }
@@ -109,19 +109,19 @@ export class GameService {
       gameState.gameLog.push({ type: 'draw', card, playerId, timestamp: Date.now() })
     }
 
-    updateGame(gameId, gameState)
+    await updateGame(gameId, gameState)
     return card
   }
 
   /**
    * Roll dice and process result
    */
-  static rollDiceAction(
+  static async rollDiceAction(
     gameId: string,
     playerId: string,
     diceProfile: string = "balanced"
-  ): RollResult {
-    const stored = getGame(gameId)
+  ): Promise<RollResult> {
+    const stored = await getGame(gameId)
     if (!stored) {
       throw new Error('Game not found')
     }
@@ -159,7 +159,7 @@ export class GameService {
         }
 
         gameState.currentCard = null
-        updateGame(gameId, gameState)
+        await updateGame(gameId, gameState)
 
         const message = wasApeInActive ? "Dodged bearish! (Ape In! negated)" : "Dodged bearish!"
         return { value: roll, success: true, message }
@@ -204,7 +204,7 @@ export class GameService {
         gameState.currentCard = null
         gameState.apeInActive = false
 
-        updateGame(gameId, gameState)
+        await updateGame(gameId, gameState)
 
         const message = wasApeInActive 
           ? `Hit by ${penalty}! (Ape In! negated)` 
@@ -223,7 +223,7 @@ export class GameService {
       gameState.currentCard = null
       gameState.apeInActive = false
 
-      updateGame(gameId, gameState)
+      await updateGame(gameId, gameState)
       return { value: roll, success: false, message: "Busted!" }
     }
 
@@ -246,7 +246,7 @@ export class GameService {
     }
 
     gameState.currentCard = null
-    updateGame(gameId, gameState)
+    await updateGame(gameId, gameState)
 
     const satsGained = cardValue
     return {
@@ -261,8 +261,8 @@ export class GameService {
   /**
    * Stack sats (end turn)
    */
-  static stackSats(gameId: string, playerId: string, skipAiTurn: boolean = false): GameState {
-    const stored = getGame(gameId)
+  static async stackSats(gameId: string, playerId: string, skipAiTurn: boolean = false): Promise<GameState> {
+    const stored = await getGame(gameId)
     if (!stored) {
       throw new Error('Game not found')
     }
@@ -313,7 +313,7 @@ export class GameService {
       }
     }
 
-    updateGame(gameId, gameState)
+    await updateGame(gameId, gameState)
 
     // If player just stacked and game is still playing, execute AI turn
     if (!skipAiTurn && isPlayer && gameState.gameStatus === 'playing' && gameState.mode !== 'pvp' && gameState.mode !== 'multiplayer' && gameState.mode !== 'tournament') {
@@ -327,8 +327,8 @@ export class GameService {
   /**
    * Execute AI opponent's turn and return action log for replay
    */
-  static executeBotTurn(gameId: string): BotAction[] {
-    const stored = getGame(gameId)
+  static async executeBotTurn(gameId: string): Promise<BotAction[]> {
+    const stored = await getGame(gameId)
     if (!stored) {
       throw new Error('Game not found')
     }
@@ -386,7 +386,7 @@ export class GameService {
     // AI draws and rolls with adaptive logic
     while (true) {
       // Draw card
-      const card = this.drawCard(gameId, gameState.opponentId)
+      const card = await this.drawCard(gameId, gameState.opponentId)
 
       // Special handling for Ape In card
       if (card.name === "Ape In!") {
@@ -420,10 +420,10 @@ export class GameService {
       }
 
       // Roll dice with selected profile
-      const rollResult = this.rollDiceAction(gameId, gameState.opponentId, diceProfile)
+      const rollResult = await this.rollDiceAction(gameId, gameState.opponentId, diceProfile)
 
       // Refresh game state to get updated turn score
-      const updatedState = this.getGameData(gameId)
+      const updatedState = await this.getGameData(gameId)
 
       actions.push({
         type: "roll",
@@ -445,7 +445,7 @@ export class GameService {
         opponentPushNudge = 0.08
       }
 
-      const currentState = this.getGameData(gameId)
+      const currentState = await this.getGameData(gameId)
       const currentBehindBy = currentState.playerScore - currentState.opponentScore
       const currentTurnScore = currentState.opponentTurnScore
 
@@ -580,7 +580,7 @@ export class GameService {
     }
 
     // Stack sats (skip AI turn to prevent recursion)
-    const finalState = this.stackSats(gameId, gameState.opponentId, true)
+    const finalState = await this.stackSats(gameId, gameState.opponentId, true)
     actions.push({
       type: "stack",
       finalScore: finalState.opponentScore
@@ -601,8 +601,8 @@ export class GameService {
   /**
    * Forfeit the game
    */
-  static forfeitGame(gameId: string, playerId: string): GameState {
-    const stored = getGame(gameId)
+  static async forfeitGame(gameId: string, playerId: string): Promise<GameState> {
+    const stored = await getGame(gameId)
     if (!stored) {
       throw new Error('Game not found')
     }
@@ -613,7 +613,7 @@ export class GameService {
       ? (gameState.opponentName || 'Opponent')
       : (gameState.playerName || 'Player')
 
-    updateGame(gameId, gameState)
+    await updateGame(gameId, gameState)
     return gameState
   }
 }

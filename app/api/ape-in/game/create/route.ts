@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     console.log('🎮 Creating game:', { mode, playerName, walletAddress: walletAddress?.slice(0, 10) + '...' })
 
     // Create game using GameService (uses weighted card drawing, no deck needed)
-    const gameState = GameService.createGame(
+    const gameState = await GameService.createGame(
       mode as GameMode,
       playerName,
       walletAddress,
