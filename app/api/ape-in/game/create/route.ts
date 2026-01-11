@@ -46,7 +46,20 @@ export async function POST(request: NextRequest) {
       isDailyFree || false
     )
 
-    console.log('✅ Game created:', gameState.gameId)
+    console.log('✅ Game created and stored:', gameState.gameId, 'Mode:', mode)
+    
+    // Verify game was stored by trying to retrieve it
+    try {
+      const { getGame } = await import('@/lib/ape-in/game-store')
+      const stored = await getGame(gameState.gameId)
+      if (stored) {
+        console.log('✅ Verified: Game stored successfully and can be retrieved')
+      } else {
+        console.error('❌ WARNING: Game created but could not be retrieved immediately')
+      }
+    } catch (error) {
+      console.error('❌ Error verifying game storage:', error)
+    }
 
     return NextResponse.json(gameState)
   } catch (error) {

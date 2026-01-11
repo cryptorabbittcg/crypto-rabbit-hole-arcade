@@ -17,6 +17,8 @@ export async function POST(
       )
     }
 
+    console.log('🔍 Attempting to get game:', gameId)
+    
     // Get game to check state
     // getGameData throws if game not found, so we catch it
     let gameState: any
@@ -24,6 +26,17 @@ export async function POST(
       gameState = await GameService.getGameData(gameId)
     } catch (error: any) {
       console.error('❌ Game not found:', gameId, error.message)
+      console.error('📋 Error details:', JSON.stringify(error, null, 2))
+      
+      // Try to check if it exists in store directly
+      try {
+        const { getGame } = await import('@/lib/ape-in/game-store')
+        const directCheck = await getGame(gameId)
+        console.log('🔍 Direct store check result:', directCheck ? 'Found' : 'Not found')
+      } catch (checkError) {
+        console.error('❌ Error checking store directly:', checkError)
+      }
+      
       return NextResponse.json(
         { error: "Game not found" },
         { status: 404 }

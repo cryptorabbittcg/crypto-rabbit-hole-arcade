@@ -1,11 +1,12 @@
 /**
  * Ape In Game Store
- * Stores active game states in Vercel KV (persistent across serverless function invocations)
- * Falls back to in-memory storage if KV is not configured
+ * Stores active game states in Supabase (persistent across serverless function invocations)
+ * Falls back to in-memory storage if Supabase is not configured
  * Note: Original implementation uses weighted card drawing (no physical deck)
  */
 
 import { GameState } from "@/features/games/ape-in/types/game"
+import { createClient } from "@/lib/supabase/server"
 
 interface StoredGame {
   gameState: GameState
@@ -13,25 +14,12 @@ interface StoredGame {
   updatedAt: number
 }
 
-// Check if Vercel KV is configured
-function isKVConfigured(): boolean {
-  return !!(
-    process.env.KV_REST_API_URL &&
-    process.env.KV_REST_API_TOKEN &&
-    process.env.KV_REST_API_URL !== "" &&
-    process.env.KV_REST_API_TOKEN !== ""
-  )
-}
-
-// In-memory fallback store for when KV is not available
+// In-memory fallback store for when Supabase is not available
 const inMemoryStore = new Map<string, StoredGame>()
 
-// Key prefix for game storage in KV
-const GAME_KEY_PREFIX = "apein:game:"
-
 /**
- * Store a game in Vercel KV (or in-memory if KV not available)
- * Note: No deck parameter - original uses weighted drawing, not physical deck
+ * Store a game in Supabase (or in-memory if Supabase not available)
+ * Note: No deck parameter - original uses weighted card drawing, not physical deck
  */
 export async function storeGame(gameId: string, gameState: GameState): Promise<void> {
   const stored: StoredGame = {
@@ -40,21 +28,36 @@ export async function storeGame(gameId: string, gameState: GameState): Promise<v
     updatedAt: Date.now(),
   }
   
-  if (isKVConfigured()) {
-    // Use Vercel KV
-    try {
-      const { kv } = await import("@vercel/kv")
-      const key = `${GAME_KEY_PREFIX}${gameId}`
-      await kv.set(key, stored, { ex: 86400 }) // Expire after 24 hours (86400 seconds)
-      return
-    } catch (error) {
-      console.error(`❌ Failed to store game ${gameId} in KV, falling back to memory:`, error)
-      // Fall through to in-memory storage
+  // Try Supabase first
+  try {
+    const supabase = await createClient()
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours from now
+    
+    const { error } = await supabase
+      .from('ape_in_game_states')
+      .upsert({
+        game_id: gameId,
+        game_state: gameState as any,
+        updated_at: new Date().toISOString(),
+        expires_at: expiresAt,
+      }, {
+        onConflict: 'game_id'
+      })
+    
+    if (error) {
+      throw error
     }
+    
+    console.log(`✅ Game ${gameId} stored in Supabase successfully`)
+    return
+  } catch (error) {
+    console.error(`❌ Failed to store game ${gameId} in Supabase, falling back to memory:`, error)
+    // Fall through to in-memory storage
   }
   
   // Fallback to in-memory storage
   inMemoryStore.set(gameId, stored)
+  console.warn(`⚠️ Game ${gameId} stored in memory (Supabase not available or failed)`)
   
   // Cleanup old games (older than 24 hours) from in-memory store
   const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000
@@ -68,53 +71,97 @@ export async function storeGame(gameId: string, gameState: GameState): Promise<v
 }
 
 /**
- * Get a game from Vercel KV (or in-memory if KV not available)
+ * Get a game from Supabase (or in-memory if Supabase not available)
  */
 export async function getGame(gameId: string): Promise<StoredGame | null> {
-  if (isKVConfigured()) {
-    // Use Vercel KV
-    try {
-      const { kv } = await import("@vercel/kv")
-      const key = `${GAME_KEY_PREFIX}${gameId}`
-      const stored = await kv.get<StoredGame>(key)
-      return stored || null
-    } catch (error) {
-      console.error(`❌ Failed to get game ${gameId} from KV, falling back to memory:`, error)
-      // Fall through to in-memory storage
+  // Try Supabase first
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('ape_in_game_states')
+      .select('game_state, created_at, updated_at, expires_at')
+      .eq('game_id', gameId)
+      .single()
+    
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No rows returned - game not found
+        console.warn(`⚠️ Game ${gameId} not found in Supabase`)
+      } else {
+        throw error
+      }
+    } else if (data) {
+      // Check if expired
+      if (data.expires_at && new Date(data.expires_at) < new Date()) {
+        console.warn(`⚠️ Game ${gameId} has expired`)
+        await supabase.from('ape_in_game_states').delete().eq('game_id', gameId)
+        return null
+      }
+      
+      const stored: StoredGame = {
+        gameState: data.game_state as GameState,
+        createdAt: new Date(data.created_at).getTime(),
+        updatedAt: new Date(data.updated_at).getTime(),
+      }
+      
+      console.log(`✅ Game ${gameId} retrieved from Supabase`)
+      return stored
     }
+  } catch (error) {
+    console.error(`❌ Failed to get game ${gameId} from Supabase, falling back to memory:`, error)
+    // Fall through to in-memory storage
   }
   
   // Fallback to in-memory storage
-  return inMemoryStore.get(gameId) || null
+  const inMemory = inMemoryStore.get(gameId)
+  if (inMemory) {
+    console.log(`✅ Game ${gameId} retrieved from memory`)
+    return inMemory
+  }
+  
+  console.warn(`❌ Game ${gameId} not found in memory either`)
+  return null
 }
 
 /**
- * Update game state in Vercel KV (or in-memory if KV not available)
- * Note: No deck parameter - original uses weighted drawing, not physical deck
+ * Update game state in Supabase (or in-memory if Supabase not available)
+ * Note: No deck parameter - original uses weighted card drawing, not physical deck
  */
 export async function updateGame(gameId: string, gameState: GameState): Promise<void> {
-  if (isKVConfigured()) {
-    // Use Vercel KV
-    try {
-      const { kv } = await import("@vercel/kv")
-      const key = `${GAME_KEY_PREFIX}${gameId}`
-      const existing = await kv.get<StoredGame>(key)
-      if (!existing) {
-        throw new Error(`Game ${gameId} not found`)
-      }
-      
-      const updated: StoredGame = {
-        gameState,
-        createdAt: existing.createdAt,
-        updatedAt: Date.now(),
-      }
-      
-      await kv.set(key, updated, { ex: 86400 }) // Refresh expiration to 24 hours
-      return
-    } catch (error) {
-      console.error(`❌ Failed to update game ${gameId} in KV, falling back to memory:`, error)
-      // Fall through to in-memory storage
+  // Try Supabase first
+  try {
+    const supabase = await createClient()
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // Refresh to 24 hours
+    
+    // Check if game exists first
+    const { data: existing } = await supabase
+      .from('ape_in_game_states')
+      .select('game_id')
+      .eq('game_id', gameId)
+      .single()
+    
+    if (!existing) {
+      throw new Error(`Game ${gameId} not found`)
     }
+    
+    const { error } = await supabase
+      .from('ape_in_game_states')
+      .update({
+        game_state: gameState as any,
+        updated_at: new Date().toISOString(),
+        expires_at: expiresAt,
+      })
+      .eq('game_id', gameId)
+    
+    if (error) {
+      throw error
+    }
+    
+    console.log(`✅ Game ${gameId} updated in Supabase`)
+    return
+  } catch (error) {
+    console.error(`❌ Failed to update game ${gameId} in Supabase, falling back to memory:`, error)
+    // Fall through to in-memory storage
   }
   
   // Fallback to in-memory storage
@@ -131,23 +178,28 @@ export async function updateGame(gameId: string, gameState: GameState): Promise<
 }
 
 /**
- * Delete a game from Vercel KV (or in-memory if KV not available)
+ * Delete a game from Supabase (or in-memory if Supabase not available)
  */
 export async function deleteGame(gameId: string): Promise<void> {
-  if (isKVConfigured()) {
-    // Use Vercel KV
-    try {
-      const { kv } = await import("@vercel/kv")
-      const key = `${GAME_KEY_PREFIX}${gameId}`
-      await kv.del(key)
-      return
-    } catch (error) {
-      console.error(`❌ Failed to delete game ${gameId} from KV, falling back to memory:`, error)
-      // Fall through to in-memory storage
+  // Try Supabase first
+  try {
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('ape_in_game_states')
+      .delete()
+      .eq('game_id', gameId)
+    
+    if (error) {
+      throw error
     }
+    
+    console.log(`✅ Game ${gameId} deleted from Supabase`)
+    return
+  } catch (error) {
+    console.error(`❌ Failed to delete game ${gameId} from Supabase, falling back to memory:`, error)
+    // Fall through to in-memory storage
   }
   
   // Fallback to in-memory storage
   inMemoryStore.delete(gameId)
 }
-

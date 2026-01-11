@@ -214,3 +214,30 @@ DROP POLICY IF EXISTS "Users can insert own pack openings" ON pack_openings;
 CREATE POLICY "Users can insert own pack openings"
   ON pack_openings FOR INSERT
   WITH CHECK (user_id::text = current_setting('app.current_user_id', true));
+
+-- =====================================================
+-- APE IN GAME STATES POLICIES
+-- =====================================================
+-- Allow public read/write for game states (API uses anon key)
+-- Games are identified by game_id, not user_id, so we allow all access
+ALTER TABLE ape_in_game_states ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can view game states" ON ape_in_game_states;
+CREATE POLICY "Anyone can view game states"
+  ON ape_in_game_states FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Anyone can insert game states" ON ape_in_game_states;
+CREATE POLICY "Anyone can insert game states"
+  ON ape_in_game_states FOR INSERT
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Anyone can update game states" ON ape_in_game_states;
+CREATE POLICY "Anyone can update game states"
+  ON ape_in_game_states FOR UPDATE
+  USING (true);
+
+DROP POLICY IF EXISTS "Anyone can delete game states" ON ape_in_game_states;
+CREATE POLICY "Anyone can delete game states"
+  ON ape_in_game_states FOR DELETE
+  USING (true);
