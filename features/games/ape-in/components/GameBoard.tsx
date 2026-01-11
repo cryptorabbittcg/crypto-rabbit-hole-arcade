@@ -213,10 +213,11 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
       setGameMoves(prev => [...prev, move])
       setDiceRolls(prev => [...prev, result.value])
 
+      // Wait for dice animation to complete (1 second) before processing result
       setTimeout(async () => {
         setIsRolling(false)
 
-        if (result.success) {
+      if (result.success) {
           // Check if this is a bearish dodge (message contains "Great Roll! Your sats are safe")
           const isBearishDodge = result.message?.includes("Great Roll! Your sats are safe") || result.message?.includes("Dodged bearish")
           

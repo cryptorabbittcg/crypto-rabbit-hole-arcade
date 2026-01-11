@@ -74,14 +74,15 @@ export async function POST(
     let botActions: any[] | undefined = undefined
     if (!rollResult.success && gameState.mode !== 'pvp' && gameState.mode !== 'multiplayer' && gameState.mode !== 'tournament') {
       // Player busted - bot's turn
+      // Get updated state once (rollDiceAction already updated it)
       const updatedState = await GameService.getGameData(gameId)
       if (updatedState.gameStatus === 'playing') {
         botActions = await GameService.executeBotTurn(gameId)
       }
     }
 
-    // Check for game win after roll
-    const finalState = await GameService.getGameData(gameId)
+    // Build response - only fetch final state if we need it (bot turn executed)
+    // Otherwise, rollDiceAction already updated the state, so we can use rollResult data
     const response: any = {
       value: rollResult.value,
       success: rollResult.success,
@@ -92,6 +93,9 @@ export async function POST(
 
     if (botActions) {
       response.botActions = botActions
+      // Only fetch final state if bot turn was executed (to get updated scores)
+      const finalState = await GameService.getGameData(gameId)
+      response.turnScore = finalState.playerTurnScore // Update turn score in case bot turn changed it
     }
 
     console.log('✅ Dice rolled:', rollResult.value, rollResult.success ? 'Success' : 'Failed', botActions ? `(Bot turn: ${botActions.length} actions)` : '')
