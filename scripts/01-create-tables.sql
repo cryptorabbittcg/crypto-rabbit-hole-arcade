@@ -32,6 +32,11 @@ CREATE TABLE IF NOT EXISTS profiles (
   -- Playtime tracking (in seconds)
   total_playtime INTEGER DEFAULT 0,
   
+  -- Referral system
+  referral_code TEXT UNIQUE,
+  referral_count INTEGER DEFAULT 0,
+  referral_earnings INTEGER DEFAULT 0,
+  
   -- Timestamps
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
