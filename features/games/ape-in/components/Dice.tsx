@@ -68,18 +68,19 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
         transformStyle: 'preserve-3d',
       }}
     >
-      {/* 3D Dice Base */}
+      {/* 3D Dice Base with enhanced 3D effect */}
       <div
-        className={`absolute inset-0 rounded-2xl shadow-2xl ${
+        className={`absolute inset-0 rounded-2xl ${
           isRekt ? 'bg-red-600' : 'bg-white'
         }`}
         style={{
-          transform: 'translateZ(0)',
+          transform: 'translateZ(8px) rotateX(5deg) rotateY(-5deg)',
           boxShadow: `
-            inset 0 2px 4px rgba(0, 0, 0, 0.1),
-            inset 0 -2px 4px rgba(255, 255, 255, 0.3),
-            0 8px 16px rgba(0, 0, 0, 0.3),
-            0 0 0 1px rgba(0, 0, 0, 0.1)
+            inset 0 3px 6px rgba(0, 0, 0, 0.15),
+            inset 0 -3px 6px rgba(255, 255, 255, ${isRekt ? '0.2' : '0.4'}),
+            0 10px 20px rgba(0, 0, 0, 0.4),
+            0 0 0 1px rgba(0, 0, 0, 0.15),
+            0 4px 8px rgba(0, 0, 0, 0.2)
           `,
         }}
       >
@@ -88,21 +89,28 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
           className="absolute inset-0 rounded-2xl pointer-events-none"
           style={{
             background: isRekt
-              ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(0, 0, 0, 0.1) 50%, rgba(255, 255, 255, 0.05) 100%)'
-              : 'linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(0, 0, 0, 0.1) 50%, rgba(255, 255, 255, 0.2) 100%)',
+              ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(0, 0, 0, 0.15) 50%, rgba(255, 255, 255, 0.08) 100%)'
+              : 'linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(0, 0, 0, 0.15) 50%, rgba(255, 255, 255, 0.3) 100%)',
             borderRadius: '1rem',
+          }}
+        />
+        {/* Additional highlight for 3D depth */}
+        <div
+          className="absolute top-0 left-0 w-full h-1/2 rounded-t-2xl pointer-events-none"
+          style={{
+            background: 'linear-gradient(to bottom, rgba(255, 255, 255, 0.3), transparent)',
           }}
         />
       </div>
 
-      {/* Dice Face Content */}
-      <div className="relative z-10 grid grid-cols-3 gap-2 p-4 w-full h-full">
+      {/* Dice Face Content - Centered grid */}
+      <div className="relative z-10 grid grid-cols-3 gap-2 p-4 w-full h-full items-center justify-center">
         {diceDots[displayValue]?.map(([row, col], index) => {
           const isCenterPip = displayValue === 1 && row === 1 && col === 1
           return (
             <div
               key={index}
-              className={`col-start-${col + 1} row-start-${row + 1}`}
+              className="flex items-center justify-center"
               style={{
                 gridColumn: col + 1,
                 gridRow: row + 1,
@@ -116,9 +124,9 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
                 }`}
                 style={{
                   boxShadow: `
-                    inset 0 2px 4px rgba(0, 0, 0, 0.4),
-                    inset 0 -1px 2px rgba(255, 255, 255, ${isRekt ? '0.3' : '0.2'}),
-                    0 1px 2px rgba(0, 0, 0, 0.3)
+                    inset 0 3px 6px rgba(0, 0, 0, 0.5),
+                    inset 0 -2px 3px rgba(255, 255, 255, ${isRekt ? '0.4' : '0.25'}),
+                    0 2px 3px rgba(0, 0, 0, 0.4)
                   `,
                 }}
               />
@@ -127,27 +135,29 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
         })}
       </div>
 
-      {/* "Rekt!" text for value 1 - engraved 3D style */}
+      {/* "Rekt!" text for value 1 - centered above pip */}
       {isRekt && (
         <div
-          className="absolute -top-8 left-1/2 transform -translate-x-1/2 pointer-events-none z-20"
+          className="absolute -top-8 left-1/2 pointer-events-none z-20"
           style={{
-            textShadow: `
-              0 1px 0 rgba(255, 255, 255, 0.5),
-              0 2px 4px rgba(0, 0, 0, 0.3),
-              0 -1px 0 rgba(0, 0, 0, 0.2),
-              inset 0 -1px 0 rgba(0, 0, 0, 0.1)
-            `,
-            transform: 'translateX(-50%) translateY(-10px)',
+            transform: 'translateX(-50%)',
+            textAlign: 'center',
+            width: '100%',
           }}
         >
           <span
-            className="text-white font-bold text-xs sm:text-sm whitespace-nowrap"
+            className="text-white font-bold text-xs sm:text-sm whitespace-nowrap block"
             style={{
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
               fontWeight: 900,
-              WebkitTextStroke: '0.5px rgba(0, 0, 0, 0.3)',
+              textShadow: `
+                0 2px 0 rgba(255, 255, 255, 0.6),
+                0 3px 6px rgba(0, 0, 0, 0.4),
+                0 -2px 0 rgba(0, 0, 0, 0.3),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.2)
+              `,
+              WebkitTextStroke: '0.5px rgba(0, 0, 0, 0.4)',
             }}
           >
             Rekt!

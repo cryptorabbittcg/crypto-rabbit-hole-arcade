@@ -439,6 +439,23 @@ export function Providers({ children }: { children: ReactNode }) {
           tickets: tickets,
           stats: updated.stats,
         })
+
+        // Also save to Supabase (async, non-blocking)
+        ;(async () => {
+          try {
+            const success = await ProfileService.updateProfile(address, {
+              username: updated.username,
+              avatar_url: updated.avatar || null,
+            })
+            if (success) {
+              logger.log("✅ Profile updated in Supabase:", { username: updated.username })
+            } else {
+              logger.warn("⚠️ Failed to update profile in Supabase")
+            }
+          } catch (error) {
+            logger.error("❌ Error updating profile in Supabase:", error)
+          }
+        })()
       }
       
       return updated

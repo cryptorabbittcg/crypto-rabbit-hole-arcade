@@ -276,6 +276,8 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
     
     setIsBotPlaying(true)
     let previousTurnScore = 0
+    // Store opponent's score at start of turn - preserve it during turn, only update at end when they stack
+    const opponentScoreAtTurnStart = opponentScore
     
     // Step 1: Announce bot's turn
     setFloatingMessage({text: `${opponentName}'s turn...`})
@@ -355,10 +357,12 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
         await new Promise(resolve => setTimeout(resolve, 800))
         
       } else if (action.type === 'stack') {
-        // Bot decided to stack
+        // Bot decided to stack - update total score ONLY at end of turn
         const finalScore = action.finalScore || 0
         setFloatingMessage({text: `${opponentName} stacks ${previousTurnScore} sats!`})
         await new Promise(resolve => setTimeout(resolve, 2000))
+        // Update opponent's total score only when they stack (end of turn)
+        updateScore(playerScore, finalScore)
       }
     }
     
@@ -368,6 +372,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
     setFloatingMessage({text: 'Your turn!'})
     await new Promise(resolve => setTimeout(resolve, 1200))
     setFloatingMessage(null)
+    // Refresh game state to sync everything (but opponentScore was already updated above if they stacked)
     await refreshGameState()
   }
 
@@ -795,7 +800,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
                 })
               }
             }} 
-            className="btn-primary text-lg px-8 py-3"
+            className="text-lg px-8 py-3 rounded-lg border-2 border-purple-500 bg-gradient-to-b from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white font-bold shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95"
           >
             Return to Menu
           </button>
