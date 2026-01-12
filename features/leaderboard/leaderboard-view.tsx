@@ -1,10 +1,12 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Trophy, TrendingUp, Zap, Medal } from "@/components/icons"
 import { useArcade } from "@/components/providers"
+import { LeaderboardService } from "@/lib/supabase/services/leaderboard.service"
 
 type LeaderboardEntry = {
   rank: number
@@ -29,7 +31,55 @@ const GLOBAL_LEADERBOARD: LeaderboardEntry[] = [
 ]
 
 export default function LeaderboardView() {
-  const { points } = useArcade()
+  const { points, address, profile } = useArcade()
+  const [overallLeaderboard, setOverallLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [loadingOverall, setLoadingOverall] = useState(true)
+  const [userRank, setUserRank] = useState<number | null>(null)
+  const [userPoints, setUserPoints] = useState<number>(points || 0)
+
+  // Fetch Overall Points leaderboard data
+  useEffect(() => {
+    async function fetchOverallLeaderboard() {
+      try {
+        setLoadingOverall(true)
+        const leaderboardService = new LeaderboardService()
+        const scores = await leaderboardService.getTopByPoints(100)
+        
+        // Map RPC result to LeaderboardEntry format
+        const entries: LeaderboardEntry[] = scores.map((entry) => ({
+          rank: entry.rank,
+          address: entry.wallet_address 
+            ? `${entry.wallet_address.slice(0, 6)}...${entry.wallet_address.slice(-4)}`
+            : "0x0000...0000",
+          points: entry.score, // score field contains total_points
+          wins: 0, // RPC doesn't return wins in this format, set to 0 for now
+          streak: 0, // RPC doesn't return streak, set to 0 for now
+          avatar: undefined, // Can be added later if needed
+        }))
+        
+        setOverallLeaderboard(entries)
+        
+        // Find user's rank if address matches
+        if (address) {
+          const normalizedAddress = address.toLowerCase()
+          const userEntry = scores.find(
+            (entry) => entry.wallet_address?.toLowerCase() === normalizedAddress
+          )
+          if (userEntry) {
+            setUserRank(userEntry.rank)
+            setUserPoints(userEntry.score)
+          }
+        }
+      } catch (error) {
+        console.error("[LeaderboardView] Error fetching overall leaderboard:", error)
+        setOverallLeaderboard([])
+      } finally {
+        setLoadingOverall(false)
+      }
+    }
+
+    fetchOverallLeaderboard()
+  }, [address])
 
   return (
     <div className="space-y-6">
@@ -50,12 +100,14 @@ export default function LeaderboardView() {
             </div>
             <div>
               <div className="text-sm text-cyan-400 mb-1">Your Rank</div>
-              <div className="text-3xl font-bold font-display text-cyan-400">#0</div>
+              <div className="text-3xl font-bold font-display text-cyan-400">
+                {userRank ? `#${userRank}` : "#—"}
+              </div>
             </div>
           </div>
           <div className="text-right">
             <div className="text-sm text-purple-400 mb-1">Your Points</div>
-            <div className="text-3xl font-bold font-display text-purple-400">0</div>
+            <div className="text-3xl font-bold font-display text-purple-400">{userPoints.toLocaleString()}</div>
           </div>
         </div>
       </Card>
@@ -74,9 +126,17 @@ export default function LeaderboardView() {
           <p className="text-sm text-muted-foreground text-center py-4">
             Total points across all games
           </p>
-          {GLOBAL_LEADERBOARD.map((entry) => (
-            <LeaderboardCard key={entry.rank} entry={entry} />
-          ))}
+          {loadingOverall ? (
+            <div className="text-center py-8 text-muted-foreground">Loading leaderboard...</div>
+          ) : overallLeaderboard.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No leaderboard data available yet.
+            </div>
+          ) : (
+            overallLeaderboard.map((entry) => (
+              <LeaderboardCard key={entry.rank} entry={entry} />
+            ))
+          )}
         </TabsContent>
 
         <TabsContent value="cryptoku" className="space-y-3">

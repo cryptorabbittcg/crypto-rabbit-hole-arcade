@@ -259,6 +259,9 @@ $$ LANGUAGE plpgsql;
 -- =====================================================
 -- GET LEADERBOARD
 -- =====================================================
+-- Drop existing function first if return type changed
+DROP FUNCTION IF EXISTS get_leaderboard(INTEGER);
+
 CREATE OR REPLACE FUNCTION get_leaderboard(
   p_limit INTEGER DEFAULT 100
 )
@@ -266,6 +269,7 @@ RETURNS TABLE (
   rank INTEGER,
   user_id UUID,
   username TEXT,
+  wallet_address TEXT,
   avatar_url TEXT,
   total_points INTEGER,
   total_wins INTEGER,
@@ -277,6 +281,7 @@ BEGIN
     ROW_NUMBER() OVER (ORDER BY l.total_points DESC)::INTEGER as rank,
     p.id as user_id,
     p.username,
+    p.wallet_address,
     p.avatar_url,
     l.total_points,
     p.total_wins,

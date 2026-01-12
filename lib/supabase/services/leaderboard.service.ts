@@ -165,7 +165,7 @@ export class LeaderboardService {
         rank: entry.rank || index + 1,
         user_id: entry.user_id,
         username: entry.username,
-        wallet_address: "", // Will need to join with profiles if needed
+        wallet_address: entry.wallet_address || "",
         score: entry.total_points || 0,
         game_type: null,
       }))
