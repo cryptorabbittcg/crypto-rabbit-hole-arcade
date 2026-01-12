@@ -106,10 +106,16 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
   const [pointsSynced, setPointsSynced] = useState(false)
 
   // Refresh game state from backend
-  const refreshGameState = async () => {
+  const refreshGameState = async (preserveOpponentScore = false) => {
     try {
       const gameData = await gameAPI.getGameState(gameId)
-      setGameState(gameData)
+      if (preserveOpponentScore) {
+        // Preserve current opponentScore during bot turn - don't update until turn ends
+        const currentOpponentScore = opponentScore
+        setGameState({ ...gameData, opponentScore: currentOpponentScore })
+      } else {
+        setGameState(gameData)
+      }
     } catch (error) {
       console.error('Failed to refresh game state:', error)
     }
@@ -276,8 +282,9 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
     
     setIsBotPlaying(true)
     let previousTurnScore = 0
-    // Store opponent's score at start of turn - preserve it during turn, only update at end when they stack
+    // Store opponent's score at start of turn - preserve it during turn, only update at end
     const opponentScoreAtTurnStart = opponentScore
+    let botTurnEnded = false // Track if bot's turn has ended (stacked, busted, or bearish penalty)
     
     // Step 1: Announce bot's turn
     setFloatingMessage({text: `${opponentName}'s turn...`})
@@ -344,10 +351,14 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
             setFloatingMessage({text: `+${satsGained} sats`, sats: currentTurnScore})
             await new Promise(resolve => setTimeout(resolve, 1500))
           } else {
+            // Bot busted - keep opponentScore at start value (no update)
             const message = nextAction.message || 'Busted!'
             setFloatingMessage({text: `${opponentName}: ${message}`})
             await new Promise(resolve => setTimeout(resolve, 1800))
-            break // Bot busted, end turn
+            // Explicitly preserve opponentScore at start value when bot busts
+            updateScore(playerScore, opponentScoreAtTurnStart)
+            botTurnEnded = true
+            break // Bot busted, end turn (opponentScore remains at opponentScoreAtTurnStart)
           }
         }
         
@@ -363,6 +374,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
         await new Promise(resolve => setTimeout(resolve, 2000))
         // Update opponent's total score only when they stack (end of turn)
         updateScore(playerScore, finalScore)
+        botTurnEnded = true
       }
     }
     
@@ -372,8 +384,12 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
     setFloatingMessage({text: 'Your turn!'})
     await new Promise(resolve => setTimeout(resolve, 1200))
     setFloatingMessage(null)
-    // Refresh game state to sync everything (but opponentScore was already updated above if they stacked)
-    await refreshGameState()
+    
+    // Refresh game state to sync everything
+    // If bot stacked, opponentScore was already updated via updateScore() above
+    // If bot busted, opponentScore should remain at opponentScoreAtTurnStart (preserved)
+    // Preserve opponentScore during refresh to prevent premature updates from backend
+    await refreshGameState(true) // Preserve opponentScore - we've already updated it manually if needed
   }
 
   const handleStackSats = async () => {
