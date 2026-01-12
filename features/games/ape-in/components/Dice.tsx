@@ -32,6 +32,9 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
         if (value) {
           setDisplayValue(value)
           onRollComplete?.()
+        } else {
+          // If value is null after rolling, show default (shouldn't happen, but safety)
+          setDisplayValue(1)
         }
       }, 1000)
 
@@ -41,6 +44,9 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
       }
     } else if (value) {
       setDisplayValue(value)
+    } else {
+      // When value is null and not rolling, show default value (1) so pips are always visible
+      setDisplayValue(1)
     }
   }, [isRolling, value, onRollComplete])
 
