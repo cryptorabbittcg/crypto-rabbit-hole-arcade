@@ -44,6 +44,8 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
     }
   }, [isRolling, value, onRollComplete])
 
+  const isRekt = !isRolling && value === 1
+
   return (
     <motion.div
       whileHover={onClick && !disabled ? { scale: 1.1 } : {}}
@@ -58,38 +60,99 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
       }
       transition={{ duration: 1, ease: 'easeInOut' }}
       onClick={onClick && !disabled ? onClick : undefined}
-      className={`relative w-24 h-24 bg-white rounded-2xl shadow-2xl flex items-center justify-center ${
+      className={`relative w-24 h-24 rounded-2xl flex items-center justify-center ${
         onClick && !disabled ? 'cursor-pointer hover:shadow-purple-500/50' : ''
       } ${disabled ? 'opacity-50' : ''}`}
+      style={{
+        perspective: '1000px',
+        transformStyle: 'preserve-3d',
+      }}
     >
-      <div className="grid grid-cols-3 gap-2 p-4">
-        {diceDots[displayValue]?.map(([row, col], index) => (
-          <div
-            key={index}
-            className={`col-start-${col + 1} row-start-${row + 1}`}
-            style={{
-              gridColumn: col + 1,
-              gridRow: row + 1,
-            }}
-          >
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="w-3 h-3 bg-slate-900 rounded-full"
-            />
-          </div>
-        ))}
+      {/* 3D Dice Base */}
+      <div
+        className={`absolute inset-0 rounded-2xl shadow-2xl ${
+          isRekt ? 'bg-red-600' : 'bg-white'
+        }`}
+        style={{
+          transform: 'translateZ(0)',
+          boxShadow: `
+            inset 0 2px 4px rgba(0, 0, 0, 0.1),
+            inset 0 -2px 4px rgba(255, 255, 255, 0.3),
+            0 8px 16px rgba(0, 0, 0, 0.3),
+            0 0 0 1px rgba(0, 0, 0, 0.1)
+          `,
+        }}
+      >
+        {/* Glassy overlay for 3D effect */}
+        <div
+          className="absolute inset-0 rounded-2xl pointer-events-none"
+          style={{
+            background: isRekt
+              ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(0, 0, 0, 0.1) 50%, rgba(255, 255, 255, 0.05) 100%)'
+              : 'linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(0, 0, 0, 0.1) 50%, rgba(255, 255, 255, 0.2) 100%)',
+            borderRadius: '1rem',
+          }}
+        />
       </div>
 
-      {/* Show result */}
-      {!isRolling && value === 1 && (
-        <motion.div
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="absolute -top-10 sm:-top-12 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-2 sm:px-4 py-1 sm:py-2 rounded-lg font-bold whitespace-nowrap shadow-xl text-xs sm:text-sm max-w-[90vw]"
+      {/* Dice Face Content */}
+      <div className="relative z-10 grid grid-cols-3 gap-2 p-4 w-full h-full">
+        {diceDots[displayValue]?.map(([row, col], index) => {
+          const isCenterPip = displayValue === 1 && row === 1 && col === 1
+          return (
+            <div
+              key={index}
+              className={`col-start-${col + 1} row-start-${row + 1}`}
+              style={{
+                gridColumn: col + 1,
+                gridRow: row + 1,
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className={`rounded-full ${isCenterPip ? 'w-6 h-6' : 'w-3 h-3'} ${
+                  isRekt ? 'bg-white' : 'bg-slate-900'
+                }`}
+                style={{
+                  boxShadow: `
+                    inset 0 2px 4px rgba(0, 0, 0, 0.4),
+                    inset 0 -1px 2px rgba(255, 255, 255, ${isRekt ? '0.3' : '0.2'}),
+                    0 1px 2px rgba(0, 0, 0, 0.3)
+                  `,
+                }}
+              />
+            </div>
+          )
+        })}
+      </div>
+
+      {/* "Rekt!" text for value 1 - engraved 3D style */}
+      {isRekt && (
+        <div
+          className="absolute -top-8 left-1/2 transform -translate-x-1/2 pointer-events-none z-20"
+          style={{
+            textShadow: `
+              0 1px 0 rgba(255, 255, 255, 0.5),
+              0 2px 4px rgba(0, 0, 0, 0.3),
+              0 -1px 0 rgba(0, 0, 0, 0.2),
+              inset 0 -1px 0 rgba(0, 0, 0, 0.1)
+            `,
+            transform: 'translateX(-50%) translateY(-10px)',
+          }}
         >
-          REKT! 💀
-        </motion.div>
+          <span
+            className="text-white font-bold text-xs sm:text-sm whitespace-nowrap"
+            style={{
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              fontWeight: 900,
+              WebkitTextStroke: '0.5px rgba(0, 0, 0, 0.3)',
+            }}
+          >
+            Rekt!
+          </span>
+        </div>
       )}
     </motion.div>
   )
