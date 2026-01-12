@@ -208,9 +208,36 @@ export function Providers({ children }: { children: ReactNode }) {
       const existingProfile = await profileService.getProfileByWallet(walletAddress)
 
       if (existingProfile) {
-        // Merge Supabase data with localStorage data (Supabase takes precedence for username, localStorage for avatar)
+        // Merge Supabase data with localStorage data
+        // Prefer localStorage username if it exists and is not "Guest" or default generated name
+        // This ensures user's custom username persists even if Supabase hasn't synced yet
+        const localStorageUsername = savedProfile?.username
+        const isDefaultUsername = existingProfile.username?.startsWith('Rabbit') || existingProfile.username === 'Guest'
+        const useLocalStorageUsername = localStorageUsername && 
+          localStorageUsername !== 'Guest' && 
+          !localStorageUsername.startsWith('Rabbit') &&
+          localStorageUsername !== existingProfile.username
+        
+        const finalUsername = useLocalStorageUsername ? localStorageUsername : existingProfile.username
+        
+        // If localStorage has a custom username that differs from Supabase, sync it to Supabase
+        if (useLocalStorageUsername && localStorageUsername) {
+          ;(async () => {
+            try {
+              const success = await profileService.updateProfile(existingProfile.id, {
+                username: localStorageUsername,
+              })
+              if (success) {
+                logger.log("✅ Synced localStorage username to Supabase:", localStorageUsername)
+              }
+            } catch (error) {
+              logger.error("❌ Error syncing username to Supabase:", error)
+            }
+          })()
+        }
+        
         setProfile({
-          username: existingProfile.username,
+          username: finalUsername,
           avatar: savedProfile?.avatar || existingProfile.avatar_url || profile.avatar,
           referralCode: existingProfile.referral_code || profile.referralCode,
           referralCount: existingProfile.referral_count || 0,
