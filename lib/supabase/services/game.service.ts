@@ -18,7 +18,7 @@ export class GameService {
         points_earned: 0,
         ape_earned: 0,
         tickets_earned: 0,
-        duration_seconds: 0,
+        duration: 0,
         result: "incomplete",
         metadata,
       })
@@ -50,7 +50,7 @@ export class GameService {
         points_earned: pointsEarned,
         ape_earned: apeEarned,
         tickets_earned: ticketsEarned,
-        duration_seconds: durationSeconds,
+        duration: durationSeconds,
       })
       .eq("id", sessionId)
 
