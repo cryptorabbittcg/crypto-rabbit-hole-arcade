@@ -43,30 +43,27 @@ export async function POST(request: NextRequest) {
     // Normalize wallet address
     const normalizedAddress = playerAddress.toLowerCase()
 
-    // Get or create profile using RPC function
-    const supabase = await createClient()
-    const { data: userIdData, error: profileError } = await supabase.rpc('get_or_create_profile', {
-      p_wallet_address: normalizedAddress,
-      p_username: null,
-    })
-
-    if (profileError || !userIdData) {
-      console.error('[ApeInSubmit] Error getting/creating profile:', profileError)
-      return NextResponse.json({ error: "Failed to get or create profile" }, { status: 500 })
-    }
-
-    const userId = userIdData
-
-    // Get profile details
+    // Get or create profile
     const profileService = new ProfileService()
-    const profile = await profileService.getProfileByWallet(normalizedAddress)
+    let profile = await profileService.getProfileByWallet(normalizedAddress)
     
     if (!profile) {
-      return NextResponse.json({ error: "Failed to retrieve profile" }, { status: 500 })
+      // Create profile if doesn't exist
+      profile = await profileService.createProfile({
+        wallet_address: normalizedAddress,
+        username: `Player${normalizedAddress.slice(2, 8)}`,
+      })
+      
+      if (!profile) {
+        return NextResponse.json({ error: "Failed to create profile" }, { status: 500 })
+      }
     }
 
     // Calculate points (MVP: points = score)
     const pointsEarned = score
+
+    // Create Supabase client for database operations
+    const supabase = await createClient()
 
     // Attempt insert with idempotency via unique constraint on run_id
     // Use INSERT ... ON CONFLICT to handle duplicate run_id atomically
