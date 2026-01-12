@@ -7,6 +7,7 @@ interface CardProps {
   card: CardType | null
   isRevealing?: boolean
   onClick?: () => void
+  hideClickToDraw?: boolean // Hide "Click to draw" text (e.g., during bot's turn)
 }
 
 const getCardGradient = (type: CardType['type']) => {
@@ -26,7 +27,7 @@ const getCardGradient = (type: CardType['type']) => {
   }
 }
 
-export default function Card({ card, isRevealing = false, onClick }: CardProps) {
+export default function Card({ card, isRevealing = false, onClick, hideClickToDraw = false }: CardProps) {
   // Card ratio: 355:497 ≈ 5:7 ratio
   // Compact size for better screen fit
   
@@ -58,7 +59,8 @@ export default function Card({ card, isRevealing = false, onClick }: CardProps) 
               }}
             />
             
-            {/* Floating "Click to draw" text overlaid on card back - with pulse and glow */}
+            {/* Floating "Click to draw" text overlaid on card back - with pulse and glow (hidden during bot's turn) */}
+            {!hideClickToDraw && (
             <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
               <motion.div
                 animate={{
@@ -107,6 +109,7 @@ export default function Card({ card, isRevealing = false, onClick }: CardProps) 
                 </div>
               </motion.div>
             </div>
+            )}
           </div>
         </div>
       </motion.div>
