@@ -308,10 +308,7 @@ export function ProfileMenu() {
             <Button 
               type="button" 
               variant="destructive" 
-              onClick={async (e) => { 
-                // Prevent double-clicking
-                e.currentTarget.disabled = true
-                
+              onClick={async () => { 
                 try {
                   // Store connection state before disconnect to avoid race conditions
                   // These values are captured from the closure and won't change during async operations
@@ -338,18 +335,15 @@ export function ProfileMenu() {
                   console.log("🚪 Logging out...")
                   logout()
                   
-                  // Close the dialog
-                  setOpen(false)
-                  
                   console.log("✅ Logout complete")
+                  
+                  // Close the dialog after logout completes
+                  setOpen(false)
                 } catch (error) {
                   console.error("❌ Error during logout:", error)
                   // Still try to logout even if wallet disconnect fails
                   logout()
                   setOpen(false)
-                } finally {
-                  // Re-enable button in case of error (shouldn't be visible after successful logout)
-                  e.currentTarget.disabled = false
                 }
               }}
               className="w-full sm:w-auto"
