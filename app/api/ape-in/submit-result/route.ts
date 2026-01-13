@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { ProfileService } from "@/lib/supabase/services/profile.service"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,12 +62,21 @@ export async function POST(request: NextRequest) {
     // Calculate points (MVP: points = score)
     const pointsEarned = score
 
-    // Create Supabase client for database operations
-    const supabase = await createClient()
+    // Create admin Supabase client for database operations (bypasses RLS)
+    let adminClient
+    try {
+      adminClient = createAdminClient()
+    } catch (error) {
+      console.error('[ApeInSubmit] Error creating admin client:', error)
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Server configuration error" },
+        { status: 500 }
+      )
+    }
 
     // Attempt insert with idempotency via unique constraint on run_id
     // Use INSERT ... ON CONFLICT to handle duplicate run_id atomically
-    const { data: sessionData, error: insertError } = await supabase
+    const { data: sessionData, error: insertError } = await adminClient
       .from('game_sessions')
       .insert({
         user_id: profile.id,
@@ -93,14 +102,17 @@ export async function POST(request: NextRequest) {
       // Check if error is due to unique constraint violation (duplicate run_id)
       if (insertError.code === '23505' || insertError.message?.includes('unique constraint') || insertError.message?.includes('duplicate key')) {
         // Duplicate run_id - fetch existing session (idempotent response)
-        const { data: existingSession, error: fetchError } = await supabase
+        const { data: existingSession, error: fetchError } = await adminClient
           .from('game_sessions')
           .select('id, points_earned')
           .eq('run_id', runId)
           .single()
 
         if (fetchError || !existingSession) {
-          console.error('[ApeInSubmit] Error fetching existing session:', fetchError)
+          console.error('[ApeInSubmit] Error fetching existing session:', {
+            code: fetchError?.code,
+            message: fetchError?.message,
+          })
           return NextResponse.json({ error: "Failed to process submission" }, { status: 500 })
         }
 
@@ -109,7 +121,10 @@ export async function POST(request: NextRequest) {
         shouldAwardPoints = false // Don't award points again for duplicate
       } else {
         // Other database error
-        console.error('[ApeInSubmit] Error inserting game session:', insertError)
+        console.error('[ApeInSubmit] Error inserting game session:', {
+          code: insertError.code,
+          message: insertError.message,
+        })
         return NextResponse.json({ error: "Failed to save game session" }, { status: 500 })
       }
     } else {
@@ -124,7 +139,7 @@ export async function POST(request: NextRequest) {
     // Award points only for ranked modes (all Ape In modes are ranked)
     // Only award if this is a new submission (not duplicate)
     if (shouldAwardPoints && pointsEarned > 0) {
-      const { error: balanceError } = await supabase.rpc('update_user_balance', {
+      const { error: balanceError } = await adminClient.rpc('update_user_balance', {
         p_user_id: profile.id,
         p_ape_change: 0,
         p_tickets_change: 0,
@@ -134,7 +149,10 @@ export async function POST(request: NextRequest) {
       })
 
       if (balanceError) {
-        console.error('[ApeInSubmit] Error updating user balance:', balanceError)
+        console.error('[ApeInSubmit] Error updating user balance:', {
+          code: balanceError.code,
+          message: balanceError.message,
+        })
         // Continue even if balance update fails (session is already saved)
       }
     }
@@ -143,7 +161,7 @@ export async function POST(request: NextRequest) {
     // Only update for completed/won results
     let highScoreUpdated = false
     if (result === 'won' || result === 'completed') {
-      const { data: leaderboardData, error: leaderboardFetchError } = await supabase
+      const { data: leaderboardData, error: leaderboardFetchError } = await adminClient
         .from('leaderboard')
         .select('ape_in_high_score')
         .eq('user_id', profile.id)
@@ -152,7 +170,7 @@ export async function POST(request: NextRequest) {
       if (!leaderboardFetchError && leaderboardData) {
         const currentHighScore = leaderboardData.ape_in_high_score || 0
         if (score > currentHighScore) {
-          const { error: leaderboardUpdateError } = await supabase
+          const { error: leaderboardUpdateError } = await adminClient
             .from('leaderboard')
             .update({ ape_in_high_score: score })
             .eq('user_id', profile.id)
@@ -160,12 +178,15 @@ export async function POST(request: NextRequest) {
           if (!leaderboardUpdateError) {
             highScoreUpdated = true
           } else {
-            console.error('[ApeInSubmit] Error updating leaderboard high score:', leaderboardUpdateError)
+            console.error('[ApeInSubmit] Error updating leaderboard high score:', {
+              code: leaderboardUpdateError.code,
+              message: leaderboardUpdateError.message,
+            })
           }
         }
       } else if (leaderboardFetchError && leaderboardFetchError.code === 'PGRST116') {
         // Leaderboard entry doesn't exist - create it
-        const { error: createError } = await supabase
+        const { error: createError } = await adminClient
           .from('leaderboard')
           .insert({
             user_id: profile.id,
@@ -175,7 +196,10 @@ export async function POST(request: NextRequest) {
         if (!createError) {
           highScoreUpdated = true
         } else {
-          console.error('[ApeInSubmit] Error creating leaderboard entry:', createError)
+          console.error('[ApeInSubmit] Error creating leaderboard entry:', {
+            code: createError.code,
+            message: createError.message,
+          })
         }
       }
     }
