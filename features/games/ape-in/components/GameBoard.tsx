@@ -56,6 +56,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
     roundCount,
     maxRounds,
     unlimitedRounds,
+    winningScore,
     playToken,
     runId,
     setCurrentCard,
@@ -898,8 +899,26 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
       </AnimatePresence>
 
       {/* Compact Score Display */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="game-board text-center py-3">
+      <div className="space-y-3">
+        {/* Goals Display - Top Center */}
+        <div className="game-board text-center py-2 px-4">
+          <div className="flex items-center justify-center gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">Goal:</span>
+              <span className="font-bold text-yellow-400">{winningScore || 150} sats</span>
+            </div>
+            <span className="text-slate-600">•</span>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">Rounds:</span>
+              <span className="font-bold text-purple-400">
+                {unlimitedRounds ? '∞' : `${roundCount}/${maxRounds}`}
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-3">
+          <div className="game-board text-center py-3">
           {/* Player Avatar */}
           <div className="flex justify-center mb-2">
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-2 border-purple-500/50 shadow-lg flex items-center justify-center overflow-hidden">
