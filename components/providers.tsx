@@ -9,6 +9,7 @@ import { logger } from "@/lib/logger"
 // import { getApeBalance } from "@/adapters/wallet.adapter"
 import { clearAuthToken } from "@/lib/auth"
 import { clearGameSession } from "@/lib/game-session"
+import { useGlyphAdapter } from "@/lib/auth-adapters/glyphAdapter"
 
 type Transaction = {
   id: string
@@ -72,6 +73,9 @@ type ArcadeContextType = {
 const ArcadeContext = createContext<ArcadeContextType | null>(null)
 
 export function Providers({ children }: { children: ReactNode }) {
+  // Use auth adapter internally to source connection state
+  const authAdapter = useGlyphAdapter()
+
   const [tickets, setTickets] = useState(0)
   const [points, setPoints] = useState(0) // Will be loaded from profile storage
   const [txns, setTxns] = useState<Transaction[]>([])
@@ -95,6 +99,14 @@ export function Providers({ children }: { children: ReactNode }) {
       achievements: [],
     },
   })
+
+  // Sync adapter connection state to internal state
+  // This allows ProfileSyncWrapper and other components to continue working
+  // while we source the connection state from the adapter internally
+  useEffect(() => {
+    setAddress(authAdapter.address)
+    setIsConnected(authAdapter.isConnected)
+  }, [authAdapter.address, authAdapter.isConnected])
 
   useEffect(() => {
     const session = getGameSession()
@@ -299,9 +311,10 @@ export function Providers({ children }: { children: ReactNode }) {
     }
   }, [syncProfileWithWallet])
 
-  const connect = useCallback(() => {
-    logger.log("[v0] Use WalletConnect component to connect wallet")
-  }, [])
+  const connect = useCallback(async () => {
+    logger.log("[v0] Connecting wallet via adapter")
+    await authAdapter.connect()
+  }, [authAdapter])
 
   const logout = useCallback(() => {
     logger.log("[v0] Logging out user")
@@ -314,11 +327,16 @@ export function Providers({ children }: { children: ReactNode }) {
     clearGameSession()
   }, [])
 
-  const disconnect = useCallback(() => {
-    logger.log("[v0] Disconnect wallet")
+  const disconnect = useCallback(async () => {
+    logger.log("[v0] Disconnecting wallet via adapter")
     if (isAuthenticated) {
+      // If authenticated, logout handles cleanup and also disconnects wallet
       logout()
+      // Also call adapter disconnect to ensure wagmi state is cleared
+      await authAdapter.disconnect()
     } else {
+      // If not authenticated, just disconnect wallet and clear state
+      await authAdapter.disconnect()
       setIsConnected(false)
       setAddress(null)
       setApeBalance("0.0000")
@@ -326,7 +344,7 @@ export function Providers({ children }: { children: ReactNode }) {
       clearAuthToken()
       clearGameSession()
     }
-  }, [isAuthenticated, logout])
+  }, [isAuthenticated, logout, authAdapter])
 
   const addTxn = useCallback((txn: Transaction) => {
     setTxns((prev) => [txn, ...prev])
