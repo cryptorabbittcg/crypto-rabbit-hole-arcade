@@ -8,7 +8,7 @@ import { logger } from "@/lib/logger"
 import { useEffect, useState } from "react"
 import { GameModal } from "@/components/game-modal"
 import { AuthDialog } from "@/components/auth-dialog"
-import { LeaderboardService, type LeaderboardScore } from "@/lib/supabase/services/leaderboard.service"
+import { LeaderboardService, type LeaderboardScore, type ApeInLeaderboardEntry } from "@/lib/supabase/services/leaderboard.service"
 
 export default function ArcadeHub() {
   const { addTxn, updateTxn, tickets, points, isAuthenticated, handleAuthSuccess, address, profile } = useArcade()
@@ -17,6 +17,13 @@ export default function ArcadeHub() {
   const [leaderboardScores, setLeaderboardScores] = useState<LeaderboardScore[]>([])
   const [loadingScores, setLoadingScores] = useState(true)
   const [showAuthDialog, setShowAuthDialog] = useState(false)
+  
+  // High Scores widget state
+  const [cryptokuHighScores, setCryptokuHighScores] = useState<Array<{ rank: number; address: string; score: number; timeSeconds: number }>>([])
+  const [cryptokuHighScoresMode, setCryptokuHighScoresMode] = useState<"DEGEN" | "APE">("DEGEN")
+  const [loadingCryptokuHighScores, setLoadingCryptokuHighScores] = useState(false)
+  const [apeInHighScores, setApeInHighScores] = useState<ApeInLeaderboardEntry[]>([])
+  const [loadingApeInHighScores, setLoadingApeInHighScores] = useState(false)
 
   // Show auth dialog on mount - always show on page load for security
   useEffect(() => {
@@ -73,6 +80,49 @@ export default function ArcadeHub() {
     }, 30000)
     return () => clearInterval(interval)
   }, [activeGame]) // Re-run when activeGame changes to pause/resume fetching
+
+  // Fetch high scores for homepage widget
+  useEffect(() => {
+    if (activeGame) {
+      return
+    }
+
+    async function fetchHighScores() {
+      // Fetch Cryptoku high scores
+      setLoadingCryptokuHighScores(true)
+      try {
+        const response = await fetch(`/api/cryptoku/leaderboard?mode=${cryptokuHighScoresMode}&limit=5`)
+        if (response.ok) {
+          const data = await response.json()
+          const entries = data.entries.map((entry: any) => ({
+            rank: entry.rank,
+            address: entry.address || "0x0000...0000",
+            score: entry.score,
+            timeSeconds: entry.timeSeconds,
+          }))
+          setCryptokuHighScores(entries)
+        }
+      } catch (error) {
+        console.error("[ArcadeHub] Error fetching Cryptoku high scores:", error)
+      } finally {
+        setLoadingCryptokuHighScores(false)
+      }
+
+      // Fetch Ape In high scores (best per user across all modes)
+      setLoadingApeInHighScores(true)
+      try {
+        const leaderboardService = new LeaderboardService()
+        const entries = await leaderboardService.getApeInLeaderboard("best", 5)
+        setApeInHighScores(entries)
+      } catch (error) {
+        console.error("[ArcadeHub] Error fetching Ape In high scores:", error)
+      } finally {
+        setLoadingApeInHighScores(false)
+      }
+    }
+
+    fetchHighScores()
+  }, [activeGame, cryptokuHighScoresMode])
 
   async function rollEntropy() {
     const id = crypto.randomUUID()
@@ -284,31 +334,85 @@ export default function ArcadeHub() {
           <span className="bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent">HIGH SCORES</span>
         </h2>
 
-        <div className="bg-black/50 border-2 border-cyan-500/30 rounded-2xl p-6 font-mono shadow-[0_0_30px_hsl(var(--neon-cyan)/0.2)]">
-          {loadingScores ? (
-            <div className="text-center py-8 text-muted-foreground">Loading leaderboard...</div>
-          ) : leaderboardScores.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No scores yet. Be the first to play and set a high score!
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Cryptoku High Scores */}
+          <div className="bg-black/50 border-2 border-cyan-500/30 rounded-2xl p-6 font-mono shadow-[0_0_30px_hsl(var(--neon-cyan)/0.2)]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-cyan-400">Cryptoku Ranked</h3>
+              <div className="flex gap-2">
+                <Button
+                  variant={cryptokuHighScoresMode === "DEGEN" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCryptokuHighScoresMode("DEGEN")}
+                  disabled={loadingCryptokuHighScores}
+                  className="h-7 text-xs"
+                >
+                  DEGEN
+                </Button>
+                <Button
+                  variant={cryptokuHighScoresMode === "APE" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCryptokuHighScoresMode("APE")}
+                  disabled={loadingCryptokuHighScores}
+                  className="h-7 text-xs"
+                >
+                  APE
+                </Button>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-2">
-              {leaderboardScores.map((entry) => {
-                const isCurrentUser = address && entry.wallet_address.toLowerCase() === address.toLowerCase()
-                const displayName = entry.username || entry.wallet_address.slice(0, 6) + "..." + entry.wallet_address.slice(-4) || "Anonymous"
-                return (
-                  <ScoreEntry
-                    key={entry.user_id}
-                    rank={entry.rank}
-                    name={isCurrentUser ? "YOU" : displayName.toUpperCase()}
-                    score={entry.score}
-                    isTop={entry.rank <= 3}
-                    isPlayer={isCurrentUser}
-                  />
-                )
-              })}
+            {loadingCryptokuHighScores ? (
+              <div className="text-center py-4 text-muted-foreground text-sm">Loading...</div>
+            ) : cryptokuHighScores.length === 0 ? (
+              <div className="text-center py-4 text-muted-foreground text-sm">No scores yet</div>
+            ) : (
+              <div className="space-y-2">
+                {cryptokuHighScores.map((entry) => {
+                  const isCurrentUser = address && entry.address.toLowerCase() === address.toLowerCase()
+                  const displayAddress = entry.address.slice(0, 6) + "..." + entry.address.slice(-4)
+                  return (
+                    <ScoreEntry
+                      key={entry.rank}
+                      rank={entry.rank}
+                      name={isCurrentUser ? "YOU" : displayAddress.toUpperCase()}
+                      score={entry.score}
+                      isTop={entry.rank <= 3}
+                      isPlayer={isCurrentUser}
+                    />
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Ape In High Scores */}
+          <div className="bg-black/50 border-2 border-pink-500/30 rounded-2xl p-6 font-mono shadow-[0_0_30px_hsl(var(--neon-pink)/0.2)]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-pink-400">Ape In Ranked</h3>
+              <span className="text-xs text-muted-foreground">Best Per User</span>
             </div>
-          )}
+            {loadingApeInHighScores ? (
+              <div className="text-center py-4 text-muted-foreground text-sm">Loading...</div>
+            ) : apeInHighScores.length === 0 ? (
+              <div className="text-center py-4 text-muted-foreground text-sm">No scores yet</div>
+            ) : (
+              <div className="space-y-2">
+                {apeInHighScores.map((entry) => {
+                  const isCurrentUser = address && entry.wallet_address.toLowerCase() === address.toLowerCase()
+                  const displayName = entry.username || entry.wallet_address.slice(0, 6) + "..." + entry.wallet_address.slice(-4) || "Anonymous"
+                  return (
+                    <ScoreEntry
+                      key={entry.rank}
+                      rank={entry.rank}
+                      name={isCurrentUser ? "YOU" : displayName.toUpperCase()}
+                      score={entry.best_score}
+                      isTop={entry.rank <= 3}
+                      isPlayer={isCurrentUser}
+                    />
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

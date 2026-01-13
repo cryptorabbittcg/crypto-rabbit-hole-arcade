@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Trophy, TrendingUp, Zap, Medal } from "@/components/icons"
 import { useArcade } from "@/components/providers"
-import { LeaderboardService } from "@/lib/supabase/services/leaderboard.service"
+import { LeaderboardService, type ApeInLeaderboardEntry } from "@/lib/supabase/services/leaderboard.service"
 
 type LeaderboardEntry = {
   rank: number
@@ -54,6 +54,23 @@ export default function LeaderboardView() {
   const [loadingCryptoku, setLoadingCryptoku] = useState(false)
   const [cryptokuError, setCryptokuError] = useState<string | null>(null)
   const [cryptokuDataLoaded, setCryptokuDataLoaded] = useState(false)
+
+  // Ape In leaderboard state
+  const [apeInSingleplayerMode, setApeInSingleplayerMode] = useState<"aida" | "lana" | "nifty" | "enj1n">("aida")
+  const [apeInSingleplayerLeaderboard, setApeInSingleplayerLeaderboard] = useState<ApeInLeaderboardEntry[]>([])
+  const [loadingApeInSingleplayer, setLoadingApeInSingleplayer] = useState(false)
+  const [apeInSingleplayerError, setApeInSingleplayerError] = useState<string | null>(null)
+  const [apeInSingleplayerDataLoaded, setApeInSingleplayerDataLoaded] = useState(false)
+
+  const [apeInPvpLeaderboard, setApeInPvpLeaderboard] = useState<ApeInLeaderboardEntry[]>([])
+  const [loadingApeInPvp, setLoadingApeInPvp] = useState(false)
+  const [apeInPvpError, setApeInPvpError] = useState<string | null>(null)
+  const [apeInPvpDataLoaded, setApeInPvpDataLoaded] = useState(false)
+
+  const [apeInMultiplayerLeaderboard, setApeInMultiplayerLeaderboard] = useState<ApeInLeaderboardEntry[]>([])
+  const [loadingApeInMultiplayer, setLoadingApeInMultiplayer] = useState(false)
+  const [apeInMultiplayerError, setApeInMultiplayerError] = useState<string | null>(null)
+  const [apeInMultiplayerDataLoaded, setApeInMultiplayerDataLoaded] = useState(false)
 
   // Fetch Overall Points leaderboard data
   useEffect(() => {
@@ -151,10 +168,76 @@ export default function LeaderboardView() {
     fetchCryptokuLeaderboard(mode)
   }
 
-  // Handle tab change to fetch Cryptoku data when tab becomes active
+  // Fetch Ape In leaderboard (singleplayer)
+  const fetchApeInSingleplayerLeaderboard = async (mode: "aida" | "lana" | "nifty" | "enj1n") => {
+    setLoadingApeInSingleplayer(true)
+    setApeInSingleplayerError(null)
+    try {
+      const leaderboardService = new LeaderboardService()
+      const entries = await leaderboardService.getApeInLeaderboard(mode, 100)
+      setApeInSingleplayerLeaderboard(entries)
+      setApeInSingleplayerDataLoaded(true)
+    } catch (error) {
+      console.error("[LeaderboardView] Error fetching Ape In singleplayer leaderboard:", error)
+      setApeInSingleplayerError("Failed to load leaderboard. Please try again.")
+      setApeInSingleplayerLeaderboard([])
+    } finally {
+      setLoadingApeInSingleplayer(false)
+    }
+  }
+
+  // Fetch Ape In PvP leaderboard
+  const fetchApeInPvpLeaderboard = async () => {
+    setLoadingApeInPvp(true)
+    setApeInPvpError(null)
+    try {
+      const leaderboardService = new LeaderboardService()
+      const entries = await leaderboardService.getApeInLeaderboard("pvp", 100)
+      setApeInPvpLeaderboard(entries)
+      setApeInPvpDataLoaded(true)
+    } catch (error) {
+      console.error("[LeaderboardView] Error fetching Ape In PvP leaderboard:", error)
+      setApeInPvpError("Failed to load leaderboard. Please try again.")
+      setApeInPvpLeaderboard([])
+    } finally {
+      setLoadingApeInPvp(false)
+    }
+  }
+
+  // Fetch Ape In Multiplayer leaderboard
+  const fetchApeInMultiplayerLeaderboard = async () => {
+    setLoadingApeInMultiplayer(true)
+    setApeInMultiplayerError(null)
+    try {
+      const leaderboardService = new LeaderboardService()
+      const entries = await leaderboardService.getApeInLeaderboard("multiplayer", 100)
+      setApeInMultiplayerLeaderboard(entries)
+      setApeInMultiplayerDataLoaded(true)
+    } catch (error) {
+      console.error("[LeaderboardView] Error fetching Ape In Multiplayer leaderboard:", error)
+      setApeInMultiplayerError("Failed to load leaderboard. Please try again.")
+      setApeInMultiplayerLeaderboard([])
+    } finally {
+      setLoadingApeInMultiplayer(false)
+    }
+  }
+
+  // Handle Ape In singleplayer mode change
+  const handleApeInSingleplayerModeChange = (mode: "aida" | "lana" | "nifty" | "enj1n") => {
+    setApeInSingleplayerMode(mode)
+    fetchApeInSingleplayerLeaderboard(mode)
+  }
+
+  // Handle tab change to fetch data when tabs become active
   const handleTabChange = (value: string) => {
     if (value === "cryptoku" && !cryptokuDataLoaded) {
       fetchCryptokuLeaderboard(cryptokuMode)
+    } else if (value === "ape-in" && !apeInSingleplayerDataLoaded) {
+      fetchApeInSingleplayerLeaderboard(apeInSingleplayerMode)
+    } else if (value === "ape-in-pvp" && !apeInPvpDataLoaded) {
+      fetchApeInPvpLeaderboard()
+    } else if (value === "ape-in-multiplayer" && !apeInMultiplayerDataLoaded) {
+      fetchApeInMultiplayerLeaderboard()
     }
   }
 
@@ -258,33 +341,191 @@ export default function LeaderboardView() {
         </TabsContent>
 
         <TabsContent value="ape-in" className="space-y-3">
-          <p className="text-sm text-muted-foreground text-center py-4">
-            Ape In single-player leaderboard
-          </p>
-          {GLOBAL_LEADERBOARD.map((entry) => (
-            <LeaderboardCard key={entry.rank} entry={entry} />
-          ))}
+          <div className="flex flex-col items-center gap-4">
+            <p className="text-sm text-muted-foreground text-center">
+              Ape In single-player leaderboard - Best scores per user
+            </p>
+            {/* Mode toggle */}
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <Button
+                variant={apeInSingleplayerMode === "aida" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleApeInSingleplayerModeChange("aida")}
+                disabled={loadingApeInSingleplayer}
+              >
+                Aida
+              </Button>
+              <Button
+                variant={apeInSingleplayerMode === "lana" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleApeInSingleplayerModeChange("lana")}
+                disabled={loadingApeInSingleplayer}
+              >
+                Lana
+              </Button>
+              <Button
+                variant={apeInSingleplayerMode === "nifty" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleApeInSingleplayerModeChange("nifty")}
+                disabled={loadingApeInSingleplayer}
+              >
+                Nifty
+              </Button>
+              <Button
+                variant={apeInSingleplayerMode === "enj1n" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleApeInSingleplayerModeChange("enj1n")}
+                disabled={loadingApeInSingleplayer}
+              >
+                En-J1n
+              </Button>
+            </div>
+          </div>
+          
+          {loadingApeInSingleplayer ? (
+            <div className="text-center py-8 text-muted-foreground">Loading leaderboard...</div>
+          ) : apeInSingleplayerError ? (
+            <div className="text-center py-8 text-muted-foreground">{apeInSingleplayerError}</div>
+          ) : apeInSingleplayerLeaderboard.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No Ape In {apeInSingleplayerMode} scores yet. Be the first to play!
+            </div>
+          ) : (
+            apeInSingleplayerLeaderboard.map((entry) => (
+              <ApeInLeaderboardCard key={entry.rank} entry={entry} formatAddress={formatAddress} address={address} />
+            ))
+          )}
         </TabsContent>
 
         <TabsContent value="ape-in-pvp" className="space-y-3">
           <p className="text-sm text-muted-foreground text-center py-4">
-            Ape In Player vs Player leaderboard
+            Ape In Player vs Player leaderboard - Best scores per user
           </p>
-          {GLOBAL_LEADERBOARD.map((entry) => (
-            <LeaderboardCard key={entry.rank} entry={entry} />
-          ))}
+          
+          {loadingApeInPvp ? (
+            <div className="text-center py-8 text-muted-foreground">Loading leaderboard...</div>
+          ) : apeInPvpError ? (
+            <div className="text-center py-8 text-muted-foreground">{apeInPvpError}</div>
+          ) : apeInPvpLeaderboard.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No Ape In PvP scores yet. Be the first to play!
+            </div>
+          ) : (
+            apeInPvpLeaderboard.map((entry) => (
+              <ApeInLeaderboardCard key={entry.rank} entry={entry} formatAddress={formatAddress} address={address} />
+            ))
+          )}
         </TabsContent>
 
         <TabsContent value="ape-in-multiplayer" className="space-y-3">
           <p className="text-sm text-muted-foreground text-center py-4">
-            Ape In Multiplayer mode leaderboard
+            Ape In Multiplayer mode leaderboard - Best scores per user
           </p>
-          {GLOBAL_LEADERBOARD.map((entry) => (
-            <LeaderboardCard key={entry.rank} entry={entry} />
-          ))}
+          
+          {loadingApeInMultiplayer ? (
+            <div className="text-center py-8 text-muted-foreground">Loading leaderboard...</div>
+          ) : apeInMultiplayerError ? (
+            <div className="text-center py-8 text-muted-foreground">{apeInMultiplayerError}</div>
+          ) : apeInMultiplayerLeaderboard.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No Ape In Multiplayer scores yet. Be the first to play!
+            </div>
+          ) : (
+            apeInMultiplayerLeaderboard.map((entry) => (
+              <ApeInLeaderboardCard key={entry.rank} entry={entry} formatAddress={formatAddress} address={address} />
+            ))
+          )}
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+function ApeInLeaderboardCard({
+  entry,
+  formatAddress,
+  address,
+}: {
+  entry: ApeInLeaderboardEntry
+  formatAddress: (address: string) => string
+  address: string | null | undefined
+}) {
+  const rankColors = {
+    1: "bg-pink-500/20 text-pink-400 border-pink-500/30 shadow-[0_0_20px_hsl(var(--neon-pink)/0.3)]",
+    2: "bg-purple-500/20 text-purple-400 border-purple-500/30 shadow-[0_0_20px_hsl(var(--neon-purple)/0.3)]",
+    3: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30 shadow-[0_0_20px_hsl(var(--neon-cyan)/0.3)]",
+  }
+
+  const rankIcons = {
+    1: <Trophy className="w-5 h-5" />,
+    2: <Medal className="w-5 h-5" />,
+    3: <Medal className="w-5 h-5" />,
+  }
+
+  const formattedAddress = formatAddress(entry.wallet_address)
+  const displayName = entry.username || formattedAddress
+  const isCurrentUser = address && entry.wallet_address.toLowerCase() === address.toLowerCase()
+  
+  // Format last played date
+  const formatLastPlayed = (dateString: string | null): string => {
+    if (!dateString) return "Never"
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+    
+    if (diffDays === 0) return "Today"
+    if (diffDays === 1) return "Yesterday"
+    if (diffDays < 7) return `${diffDays}d ago`
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
+    return date.toLocaleDateString()
+  }
+
+  return (
+    <Card
+      className={`p-6 bg-black/50 backdrop-blur-xl border-2 ${
+        entry.rank <= 3 ? rankColors[entry.rank as 1 | 2 | 3] : "border-purple-500/20"
+      } hover:border-pink-500/50 transition-all ${isCurrentUser ? "ring-2 ring-pink-500/50" : ""}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div
+            className={`w-14 h-14 flex items-center justify-center rounded-xl font-bold text-xl border-2 ${
+              entry.rank <= 3 ? rankColors[entry.rank as 1 | 2 | 3] : "bg-muted/20 border-purple-500/20"
+            }`}
+          >
+            {entry.rank <= 3 ? rankIcons[entry.rank as 1 | 2 | 3] : entry.rank}
+          </div>
+
+          <Avatar className="w-12 h-12 border-2 border-purple-500/30">
+            <AvatarImage src="/placeholder.svg" />
+            <AvatarFallback>{formattedAddress.slice(2, 4).toUpperCase()}</AvatarFallback>
+          </Avatar>
+
+          <div>
+            <div className="font-medium font-mono text-lg">
+              {isCurrentUser ? "YOU" : displayName.toUpperCase()}
+            </div>
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <span>{entry.games_played} games</span>
+              <span>•</span>
+              <span>{formatLastPlayed(entry.last_played)}</span>
+              {entry.mode && entry.mode !== "all" && entry.mode !== "best" && (
+                <>
+                  <span>•</span>
+                  <span className="capitalize">{entry.mode}</span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="text-right">
+          <div className="text-3xl font-bold font-display text-pink-400">{entry.best_score.toLocaleString()}</div>
+          <div className="text-sm text-muted-foreground">best score</div>
+        </div>
+      </div>
+    </Card>
   )
 }
 

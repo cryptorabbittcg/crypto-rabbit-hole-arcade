@@ -174,6 +174,51 @@ export class LeaderboardService {
       return []
     }
   }
+
+  /**
+   * Get Ape In leaderboard by mode
+   * Modes: 'aida', 'lana', 'nifty', 'enj1n', 'pvp', 'multiplayer', 'singleplayer', 'all', 'best'
+   */
+  async getApeInLeaderboard(mode: string, limit = 100): Promise<ApeInLeaderboardEntry[]> {
+    try {
+      const { data, error } = await this.supabase.rpc("get_ape_in_leaderboard", {
+        p_mode: mode,
+        p_limit: limit,
+      })
+
+      if (error) {
+        console.error("[v0] Error fetching Ape In leaderboard:", error)
+        return []
+      }
+
+      if (!data) return []
+
+      return data.map((entry: any) => ({
+        rank: entry.rank || 0,
+        user_id: entry.user_id,
+        wallet_address: entry.wallet_address || "",
+        username: entry.username || null,
+        mode: entry.mode || mode,
+        best_score: entry.best_score || 0,
+        games_played: entry.games_played || 0,
+        last_played: entry.last_played || null,
+      }))
+    } catch (err) {
+      console.error("[v0] Error fetching Ape In leaderboard:", err)
+      return []
+    }
+  }
+}
+
+export type ApeInLeaderboardEntry = {
+  rank: number
+  user_id: string
+  wallet_address: string
+  username: string | null
+  mode: string
+  best_score: number
+  games_played: number
+  last_played: string | null
 }
 
 
