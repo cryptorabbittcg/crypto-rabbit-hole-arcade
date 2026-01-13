@@ -15,10 +15,28 @@ import { Trophy, Star, Gamepad2, Users, Gift, Edit2, Copy, Check, Wallet } from 
 import { shortenAddress } from "@/lib/utils/display-name"
 import type { Profile } from "@/lib/supabase/database.types"
 import type { NormalizedGameSession } from "@/lib/supabase/services/game.service"
+import { generateLinkWalletMessage } from "@/lib/crypto/verifySignature"
+import { NFTAvatarDialog } from "./nft-avatar-dialog"
+import type { Nft } from "@/adapters/nft.adapter"
+import { apeChainMainnet } from "@/lib/wagmi-chains"
+import { useToast } from "@/hooks/use-toast"
+
+type LinkedWallet = {
+  address: string
+  type: string
+  linkedAt: string
+}
+
+type LinkedWalletsResponse = {
+  ok: boolean
+  linked_wallets: LinkedWallet[]
+  error?: string
+}
 
 export default function ProfileView() {
   const { profile, updateProfile, tickets, points, isConnected, address } = useArcade()
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount()
+  const { toast } = useToast()
   const [isEditing, setIsEditing] = useState(false)
   const [username, setUsername] = useState(profile.username)
   const [copied, setCopied] = useState(false)
@@ -27,6 +45,10 @@ export default function ProfileView() {
   const [recentGames, setRecentGames] = useState<NormalizedGameSession[]>([])
   const [loading, setLoading] = useState(true)
   const [supabaseProfile, setSupabaseProfile] = useState<Profile | null>(null)
+  const [linkedWallets, setLinkedWallets] = useState<LinkedWallet[]>([])
+  const [linkingWallet, setLinkingWallet] = useState(false)
+  const [unlinkingAddress, setUnlinkingAddress] = useState<string | null>(null)
+  const [nftDialogOpen, setNftDialogOpen] = useState(false)
 
   // Prefer useArcade().address if present, else fallback to useAccount().address
   const profileAddress = address || wagmiAddress
@@ -45,9 +67,23 @@ export default function ProfileView() {
 
       try {
         const profileService = new ProfileService()
-        const [profileData, games] = await Promise.all([
+        const [profileData, games, linkedWalletsResponse] = await Promise.all([
           profileService.getProfileByWallet(profileAddress),
           GameService.getRecentGames(profileAddress, 10),
+          fetch(`/api/profile/linked-wallets?address=${encodeURIComponent(profileAddress)}`).then(async (res) => {
+            console.log(`[ProfileView] Fetching linked wallets for ${profileAddress.substring(0, 10)}...`)
+            if (!res.ok) {
+              console.error(`[ProfileView] Failed to fetch linked wallets: ${res.status}`)
+              return { ok: false, linked_wallets: [] as LinkedWallet[], error: "Request failed" }
+            }
+            const json = (await res.json()) as LinkedWalletsResponse
+            if (!json.ok) {
+              console.error(`[ProfileView] Linked wallets response error: ${json.error}`)
+              throw new Error(json.error || "Request failed")
+            }
+            console.log(`[ProfileView] Fetched ${json.linked_wallets.length} linked wallet(s)`)
+            return json
+          }),
         ])
 
         if (cancelled) return
@@ -58,6 +94,10 @@ export default function ProfileView() {
         }
 
         setRecentGames(games)
+
+        if (linkedWalletsResponse.ok && linkedWalletsResponse.linked_wallets) {
+          setLinkedWallets(linkedWalletsResponse.linked_wallets)
+        }
       } catch (error) {
         if (!cancelled) {
           console.error("[ProfileView] Failed to load profile data:", error)
@@ -120,6 +160,241 @@ export default function ProfileView() {
     copyToClipboard(link, setCopied)
   }
 
+  // Linked Wallets handlers
+  const handleLinkMetaMask = async () => {
+    if (!profileAddress || linkingWallet) return
+
+    try {
+      setLinkingWallet(true)
+
+      // Check if MetaMask is available
+      if (typeof window === "undefined" || !window.ethereum?.request) {
+        toast({
+          variant: "destructive",
+          title: "MetaMask Not Installed",
+          description: "Please install MetaMask to link your wallet.",
+        })
+        return
+      }
+
+      // Request account access
+      let accounts: string[]
+      try {
+        accounts = (await window.ethereum.request({ method: "eth_requestAccounts", params: [] })) as string[]
+      } catch (error) {
+        const errorCode = (error as { code?: number }).code
+        if (errorCode === 4001) {
+          toast({
+            variant: "destructive",
+            title: "Connection Rejected",
+            description: "Please connect MetaMask to continue linking your wallet.",
+          })
+          return
+        }
+        throw error
+      }
+
+      if (!Array.isArray(accounts) || accounts.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "Connection Failed",
+          description: "Please connect MetaMask to continue.",
+        })
+        return
+      }
+
+      const metamaskAddress = accounts[0]!
+
+      // Generate message to sign
+      const message = generateLinkWalletMessage(profileAddress, metamaskAddress)
+
+      // Request signature
+      let signature: string
+      try {
+        signature = (await window.ethereum.request({
+          method: "personal_sign",
+          params: [message, metamaskAddress],
+        })) as string
+      } catch (error) {
+        const errorCode = (error as { code?: number }).code
+        if (errorCode === 4001) {
+          toast({
+            variant: "destructive",
+            title: "Signature Rejected",
+            description: "You rejected the signature request. Please try again.",
+          })
+          return
+        }
+        throw error
+      }
+
+      // POST to API
+      const response = await fetch("/api/profile/link-wallet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          primaryAddress: profileAddress,
+          linkedAddress: metamaskAddress,
+          type: "metamask",
+          message,
+          signature,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = (await response.json()) as LinkedWalletsResponse
+        throw new Error(errorData.error || `Request failed with status ${response.status}`)
+      }
+
+      const data = (await response.json()) as LinkedWalletsResponse
+      if (!data.ok) {
+        throw new Error(data.error || "Failed to link wallet")
+      }
+
+      if (data.linked_wallets) {
+        setLinkedWallets(data.linked_wallets)
+        console.log(`[ProfileView] Link success: ${data.linked_wallets.length} total linked wallet(s)`)
+        toast({
+          title: "Wallet Linked",
+          description: "MetaMask wallet has been successfully linked to your profile.",
+        })
+      }
+    } catch (error) {
+      console.error("[ProfileView] Link failure:", error)
+      const errorMessage = error instanceof Error ? error.message : "Unknown error"
+      toast({
+        variant: "destructive",
+        title: "Failed to Link Wallet",
+        description: errorMessage,
+      })
+    } finally {
+      setLinkingWallet(false)
+    }
+  }
+
+  const handleUnlinkWallet = async (linkedAddress: string) => {
+    if (!profileAddress || unlinkingAddress) return
+
+    try {
+      setUnlinkingAddress(linkedAddress)
+
+      const response = await fetch("/api/profile/unlink-wallet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          primaryAddress: profileAddress,
+          linkedAddress,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = (await response.json()) as LinkedWalletsResponse
+        throw new Error(errorData.error || `Request failed with status ${response.status}`)
+      }
+
+      const data = (await response.json()) as LinkedWalletsResponse
+      if (!data.ok) {
+        throw new Error(data.error || "Failed to unlink wallet")
+      }
+
+      if (data.linked_wallets) {
+        setLinkedWallets(data.linked_wallets)
+        console.log(`[ProfileView] Unlink success: ${data.linked_wallets.length} remaining linked wallet(s)`)
+        toast({
+          title: "Wallet Unlinked",
+          description: "Wallet has been successfully unlinked from your profile.",
+        })
+      }
+    } catch (error) {
+      console.error("[ProfileView] Unlink failure:", error)
+      const errorMessage = error instanceof Error ? error.message : "Unknown error"
+      toast({
+        variant: "destructive",
+        title: "Failed to Unlink Wallet",
+        description: errorMessage,
+      })
+    } finally {
+      setUnlinkingAddress(null)
+    }
+  }
+
+  const copyLinkedAddress = (addr: string, setter: (value: boolean) => void) => {
+    copyToClipboard(addr, setter)
+  }
+
+  // Determine wallet address for NFT fetching (prefer first linked MetaMask, else primary)
+  const linkedWalletAddressForNfts =
+    linkedWallets.find((w) => w.type === "metamask")?.address || profileAddress || null
+
+  // NFT Avatar handlers
+  const handleSelectNFTAvatar = async (nft: Nft) => {
+    if (!profileAddress || !supabaseProfile) return
+
+    try {
+      // Update local UI immediately
+      updateProfile({ avatar: nft.image })
+
+      // Update Supabase profile
+      const success = await ProfileService.updateProfile(profileAddress, {
+        avatar_type: "nft",
+        avatar_url: nft.image,
+        avatar_meta: {
+          chainId: 33139, // ApeChain mainnet
+          contract: nft.contract,
+          tokenId: nft.tokenId,
+          image: nft.image,
+          name: nft.name,
+          collectionName: nft.collectionName,
+        },
+      } as Partial<Profile>)
+
+      if (success) {
+        // Refresh supabaseProfile state
+        const profileService = new ProfileService()
+        const updatedProfile = await profileService.getProfileByWallet(profileAddress)
+        if (updatedProfile) {
+          setSupabaseProfile(updatedProfile)
+        }
+      }
+
+      setNftDialogOpen(false)
+    } catch (error) {
+      console.error("[ProfileView] Error selecting NFT avatar:", error)
+    }
+  }
+
+  const handleRevertToUploadedAvatar = async () => {
+    if (!profileAddress || !supabaseProfile) return
+
+    try {
+      // Get the original uploaded avatar URL if available, otherwise keep current
+      const currentAvatarUrl = (supabaseProfile as any).avatar_url || profile.avatar || null
+
+      // Update Supabase profile
+      const success = await ProfileService.updateProfile(profileAddress, {
+        avatar_type: "image",
+        avatar_meta: null,
+        avatar_url: currentAvatarUrl,
+      } as Partial<Profile>)
+
+      if (success) {
+        // Update local UI
+        if (currentAvatarUrl) {
+          updateProfile({ avatar: currentAvatarUrl })
+        }
+
+        // Refresh supabaseProfile state
+        const profileService = new ProfileService()
+        const updatedProfile = await profileService.getProfileByWallet(profileAddress)
+        if (updatedProfile) {
+          setSupabaseProfile(updatedProfile)
+        }
+      }
+    } catch (error) {
+      console.error("[ProfileView] Error reverting to uploaded avatar:", error)
+    }
+  }
+
   // Format duration in seconds to human readable format
   const formatDuration = (seconds: number | null | undefined): string => {
     if (!seconds) return "0s"
@@ -144,6 +419,9 @@ export default function ProfileView() {
 
   // Check if linked wallets UI should be shown
   const showLinkedWallets = process.env.NEXT_PUBLIC_LINKED_WALLETS_UI === "true"
+
+  // Check if NFT avatars should be shown
+  const showNFTAvatars = process.env.NEXT_PUBLIC_NFT_AVATARS === "true"
 
   // Get stats from Supabase profile or use defaults
   const stats = {
@@ -216,6 +494,30 @@ export default function ProfileView() {
                     : profile.joinedAt
                   ).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                 </p>
+
+                {/* NFT Avatar buttons */}
+                {showNFTAvatars && profileAddress && (
+                  <div className="flex flex-col gap-2 mt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNftDialogOpen(true)}
+                      className="w-full sm:w-auto"
+                    >
+                      Choose NFT Avatar
+                    </Button>
+                    {((supabaseProfile as any)?.avatar_type === "nft" || (supabaseProfile as any)?.avatar_meta) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRevertToUploadedAvatar}
+                        className="w-full sm:w-auto"
+                      >
+                        Revert to Uploaded Avatar
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -290,18 +592,35 @@ export default function ProfileView() {
         <Card className="p-6">
           <h2 className="text-xl font-bold mb-4">Linked Wallets</h2>
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-4 rounded-lg border border-border/50 bg-muted/10">
-              <div className="flex items-center gap-3">
-                <Wallet className="w-5 h-5 text-muted-foreground" />
-                <div>
-                  <div className="font-medium">MetaMask</div>
-                  <div className="text-sm text-muted-foreground">Not linked</div>
+            {linkedWallets.length === 0 ? (
+              <div className="flex items-center justify-between p-4 rounded-lg border border-border/50 bg-muted/10">
+                <div className="flex items-center gap-3">
+                  <Wallet className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <div className="font-medium">MetaMask</div>
+                    <div className="text-sm text-muted-foreground">Not linked</div>
+                  </div>
                 </div>
+                <Button variant="outline" onClick={handleLinkMetaMask} disabled={linkingWallet || !profileAddress}>
+                  {linkingWallet ? "Linking…" : "Link MetaMask"}
+                </Button>
               </div>
-              <Button variant="outline" disabled>
-                Coming Soon
+            ) : (
+              linkedWallets.map((wallet) => (
+                <LinkedWalletItem
+                  key={wallet.address}
+                  wallet={wallet}
+                  isUnlinking={unlinkingAddress === wallet.address}
+                  onUnlink={handleUnlinkWallet}
+                  profileAddress={profileAddress}
+                />
+              ))
+            )}
+            {linkedWallets.length > 0 && linkedWallets.length < 5 && (
+              <Button variant="outline" onClick={handleLinkMetaMask} disabled={linkingWallet || !profileAddress} className="w-full">
+                {linkingWallet ? "Linking…" : "Link MetaMask"}
               </Button>
-            </div>
+            )}
           </div>
         </Card>
       )}
@@ -402,6 +721,61 @@ export default function ProfileView() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* NFT Avatar Dialog */}
+      {showNFTAvatars && (
+        <NFTAvatarDialog
+          open={nftDialogOpen}
+          onOpenChange={setNftDialogOpen}
+          walletAddress={linkedWalletAddressForNfts}
+          onSelect={handleSelectNFTAvatar}
+        />
+      )}
+    </div>
+  )
+}
+
+function LinkedWalletItem({
+  wallet,
+  isUnlinking,
+  onUnlink,
+  profileAddress,
+}: {
+  wallet: LinkedWallet
+  isUnlinking: boolean
+  onUnlink: (address: string) => void
+  profileAddress: string | null | undefined
+}) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(wallet.address)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="flex items-center justify-between p-4 rounded-lg border border-border/50 bg-muted/10">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <Wallet className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="font-medium capitalize">{wallet.type}</div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground font-mono">{shortenAddress(wallet.address)}</span>
+            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={handleCopy} title="Copy address">
+              {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+            </Button>
+          </div>
+        </div>
+      </div>
+      <Button
+        variant="outline"
+        onClick={() => onUnlink(wallet.address)}
+        disabled={isUnlinking || !profileAddress}
+        className="ml-4"
+      >
+        {isUnlinking ? "Unlinking…" : "Unlink"}
+      </Button>
     </div>
   )
 }

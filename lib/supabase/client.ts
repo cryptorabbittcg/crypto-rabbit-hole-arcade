@@ -58,6 +58,13 @@ export function createClient() {
 
   // Guard: Only create client if env vars are properly configured
   if (!hasSupabaseConfig()) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "Supabase is not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables."
+      )
+    }
+
+    // Development: keep fallback behavior with warnings
     const diagnosticInfo = {
       hasUrl: !!url,
       hasKey: !!key,

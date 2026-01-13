@@ -1,9 +1,13 @@
 // Global type declarations
 
-interface Window {
-  ethereum?: {
-    request: (args: { method: string; params?: unknown[] }) => Promise<unknown>
-    isMetaMask?: boolean
+declare global {
+  interface Window {
+    ethereum?: {
+      isMetaMask?: boolean
+      request?: (args: { method: string; params?: unknown[] | object }) => Promise<unknown>
+    }
   }
 }
+
+export {}
 

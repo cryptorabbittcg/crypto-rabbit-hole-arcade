@@ -11,7 +11,7 @@ import { ErrorBoundary } from "@/components/error-boundary"
 import Sidebar from "@/components/sidebar"
 import MobileNav from "@/components/mobile-nav"
 import Topbar from "@/components/topbar"
-import { Toaster } from "@/components/ui/toaster"
+import { ToastToaster } from "@/components/ui/toast-toaster"
 import { GlobalAuthDialog } from "@/components/global-auth-dialog"
 
 const inter = Inter({ 
@@ -53,7 +53,7 @@ export default function RootLayout({
                   </div>
                 </div>
                 <MobileNav />
-                <Toaster />
+                <ToastToaster />
                 <GlobalAuthDialog />
                 <div className="scanline pointer-events-none fixed inset-0 z-50" />
               </ProfileSyncWrapper>

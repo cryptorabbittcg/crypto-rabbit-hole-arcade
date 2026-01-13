@@ -5,6 +5,10 @@ import { createClient } from "@supabase/supabase-js"
  * This bypasses RLS policies and should ONLY be used in server-side API routes
  */
 export function createAdminClient() {
+  if (typeof window !== "undefined") {
+    throw new Error("createAdminClient() must not be used in the browser")
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 

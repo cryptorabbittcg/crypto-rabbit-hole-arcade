@@ -1,13 +1,28 @@
 import { createClient, hasSupabaseConfig } from "../client"
 import type { Profile } from "../database.types"
+import type { SupabaseClient } from "@supabase/supabase-js"
+
+// Minimal database schema type for SupabaseClient
+// Note: Full database types would be generated from Supabase, but this provides type safety
+type Database = {
+  public: {
+    Tables: {
+      profiles: {
+        Row: Profile & { tickets?: number; linked_wallets?: Array<{ address: string; type: string; linkedAt: string }> }
+        Insert: unknown
+        Update: unknown
+      }
+    }
+    Functions: Record<string, unknown>
+    Views: Record<string, unknown>
+  }
+}
 
 export class ProfileService {
-  private supabase = createClient()
+  private supabase: SupabaseClient<Database>
 
-  constructor(supabaseClient?: ReturnType<typeof createClient>) {
-    if (supabaseClient) {
-      this.supabase = supabaseClient
-    }
+  constructor(supabaseClient?: SupabaseClient<Database>) {
+    this.supabase = supabaseClient ?? (createClient() as SupabaseClient<Database>)
   }
 
   /**
@@ -67,10 +82,11 @@ export class ProfileService {
       }
 
       return data
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Only log if it's not a network error (prevents spam)
-      if (!err?.message?.includes("Failed to fetch") && !err?.message?.includes("ERR_NAME_NOT_RESOLVED")) {
-        console.error("[ProfileService] Exception fetching profile by wallet:", err?.message || err)
+      const error = err as { message?: string }
+      if (!error?.message?.includes("Failed to fetch") && !error?.message?.includes("ERR_NAME_NOT_RESOLVED")) {
+        console.error("[ProfileService] Exception fetching profile by wallet:", error?.message || err)
       }
       return null
     }
@@ -130,10 +146,11 @@ export class ProfileService {
       }
 
       return data
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Only log if it's not a network error (prevents spam)
-      if (!err?.message?.includes("Failed to fetch") && !err?.message?.includes("ERR_NAME_NOT_RESOLVED")) {
-        console.error("[ProfileService] Exception creating profile:", err?.message || err)
+      const error = err as { message?: string }
+      if (!error?.message?.includes("Failed to fetch") && !error?.message?.includes("ERR_NAME_NOT_RESOLVED")) {
+        console.error("[ProfileService] Exception creating profile:", error?.message || err)
       }
       return null
     }
@@ -216,7 +233,9 @@ export class ProfileService {
     // Calculate the changes needed
     const apeChange = balances.ape_balance - profile.ape_balance
     // Access tickets field (database uses 'tickets', types file may be outdated)
-    const currentTickets = (profile as any).tickets || (profile as any).ticket_balance || 0
+    // Type assertion needed due to schema/type mismatch
+    const profileWithTickets = profile as Profile & { tickets?: number }
+    const currentTickets = profileWithTickets.tickets ?? profile.ticket_balance ?? 0
     const ticketChange = balances.ticket_balance - currentTickets
     return service.updateBalance(profile.id, apeChange, ticketChange, 0)
   }
@@ -228,5 +247,116 @@ export class ProfileService {
       return false
     }
     return service.updateProfile(profile.id, updates)
+  }
+
+  /**
+   * Get linked wallets for a profile
+   */
+  async getLinkedWallets(userId: string): Promise<Array<{ address: string; type: string; linkedAt: string }>> {
+    if (!this.isConfigured()) {
+      return []
+    }
+
+    const { data, error } = await this.supabase
+      .from("profiles")
+      .select("linked_wallets")
+      .eq("id", userId)
+      .single()
+
+    if (error || !data) {
+      return []
+    }
+
+    return (data.linked_wallets as Array<{ address: string; type: string; linkedAt: string }>) || []
+  }
+
+  /**
+   * Add a linked wallet to a profile
+   */
+  async addLinkedWallet(
+    userId: string,
+    linkedAddress: string,
+    type: string,
+  ): Promise<boolean> {
+    if (!this.isConfigured()) {
+      return false
+    }
+
+    // Normalize and validate wallet type (defensive allowlist check)
+    const normalizedType = type.toLowerCase()
+    const ALLOWED_WALLET_TYPES = ["metamask"] as const
+    if (!ALLOWED_WALLET_TYPES.includes(normalizedType as (typeof ALLOWED_WALLET_TYPES)[number])) {
+      return false // Invalid wallet type
+    }
+
+    // Get current linked wallets
+    const current = await this.getLinkedWallets(userId)
+
+    // Check if already linked
+    const normalizedLinked = linkedAddress.toLowerCase()
+    if (current.some((w) => w.address.toLowerCase() === normalizedLinked)) {
+      return false // Already linked
+    }
+
+    // Check limit (max 5)
+    if (current.length >= 5) {
+      return false // Too many linked wallets
+    }
+
+    // Add new linked wallet (type normalized to lowercase)
+    const newWallet = {
+      address: normalizedLinked,
+      type: normalizedType,
+      linkedAt: new Date().toISOString(),
+    }
+
+    const updated = [...current, newWallet]
+
+    // Only update linked_wallets and updated_at fields (safety check)
+    const { error } = await this.supabase
+      .from("profiles")
+      .update({ linked_wallets: updated, updated_at: new Date().toISOString() })
+      .eq("id", userId)
+
+    if (error) {
+      console.error("[ProfileService] Error adding linked wallet:", error)
+      return false
+    }
+
+    return true
+  }
+
+  /**
+   * Remove a linked wallet from a profile
+   */
+  async removeLinkedWallet(userId: string, linkedAddress: string): Promise<boolean> {
+    if (!this.isConfigured()) {
+      return false
+    }
+
+    // Get current linked wallets
+    const current = await this.getLinkedWallets(userId)
+
+    // Filter out the wallet to remove
+    const normalizedLinked = linkedAddress.toLowerCase()
+    const updated = current.filter((w) => w.address.toLowerCase() !== normalizedLinked)
+
+    // If no change, wallet wasn't linked
+    if (updated.length === current.length) {
+      return false
+    }
+
+    // Only update linked_wallets and updated_at fields (safety check)
+    const { error } = await this.supabase
+      .from("profiles")
+      .update({ linked_wallets: updated, updated_at: new Date().toISOString() })
+      .eq("id", userId)
+
+    if (error) {
+      console.error("[ProfileService] Error removing linked wallet:", error)
+      return false
+    }
+
+    return true
   }
 }

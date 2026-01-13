@@ -26,16 +26,36 @@ Required for wallet connectivity and smart contract interactions.
    - Your Thirdweb client ID
    - Found in: Thirdweb Dashboard → Settings → API Keys
 
+### Feature Flags
+
+Feature flags control which features are enabled in the application:
+
+4. **NEXT_PUBLIC_LINKED_WALLETS_UI** (Optional)
+   - Enables the Linked Wallets section in the profile page
+   - Set to `"true"` to enable, any other value or unset to disable
+   - Default: Disabled
+
+5. **NEXT_PUBLIC_NFT_AVATARS** (Optional)
+   - Enables NFT avatar selection from ApeChain wallets
+   - Set to `"true"` to enable, any other value or unset to disable
+   - Default: Disabled
+
+6. **NEXT_PUBLIC_APP_URL** (Optional)
+   - The base URL of the application
+   - Used for generating referral links and other absolute URLs
+   - Example: `https://arcade.thecryptorabbithole.io`
+   - Default: Falls back to `window.location.origin` in browser
+
 ### Optional Configuration
 
 These have defaults but can be customized:
 
-4. **NEXT_PUBLIC_APE_ADDRESS** (Optional)
+7. **NEXT_PUBLIC_APE_ADDRESS** (Optional)
    - APE token contract address on ApeChain
    - Default: `0x4d224452801ACEd8B2F0aebE155379bb5D594381`
    - Only needed if using a different contract address
 
-5. **THIRDWEB_SECRET_KEY** (Optional)
+8. **THIRDWEB_SECRET_KEY** (Optional)
    - Server-side Thirdweb secret key
    - Only needed for server-side operations
 
@@ -56,6 +76,11 @@ These have defaults but can be customized:
 
    # Thirdweb Configuration
    NEXT_PUBLIC_THIRDWEB_CLIENT_ID=c9199aa4c25c849a9014f465e22ec9e4
+
+   # Feature Flags
+   NEXT_PUBLIC_LINKED_WALLETS_UI=true
+   NEXT_PUBLIC_NFT_AVATARS=true
+   NEXT_PUBLIC_APP_URL=https://arcade.thecryptorabbithole.io
 
    # Optional: APE Token Contract (has default)
    # NEXT_PUBLIC_APE_ADDRESS=0x4d224452801ACEd8B2F0aebE155379bb5D594381
@@ -82,6 +107,9 @@ These have defaults but can be customized:
    Repeat for:
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `NEXT_PUBLIC_THIRDWEB_CLIENT_ID`
+   - `NEXT_PUBLIC_LINKED_WALLETS_UI` (set to `true` to enable)
+   - `NEXT_PUBLIC_NFT_AVATARS` (set to `true` to enable)
+   - `NEXT_PUBLIC_APP_URL` (set to your production URL)
    - `THIRDWEB_SECRET_KEY` (if using server-side features)
 
 4. **Important**: After adding variables, redeploy your application:
@@ -185,6 +213,9 @@ These have defaults but can be customized:
 | `NEXT_PUBLIC_SUPABASE_URL` | ✅ Yes | - | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ Yes | - | Supabase anonymous key |
 | `NEXT_PUBLIC_THIRDWEB_CLIENT_ID` | ✅ Yes | - | Thirdweb client ID |
+| `NEXT_PUBLIC_LINKED_WALLETS_UI` | ⚠️ Optional | Disabled | Enable Linked Wallets feature (`"true"` to enable) |
+| `NEXT_PUBLIC_NFT_AVATARS` | ⚠️ Optional | Disabled | Enable NFT avatar selection (`"true"` to enable) |
+| `NEXT_PUBLIC_APP_URL` | ⚠️ Optional | `window.location.origin` | Base URL for referral links and absolute URLs |
 | `THIRDWEB_SECRET_KEY` | ⚠️ Optional | - | Thirdweb secret key (server-side) |
 | `NEXT_PUBLIC_APE_ADDRESS` | ⚠️ Optional | `0x4d224452801ACEd8B2F0aebE155379bb5D594381` | APE token contract address |
 | `NEXT_PUBLIC_APE_OFT_ADDRESS` | ⚠️ Optional | - | APE OFT contract address (for bridging) |
@@ -200,6 +231,63 @@ After configuring environment variables:
 4. ✅ Verify production deployment
 5. ✅ Set up Supabase database (see `SUPABASE_SETUP.md`)
 6. ✅ Test all game features
+
+## Phase 3: Linked Wallets Database Requirements
+
+Phase 3 requires a database column for storing linked wallet information. This is optional but recommended if you plan to use the Linked Wallets feature.
+
+### Required Database Column
+
+**Table:** `profiles`  
+**Column:** `linked_wallets`  
+**Type:** `JSONB`  
+**Default:** `[]` (empty array)
+
+### SQL Migration
+
+Run this SQL in your Supabase SQL Editor to add the column:
+
+```sql
+-- Add linked_wallets column to profiles table (Phase 3)
+ALTER TABLE profiles 
+ADD COLUMN IF NOT EXISTS linked_wallets JSONB DEFAULT '[]'::jsonb;
+
+-- Optional: Add comment for documentation
+COMMENT ON COLUMN profiles.linked_wallets IS 'Array of linked wallets: [{address, type, linkedAt}]';
+```
+
+### Column Structure
+
+The `linked_wallets` column stores an array of wallet objects:
+
+```json
+[
+  {
+    "address": "0x1234567890123456789012345678901234567890",
+    "type": "metamask",
+    "linkedAt": "2024-01-15T10:30:00.000Z"
+  }
+]
+```
+
+### Indexes (Optional)
+
+No indexes are required for Phase 3. The column is accessed by profile ID, which is already indexed as the primary key.
+
+### Verification
+
+After running the migration, verify the column exists:
+
+```sql
+SELECT column_name, data_type, column_default 
+FROM information_schema.columns 
+WHERE table_name = 'profiles' AND column_name = 'linked_wallets';
+```
+
+Expected result:
+- `column_name`: `linked_wallets`
+- `data_type`: `jsonb`
+- `column_default`: `'[]'::jsonb`
 
 ## Additional Resources
 
