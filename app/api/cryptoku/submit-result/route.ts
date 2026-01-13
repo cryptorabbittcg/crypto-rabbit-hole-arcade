@@ -6,6 +6,7 @@ import {
 import { CryptokuHintsService } from "@/lib/supabase/services/cryptoku-hints.service"
 import { CryptokuLeaderboardService } from "@/lib/supabase/services/cryptoku-leaderboard.service"
 import { ProfileService } from "@/lib/supabase/services/profile.service"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 // Server-side scoring formula
 function calculateScore(
@@ -139,6 +140,28 @@ export async function POST(request: NextRequest) {
       hintsRewardResult = { hintsEarned: 0, hints: { hintBalance: 0, gamesUntilNextFreeHint: 10, totalRankedCompleted: 0 } }
     }
 
+    // Create admin client for points awarding (bypasses RLS)
+    let adminClient
+    try {
+      adminClient = createAdminClient()
+    } catch (error) {
+      console.error("[CryptokuSubmit] Error creating admin client:", error)
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Server configuration error" },
+        { status: 500 }
+      )
+    }
+
+    // Check if this run already exists (idempotency check)
+    const { data: existingEntry, error: checkError } = await adminClient
+      .from('cryptoku_leaderboard')
+      .select('id')
+      .eq('run_id', runId)
+      .maybeSingle()
+
+    // If existingEntry exists, this is a duplicate run
+    const isDuplicateRun = existingEntry !== null
+
     // Add to leaderboard (Supabase)
     const leaderboardService = new CryptokuLeaderboardService()
     await leaderboardService.addEntry({
@@ -154,9 +177,44 @@ export async function POST(request: NextRequest) {
       forfeited: false,
     })
 
+    // Award points only for ranked modes (DEGEN/APE) and only if this is a new submission
+    // Points = score (MVP)
+    const rankedMode = mode === "DEGEN" || mode === "APE"
+    const eligibleForPoints = rankedMode && completed && !forfeited
+    const pointsEarned = eligibleForPoints && !isDuplicateRun ? score : 0
+
+    if (pointsEarned > 0 && profile) {
+      console.log("[CryptokuSubmit] Awarding points", {
+        userId: profile.id,
+        mode,
+        score,
+        pointsEarned,
+      })
+
+      const { error: balanceError } = await adminClient.rpc('update_user_balance', {
+        p_user_id: profile.id,
+        p_ape_change: 0,
+        p_tickets_change: 0,
+        p_points_change: pointsEarned,
+        p_transaction_type: 'game_reward',
+        p_description: `Reward from cryptoku ${mode}`,
+      })
+
+      if (balanceError) {
+        console.error("[CryptokuSubmit] Error updating user balance:", {
+          code: balanceError.code,
+          message: balanceError.message,
+        })
+        // Continue even if balance update fails (leaderboard entry is already saved)
+      }
+    } else if (isDuplicateRun && eligibleForPoints) {
+      console.log("[CryptokuSubmit] Duplicate run detected, skipping points", { runId })
+    }
+
     return NextResponse.json({
       success: true,
       score,
+      pointsEarned,
       cleanStreak: updatedStats.cleanStreak,
       hintsEarned: hintsRewardResult.hintsEarned,
       hintBalance: hintsRewardResult.hints.hintBalance,
