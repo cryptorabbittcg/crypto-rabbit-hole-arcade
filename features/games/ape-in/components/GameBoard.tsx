@@ -940,7 +940,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
             <img 
               src={`/features/games/ape-in/assets/images/bots/${gameMode}.gif`} 
               alt={`${gameMode} avatar`} 
-              className="w-8 h-8 sm:w-10 sm:h-10 object-cover rounded-full border-2 border-purple-500/50 shadow-lg cursor-pointer hover:scale-110 transition-transform duration-200" 
+              className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-full border-2 border-purple-500/50 shadow-lg cursor-pointer hover:scale-110 transition-transform duration-200" 
               onError={(e) => {
                 console.log(`GIF failed for ${gameMode} GameBoard, trying PNG...`);
                 e.currentTarget.src = `/features/games/ape-in/assets/images/bots/${gameMode}.png`;
@@ -985,7 +985,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
           {/* Dice and Buttons Section - Right side on desktop */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 w-full md:w-auto">
             {/* Dice Section */}
-            <div className="flex flex-col items-center space-y-2 w-full sm:w-auto">
+            <div className="flex flex-col items-center space-y-2 w-full sm:w-auto relative">
               <div className="h-6 text-sm text-slate-400">
                 {isRolling || (botTurnData?.isRolling ?? false) ? 'Rolling...' : 'Dice'}
               </div>
@@ -1009,6 +1009,21 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
                 onClick={!isPlayerTurn || !currentCard || currentCard.type === 'Special' || isRolling || isBotPlaying ? undefined : handleRollDice}
                 disabled={!isPlayerTurn || !currentCard || currentCard.type === 'Special' || isRolling || isBotPlaying}
               />
+              
+              {/* Floating Success Message - Positioned beneath dice */}
+              {floatingMessage && (
+                <motion.div
+                  initial={{ y: 20, opacity: 0, scale: 0.9 }}
+                  animate={{ y: 0, opacity: 1, scale: 1 }}
+                  exit={{ y: -20, opacity: 0 }}
+                  className="absolute top-full mt-4 left-1/2 transform -translate-x-1/2 z-50 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 sm:px-6 py-3 sm:py-4 rounded-xl shadow-2xl border-2 border-green-300 font-bold text-center max-w-[90vw] mx-4"
+                >
+                  <div className="text-sm sm:text-lg">{floatingMessage.text}</div>
+                  {floatingMessage.sats !== undefined && (
+                    <div className="text-xs sm:text-sm mt-1">Turn Sats: {floatingMessage.sats}</div>
+                  )}
+                </motion.div>
+              )}
             </div>
 
             {/* Action Buttons */}
@@ -1086,20 +1101,6 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
         </motion.div>
       )}
 
-      {/* Floating Success Message */}
-      {floatingMessage && (
-        <motion.div
-          initial={{ y: 20, opacity: 0, scale: 0.9 }}
-          animate={{ y: 0, opacity: 1, scale: 1 }}
-          exit={{ y: -20, opacity: 0 }}
-          className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 sm:px-6 py-3 sm:py-4 rounded-xl shadow-2xl border-2 border-green-300 font-bold text-center max-w-[90vw] mx-4"
-        >
-          <div className="text-sm sm:text-lg">{floatingMessage.text}</div>
-          {floatingMessage.sats !== undefined && (
-            <div className="text-xs sm:text-sm mt-1">Turn Sats: {floatingMessage.sats}</div>
-          )}
-        </motion.div>
-      )}
 
       {/* Floating Bearish Card Warning */}
       {currentCard?.type === 'Bearish' && isPlayerTurn && !lastRoll && (

@@ -572,7 +572,7 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
       <GameBoard
         gameId={gameId}
         playerName={playerName}
-        opponentName={useGameStore.getState().opponentName || (selectedMode ? gameNames[selectedMode] : 'Opponent') || 'Opponent'}
+        opponentName={selectedMode && BOT_CONFIGS[selectedMode] ? BOT_CONFIGS[selectedMode].name : 'Opponent'}
         gameMode={selectedMode}
         onPlayIntro={handleIntroComplete}
         onGameEnd={handleGameEnd}

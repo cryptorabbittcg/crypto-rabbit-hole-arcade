@@ -33,7 +33,6 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
           setDisplayValue(value)
           onRollComplete?.()
         } else {
-          // If value is null after rolling, show default (shouldn't happen, but safety)
           setDisplayValue(1)
         }
       }, 1000)
@@ -45,7 +44,6 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
     } else if (value) {
       setDisplayValue(value)
     } else {
-      // When value is null and not rolling, show default value (1) so pips are always visible
       setDisplayValue(1)
     }
   }, [isRolling, value, onRollComplete])
@@ -69,79 +67,38 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
       className={`relative w-24 h-24 rounded-2xl flex items-center justify-center ${
         onClick && !disabled ? 'cursor-pointer hover:shadow-purple-500/50' : ''
       } ${disabled ? 'opacity-50' : ''}`}
-      style={{
-        perspective: '1000px',
-        transformStyle: 'preserve-3d',
-      }}
     >
-      {/* 3D Dice Base with enhanced 3D effect */}
+      {/* Simple Dice Base */}
       <div
         className={`absolute inset-0 rounded-2xl ${
           isRekt ? 'bg-red-600' : 'bg-white'
-        }`}
-        style={{
-          transform: 'translateZ(8px) rotateX(5deg) rotateY(-5deg)',
-          boxShadow: `
-            inset 0 3px 6px rgba(0, 0, 0, 0.15),
-            inset 0 -3px 6px rgba(255, 255, 255, ${isRekt ? '0.2' : '0.4'}),
-            0 10px 20px rgba(0, 0, 0, 0.4),
-            0 0 0 1px rgba(0, 0, 0, 0.15),
-            0 4px 8px rgba(0, 0, 0, 0.2)
-          `,
-        }}
+        } border-2 border-slate-300 shadow-lg`}
       >
-        {/* Glassy overlay for 3D effect */}
-        <div
-          className="absolute inset-0 rounded-2xl pointer-events-none"
-          style={{
-            background: isRekt
-              ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(0, 0, 0, 0.15) 50%, rgba(255, 255, 255, 0.08) 100%)'
-              : 'linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(0, 0, 0, 0.15) 50%, rgba(255, 255, 255, 0.3) 100%)',
-            borderRadius: '1rem',
-          }}
-        />
-        {/* Additional highlight for 3D depth */}
-        <div
-          className="absolute top-0 left-0 w-full h-1/2 rounded-t-2xl pointer-events-none"
-          style={{
-            background: 'linear-gradient(to bottom, rgba(255, 255, 255, 0.3), transparent)',
-          }}
-        />
-      </div>
-
-      {/* Dice Face Content - Centered grid */}
-      <div className="relative z-10 grid grid-cols-3 gap-2 p-4 w-full h-full items-center justify-center">
-        {diceDots[displayValue]?.map(([row, col], index) => {
-          const isCenterPip = displayValue === 1 && row === 1 && col === 1
-          return (
-            <div
-              key={index}
-              className="flex items-center justify-center"
-              style={{
-                gridColumn: col + 1,
-                gridRow: row + 1,
-              }}
-            >
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className={`rounded-full ${isCenterPip ? 'w-6 h-6' : 'w-3 h-3'} ${
-                  isRekt ? 'bg-white' : 'bg-slate-900'
-                }`}
+        {/* Dice Face Content - Centered grid */}
+        <div className="relative z-10 grid grid-cols-3 gap-2 p-4 w-full h-full items-center justify-center">
+          {diceDots[displayValue]?.map(([row, col], index) => {
+            const isCenterPip = displayValue === 1 && row === 1 && col === 1
+            return (
+              <div
+                key={index}
+                className="flex items-center justify-center"
                 style={{
-                  boxShadow: `
-                    inset 0 3px 6px rgba(0, 0, 0, 0.5),
-                    inset 0 -2px 3px rgba(255, 255, 255, ${isRekt ? '0.4' : '0.25'}),
-                    0 2px 3px rgba(0, 0, 0, 0.4)
-                  `,
+                  gridColumn: col + 1,
+                  gridRow: row + 1,
                 }}
-              />
-            </div>
-          )
-        })}
+              >
+                <div
+                  className={`rounded-full ${isCenterPip ? 'w-6 h-6' : 'w-3 h-3'} ${
+                    isRekt ? 'bg-white' : 'bg-slate-900'
+                  }`}
+                />
+              </div>
+            )
+          })}
+        </div>
       </div>
 
-      {/* "Rekt!" text for value 1 - centered above pip */}
+      {/* "Rekt!" text for value 1 */}
       {isRekt && (
         <div
           className="absolute -top-8 left-1/2 pointer-events-none z-20"
@@ -151,21 +108,7 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
             width: '100%',
           }}
         >
-          <span
-            className="text-white font-bold text-xs sm:text-sm whitespace-nowrap block"
-            style={{
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              fontWeight: 900,
-              textShadow: `
-                0 2px 0 rgba(255, 255, 255, 0.6),
-                0 3px 6px rgba(0, 0, 0, 0.4),
-                0 -2px 0 rgba(0, 0, 0, 0.3),
-                inset 0 -1px 0 rgba(0, 0, 0, 0.2)
-              `,
-              WebkitTextStroke: '0.5px rgba(0, 0, 0, 0.4)',
-            }}
-          >
+          <span className="text-white font-bold text-xs sm:text-sm whitespace-nowrap block">
             Rekt!
           </span>
         </div>
