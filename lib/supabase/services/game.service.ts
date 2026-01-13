@@ -1,6 +1,20 @@
 import { createClient } from "../client"
 import type { GameSession } from "../database.types"
 
+/**
+ * Normalized game session data structure
+ * Used for consistent field names across the application
+ */
+export type NormalizedGameSession = {
+  id: string
+  createdAt: string
+  durationSeconds: number
+  gameType: string
+  gameMode: string | null
+  score: number
+  pointsEarned: number
+}
+
 export class GameService {
   private supabase = createClient()
 
@@ -78,15 +92,71 @@ export class GameService {
     return data || []
   }
 
+  /**
+   * Get recent games with normalized field names
+   * Orders by started_at (primary) or created_at (fallback)
+   * Normalizes duration/duration_seconds to durationSeconds
+   * Normalizes started_at/created_at to createdAt
+   */
+  async getRecentGamesNormalized(userId: string, limit = 10): Promise<NormalizedGameSession[]> {
+    const { data, error } = await this.supabase
+      .from("game_sessions")
+      .select("*")
+      .eq("user_id", userId)
+      .order("started_at", { ascending: false, nullsLast: true })
+      .limit(limit)
+
+    if (error) {
+      // If started_at ordering fails, try created_at
+      const { data: fallbackData, error: fallbackError } = await this.supabase
+        .from("game_sessions")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(limit)
+
+      if (fallbackError) {
+        console.error("[GameService] Error fetching game history:", fallbackError)
+        return []
+      }
+
+      return (fallbackData || []).map(this.normalizeGameSession)
+    }
+
+    return (data || []).map(this.normalizeGameSession)
+  }
+
+  /**
+   * Normalize a game session record to consistent field names
+   */
+  private normalizeGameSession = (session: any): NormalizedGameSession => {
+    // Normalize timestamp: prefer started_at, fallback to created_at
+    const createdAt = session.started_at || session.created_at || new Date().toISOString()
+
+    // Normalize duration: prefer duration, fallback to duration_seconds
+    const durationSeconds = session.duration ?? session.duration_seconds ?? 0
+
+    return {
+      id: session.id,
+      createdAt,
+      durationSeconds,
+      gameType: session.game_type || "",
+      gameMode: session.game_mode || null,
+      score: session.score || 0,
+      pointsEarned: session.points_earned || 0,
+    }
+  }
+
   // Static wrapper method for convenience
-  static async getRecentGames(walletAddress: string, limit: number): Promise<GameSession[]> {
+  static async getRecentGames(walletAddress: string, limit: number): Promise<NormalizedGameSession[]> {
     // First get the profile by wallet to get the user_id
     const { ProfileService } = await import("./profile.service")
-    const profile = await ProfileService.getProfile(walletAddress)
+    const serviceInstance = new ProfileService()
+    const profile = await serviceInstance.getProfileByWallet(walletAddress)
     if (!profile) {
       return []
     }
     const service = new GameService()
-    return service.getUserGameHistory(profile.id, limit)
+    return service.getRecentGamesNormalized(profile.id, limit)
   }
 }

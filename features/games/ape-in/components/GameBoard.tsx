@@ -1215,6 +1215,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
           </motion.div>
         </motion.div>
       )}
+      </div>
     </div>
   )
 }
