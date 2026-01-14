@@ -120,6 +120,8 @@ END $$;
 -- =====================================================
 -- This allows the function to bypass RLS when updating hints
 DO $$
+DECLARE
+  func_rec RECORD;
 BEGIN
   IF EXISTS (
     SELECT 1 FROM pg_proc p
@@ -127,8 +129,8 @@ BEGIN
     WHERE n.nspname = 'public'
     AND p.proname = 'purchase_cryptoku_hints'
   ) THEN
-    FOR func_signature IN
-      SELECT 'public.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')'
+    FOR func_rec IN
+      SELECT 'public.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' as func_signature
       FROM pg_proc p
       JOIN pg_namespace n ON p.pronamespace = n.oid
       WHERE n.nspname = 'public'
@@ -136,11 +138,11 @@ BEGIN
     LOOP
       BEGIN
         -- Set SECURITY DEFINER
-        EXECUTE format('ALTER FUNCTION %s SECURITY DEFINER', func_signature);
+        EXECUTE format('ALTER FUNCTION %s SECURITY DEFINER', func_rec.func_signature);
         -- Set search_path
-        EXECUTE format('ALTER FUNCTION %s SET search_path = ''pg_catalog, public''', func_signature);
+        EXECUTE format('ALTER FUNCTION %s SET search_path = ''pg_catalog, public''', func_rec.func_signature);
       EXCEPTION WHEN OTHERS THEN
-        RAISE NOTICE 'Could not configure function %: %', func_signature, SQLERRM;
+        RAISE NOTICE 'Could not configure function %: %', func_rec.func_signature, SQLERRM;
       END;
     END LOOP;
   END IF;

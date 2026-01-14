@@ -94,7 +94,7 @@ const TOKENS = [
 
 const DIFF: Record<Difficulty, number> = {
   noob: 40,
-  degen: 32,
+  degen: 40, // Changed to 40 clues (same as Noob) for easier testing
   ape: 25,
 }
 
@@ -250,8 +250,8 @@ function checkBoxConstraints(board: Board, difficulty: Difficulty): boolean {
       return boxCounts.every((count) => count >= 2)
 
     case "degen":
-      // Each box must have ≥1 preset
-      return boxCounts.every((count) => count >= 1)
+      // Each box must have ≥2 presets (same as Noob for easier testing)
+      return boxCounts.every((count) => count >= 2)
 
     case "ape": {
       // Each box must have ≥1 preset except exactly one box with 0
@@ -376,8 +376,8 @@ function digHoles(full: Board, clues: number, difficulty: Difficulty = "noob"): 
           break
 
         case "degen":
-          // Each box must have ≥1 preset
-          if (boxCounts.some((count) => count < 1)) {
+          // Each box must have ≥2 presets (same as Noob for easier testing)
+          if (boxCounts.some((count) => count < 2)) {
             violatesConstraints = true
           }
           break
@@ -1775,7 +1775,7 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
                     : "opacity-50 cursor-not-allowed"
                 }`}
               >
-                🔵 Degen — 32 clues (Medium) • Ranked {!playerAddress && "(Login Required)"}
+                🔵 Degen — 40 clues (Easy) • Ranked {!playerAddress && "(Login Required)"}
               </button>
               <button
                 onClick={() => {

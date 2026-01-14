@@ -55,7 +55,7 @@ END $$;
 -- This allows the function to bypass RLS when inserting
 DO $$
 DECLARE
-  func_signature TEXT;
+  func_rec RECORD;
 BEGIN
   IF EXISTS (
     SELECT 1 FROM pg_proc p
@@ -64,8 +64,8 @@ BEGIN
     AND p.proname = 'add_cryptoku_leaderboard_entry'
   ) THEN
     -- Get the exact function signature
-    FOR func_signature IN
-      SELECT 'public.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')'
+    FOR func_rec IN
+      SELECT 'public.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' as func_signature
       FROM pg_proc p
       JOIN pg_namespace n ON p.pronamespace = n.oid
       WHERE n.nspname = 'public'
@@ -73,14 +73,14 @@ BEGIN
     LOOP
       BEGIN
         -- Set SECURITY DEFINER so function runs with creator's privileges
-        EXECUTE format('ALTER FUNCTION %s SECURITY DEFINER', func_signature);
+        EXECUTE format('ALTER FUNCTION %s SECURITY DEFINER', func_rec.func_signature);
         
         -- Set search_path for security
-        EXECUTE format('ALTER FUNCTION %s SET search_path = ''pg_catalog, public''', func_signature);
+        EXECUTE format('ALTER FUNCTION %s SET search_path = ''pg_catalog, public''', func_rec.func_signature);
         
-        RAISE NOTICE 'Configured function: %', func_signature;
+        RAISE NOTICE 'Configured function: %', func_rec.func_signature;
       EXCEPTION WHEN OTHERS THEN
-        RAISE NOTICE 'Could not configure function %: %', func_signature, SQLERRM;
+        RAISE NOTICE 'Could not configure function %: %', func_rec.func_signature, SQLERRM;
       END;
     END LOOP;
   ELSE
@@ -92,6 +92,8 @@ END $$;
 -- 3. Ensure get_leaderboard function exists and has correct search_path
 -- =====================================================
 DO $$
+DECLARE
+  func_rec RECORD;
 BEGIN
   -- Check if function exists
   IF EXISTS (
@@ -101,17 +103,17 @@ BEGIN
     AND p.proname = 'get_leaderboard'
   ) THEN
     -- Set search_path for all overloads
-    FOR func_signature IN
-      SELECT 'public.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')'
+    FOR func_rec IN
+      SELECT 'public.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' as func_signature
       FROM pg_proc p
       JOIN pg_namespace n ON p.pronamespace = n.oid
       WHERE n.nspname = 'public'
       AND p.proname = 'get_leaderboard'
     LOOP
       BEGIN
-        EXECUTE format('ALTER FUNCTION %s SET search_path = ''pg_catalog, public''', func_signature);
+        EXECUTE format('ALTER FUNCTION %s SET search_path = ''pg_catalog, public''', func_rec.func_signature);
       EXCEPTION WHEN OTHERS THEN
-        RAISE NOTICE 'Could not set search_path for function %: %', func_signature, SQLERRM;
+        RAISE NOTICE 'Could not set search_path for function %: %', func_rec.func_signature, SQLERRM;
       END;
     END LOOP;
   ELSE
@@ -123,6 +125,8 @@ END $$;
 -- 4. Ensure get_cryptoku_leaderboard function has correct search_path
 -- =====================================================
 DO $$
+DECLARE
+  func_rec RECORD;
 BEGIN
   IF EXISTS (
     SELECT 1 FROM pg_proc p
@@ -130,17 +134,17 @@ BEGIN
     WHERE n.nspname = 'public'
     AND p.proname = 'get_cryptoku_leaderboard'
   ) THEN
-    FOR func_signature IN
-      SELECT 'public.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')'
+    FOR func_rec IN
+      SELECT 'public.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' as func_signature
       FROM pg_proc p
       JOIN pg_namespace n ON p.pronamespace = n.oid
       WHERE n.nspname = 'public'
       AND p.proname = 'get_cryptoku_leaderboard'
     LOOP
       BEGIN
-        EXECUTE format('ALTER FUNCTION %s SET search_path = ''pg_catalog, public''', func_signature);
+        EXECUTE format('ALTER FUNCTION %s SET search_path = ''pg_catalog, public''', func_rec.func_signature);
       EXCEPTION WHEN OTHERS THEN
-        RAISE NOTICE 'Could not set search_path for function %: %', func_signature, SQLERRM;
+        RAISE NOTICE 'Could not set search_path for function %: %', func_rec.func_signature, SQLERRM;
       END;
     END LOOP;
   END IF;
@@ -151,6 +155,8 @@ END $$;
 -- =====================================================
 -- This function is called from the submit-result API to award points
 DO $$
+DECLARE
+  func_rec RECORD;
 BEGIN
   IF EXISTS (
     SELECT 1 FROM pg_proc p
@@ -158,8 +164,8 @@ BEGIN
     WHERE n.nspname = 'public'
     AND p.proname = 'update_user_balance'
   ) THEN
-    FOR func_signature IN
-      SELECT 'public.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')'
+    FOR func_rec IN
+      SELECT 'public.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' as func_signature
       FROM pg_proc p
       JOIN pg_namespace n ON p.pronamespace = n.oid
       WHERE n.nspname = 'public'
@@ -167,11 +173,11 @@ BEGIN
     LOOP
       BEGIN
         -- Set SECURITY DEFINER
-        EXECUTE format('ALTER FUNCTION %s SECURITY DEFINER', func_signature);
+        EXECUTE format('ALTER FUNCTION %s SECURITY DEFINER', func_rec.func_signature);
         -- Set search_path
-        EXECUTE format('ALTER FUNCTION %s SET search_path = ''pg_catalog, public''', func_signature);
+        EXECUTE format('ALTER FUNCTION %s SET search_path = ''pg_catalog, public''', func_rec.func_signature);
       EXCEPTION WHEN OTHERS THEN
-        RAISE NOTICE 'Could not configure function %: %', func_signature, SQLERRM;
+        RAISE NOTICE 'Could not configure function %: %', func_rec.func_signature, SQLERRM;
       END;
     END LOOP;
   END IF;
