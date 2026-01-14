@@ -132,11 +132,26 @@ export async function POST(request: NextRequest) {
     const profileService = new ProfileService()
     const profile = await profileService.getProfileByWallet(normalizedAddress)
     
+    if (!profile) {
+      console.error("[CryptokuSubmit] Profile not found for address:", normalizedAddress.substring(0, 10) + "...")
+      return NextResponse.json(
+        { error: "Profile not found. Please ensure you have a profile created." },
+        { status: 404 }
+      )
+    }
+    
+    console.log("[CryptokuSubmit] Profile found:", {
+      userId: profile.id,
+      address: normalizedAddress.substring(0, 10) + "...",
+      mode,
+      score,
+    })
+    
     let hintsRewardResult
-    if (profile) {
+    try {
       hintsRewardResult = await hintsService.rewardHint(profile.id)
-    } else {
-      // Fallback: no profile exists, skip hint reward
+    } catch (error) {
+      console.error("[CryptokuSubmit] Error rewarding hint:", error)
       hintsRewardResult = { hintsEarned: 0, hints: { hintBalance: 0, gamesUntilNextFreeHint: 10, totalRankedCompleted: 0 } }
     }
 
@@ -164,7 +179,7 @@ export async function POST(request: NextRequest) {
 
     // Add to leaderboard (Supabase)
     const leaderboardService = new CryptokuLeaderboardService()
-    await leaderboardService.addEntry({
+    const leaderboardResult = await leaderboardService.addEntry({
       runId,
       address: normalizedAddress,
       mode,
@@ -176,6 +191,21 @@ export async function POST(request: NextRequest) {
       completed: true,
       forfeited: false,
     })
+    
+    if (!leaderboardResult) {
+      console.error("[CryptokuSubmit] Failed to add leaderboard entry", {
+        runId,
+        address: normalizedAddress.substring(0, 10) + "...",
+        mode,
+        score,
+      })
+      return NextResponse.json(
+        { error: "Failed to save leaderboard entry" },
+        { status: 500 }
+      )
+    }
+    
+    console.log("[CryptokuSubmit] Leaderboard entry added successfully", { runId, score })
 
     // Award points only for ranked modes (DEGEN/APE) and only if this is a new submission
     // Points = score (MVP)
@@ -189,9 +219,10 @@ export async function POST(request: NextRequest) {
         mode,
         score,
         pointsEarned,
+        isDuplicateRun,
       })
 
-      const { error: balanceError } = await adminClient.rpc('update_user_balance', {
+      const { data: balanceData, error: balanceError } = await adminClient.rpc('update_user_balance', {
         p_user_id: profile.id,
         p_ape_change: 0,
         p_tickets_change: 0,
@@ -204,11 +235,37 @@ export async function POST(request: NextRequest) {
         console.error("[CryptokuSubmit] Error updating user balance:", {
           code: balanceError.code,
           message: balanceError.message,
+          details: balanceError.details,
+          hint: balanceError.hint,
         })
-        // Continue even if balance update fails (leaderboard entry is already saved)
+        return NextResponse.json(
+          { 
+            error: "Failed to award points",
+            details: balanceError.message,
+            score,
+            pointsEarned: 0, // Return 0 since update failed
+          },
+          { status: 500 }
+        )
       }
+      
+      console.log("[CryptokuSubmit] Points awarded successfully", {
+        userId: profile.id,
+        pointsEarned,
+        balanceData,
+      })
     } else if (isDuplicateRun && eligibleForPoints) {
       console.log("[CryptokuSubmit] Duplicate run detected, skipping points", { runId })
+    } else if (!profile) {
+      console.error("[CryptokuSubmit] Cannot award points: profile is null")
+    } else if (pointsEarned === 0) {
+      console.log("[CryptokuSubmit] No points earned", {
+        rankedMode,
+        completed,
+        forfeited,
+        isDuplicateRun,
+        score,
+      })
     }
 
     return NextResponse.json({
