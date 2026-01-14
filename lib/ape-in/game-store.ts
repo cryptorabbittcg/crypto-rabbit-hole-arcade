@@ -7,6 +7,7 @@
 
 import { GameState } from "@/features/games/ape-in/types/game"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 interface StoredGame {
   gameState: GameState
@@ -31,9 +32,10 @@ export async function storeGame(gameId: string, gameState: GameState): Promise<v
   // Try Supabase first
   try {
     const supabase = await createClient()
+    const adminSupabase = createAdminClient()
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours from now
     
-    // Check if game exists first to handle created_at properly
+    // Check if game exists first to handle created_at properly (read with regular client)
     const { data: existing } = await supabase
       .from('ape_in_game_states')
       .select('game_id, created_at')
@@ -53,7 +55,8 @@ export async function storeGame(gameId: string, gameState: GameState): Promise<v
       upsertData.created_at = now
     }
     
-    const { data, error } = await supabase
+    // Write operation uses admin client to bypass RLS
+    const { data, error } = await adminSupabase
       .from('ape_in_game_states')
       .upsert(upsertData, {
         onConflict: 'game_id'
@@ -107,6 +110,7 @@ export async function getGame(gameId: string): Promise<StoredGame | null> {
   // Try Supabase first
   try {
     const supabase = await createClient()
+    const adminSupabase = createAdminClient()
     const { data, error } = await supabase
       .from('ape_in_game_states')
       .select('game_state, created_at, updated_at, expires_at')
@@ -132,7 +136,8 @@ export async function getGame(gameId: string): Promise<StoredGame | null> {
       // Check if expired
       if (data.expires_at && new Date(data.expires_at) < new Date()) {
         console.warn(`⚠️ Game ${gameId} has expired`)
-        await supabase.from('ape_in_game_states').delete().eq('game_id', gameId)
+        // Delete operation uses admin client to bypass RLS
+        await adminSupabase.from('ape_in_game_states').delete().eq('game_id', gameId)
         return null
       }
       
@@ -173,9 +178,10 @@ export async function updateGame(gameId: string, gameState: GameState): Promise<
   // Try Supabase first
   try {
     const supabase = await createClient()
+    const adminSupabase = createAdminClient()
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // Refresh to 24 hours
     
-    // Check if game exists first
+    // Check if game exists first (read with regular client)
     const { data: existing } = await supabase
       .from('ape_in_game_states')
       .select('game_id')
@@ -186,7 +192,8 @@ export async function updateGame(gameId: string, gameState: GameState): Promise<
       throw new Error(`Game ${gameId} not found`)
     }
     
-    const { error } = await supabase
+    // Write operation uses admin client to bypass RLS
+    const { error } = await adminSupabase
       .from('ape_in_game_states')
       .update({
         game_state: gameState as any,
@@ -225,8 +232,9 @@ export async function updateGame(gameId: string, gameState: GameState): Promise<
 export async function deleteGame(gameId: string): Promise<void> {
   // Try Supabase first
   try {
-    const supabase = await createClient()
-    const { error } = await supabase
+    // Write operation uses admin client to bypass RLS
+    const adminSupabase = createAdminClient()
+    const { error } = await adminSupabase
       .from('ape_in_game_states')
       .delete()
       .eq('game_id', gameId)
