@@ -70,7 +70,7 @@ export class CryptokuLeaderboardService {
         return false
       }
 
-      const { error } = await this.supabase.rpc("add_cryptoku_leaderboard_entry", {
+      const { data, error } = await this.supabase.rpc("add_cryptoku_leaderboard_entry", {
         p_run_id: entry.runId,
         p_user_id: userId,
         p_mode: entry.mode,
@@ -83,9 +83,25 @@ export class CryptokuLeaderboardService {
       })
 
       if (error) {
-        console.error("[CryptokuLeaderboardService] Error adding leaderboard entry:", error)
+        console.error("[CryptokuLeaderboardService] Error adding leaderboard entry:", {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          runId: entry.runId,
+          userId,
+          mode: entry.mode,
+          score: entry.score,
+        })
         return false
       }
+      
+      console.log("[CryptokuLeaderboardService] Successfully added leaderboard entry", {
+        runId: entry.runId,
+        entryId: data,
+        mode: entry.mode,
+        score: entry.score,
+      })
 
       return true
     } catch (error) {

@@ -256,7 +256,7 @@ export default function ArcadeHub() {
             <iframe
               width="100%"
               height="100%"
-              src="https://www.youtube.com/embed/iA1bBbV7GtM"
+              src="https://www.youtube-nocookie.com/embed/iA1bBbV7GtM"
               title="The Crypto Rabbit Hole Trading Card Game"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen

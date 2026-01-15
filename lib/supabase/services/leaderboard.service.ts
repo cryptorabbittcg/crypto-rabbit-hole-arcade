@@ -41,9 +41,25 @@ export class LeaderboardService {
           // Supabase not configured - return empty array silently
           return []
         }
-        // If the RPC function doesn't exist, fall back to a direct query
-        console.warn("[v0] RPC function not found, using direct query:", error)
-        return await this.getTopScoresDirect(limit)
+        // Check if RPC function doesn't exist (404) or table doesn't exist
+        // Also check for HTTP 404 status or function not found messages
+        if (
+          error.code === 'P0001' || 
+          error.code === '42P01' || 
+          error.code === '42883' || // function does not exist
+          error.status === 404 ||
+          error.message?.includes('does not exist') || 
+          error.message?.includes('function') && error.message?.includes('does not exist') ||
+          error.message?.includes('could not find a function') ||
+          error.message?.includes('No function matches')
+        ) {
+          // Function or table doesn't exist - return empty array silently (expected for some setups)
+          // Stub functions should handle this, but fallback is safe
+          return []
+        }
+        // Only log unexpected errors (not 404s)
+        console.error("[v0] Unexpected error fetching top scores:", error)
+        return []
       }
 
       if (!data) return []
@@ -63,7 +79,16 @@ export class LeaderboardService {
         // Supabase not configured - return empty array silently
         return []
       }
-      console.error("[v0] Error fetching top scores:", err)
+      // Suppress errors for missing functions/tables (expected for legacy features)
+      if (
+        err?.code === '42P01' || 
+        err?.message?.includes('does not exist') ||
+        err?.status === 404
+      ) {
+        return []
+      }
+      // Only log unexpected errors
+      console.error("[v0] Unexpected error fetching top scores:", err)
       return []
     }
   }
@@ -98,6 +123,12 @@ export class LeaderboardService {
           // Supabase not configured - return empty array silently
           return []
         }
+        // Check if table doesn't exist (42P01 = undefined_table)
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          // Table doesn't exist - return empty array silently (expected for some setups)
+          return []
+        }
+        // Only log unexpected errors
         console.error("[v0] Error fetching top scores directly:", error)
         return []
       }
@@ -155,6 +186,15 @@ export class LeaderboardService {
       })
 
       if (error) {
+        // Check if it's a network error or missing function/table
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('ERR_NAME_NOT_RESOLVED')) {
+          return []
+        }
+        // Check if function doesn't exist (404) or table doesn't exist
+        if (error.code === 'P0001' || error.code === '42P01' || error.message?.includes('does not exist')) {
+          // Function or table doesn't exist - return empty array silently
+          return []
+        }
         console.error("[v0] Error fetching leaderboard by points:", error)
         return []
       }
@@ -187,7 +227,28 @@ export class LeaderboardService {
       })
 
       if (error) {
-        console.error("[v0] Error fetching Ape In leaderboard:", error)
+        // Check if it's a network error or missing function/table
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('ERR_NAME_NOT_RESOLVED')) {
+          return []
+        }
+        // Check if function doesn't exist (404) or table doesn't exist
+        // Also check for HTTP 404 status or function not found messages
+        if (
+          error.code === 'P0001' || 
+          error.code === '42P01' || 
+          error.code === '42883' || // function does not exist
+          error.status === 404 ||
+          error.message?.includes('does not exist') || 
+          error.message?.includes('function') && error.message?.includes('does not exist') ||
+          error.message?.includes('could not find a function') ||
+          error.message?.includes('No function matches')
+        ) {
+          // Function or table doesn't exist - return empty array silently
+          // Stub functions should handle this, but fallback is safe
+          return []
+        }
+        // Only log unexpected errors (not 404s)
+        console.error("[v0] Unexpected error fetching Ape In leaderboard:", error)
         return []
       }
 

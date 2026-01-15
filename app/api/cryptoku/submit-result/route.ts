@@ -177,8 +177,8 @@ export async function POST(request: NextRequest) {
     // If existingEntry exists, this is a duplicate run
     const isDuplicateRun = existingEntry !== null
 
-    // Add to leaderboard (Supabase)
-    const leaderboardService = new CryptokuLeaderboardService()
+    // Add to leaderboard (Supabase) - use admin client to bypass RLS
+    const leaderboardService = new CryptokuLeaderboardService(adminClient)
     const leaderboardResult = await leaderboardService.addEntry({
       runId,
       address: normalizedAddress,
