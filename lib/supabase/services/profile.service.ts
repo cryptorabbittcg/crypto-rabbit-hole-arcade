@@ -1,28 +1,16 @@
 import { createClient, hasSupabaseConfig } from "../client"
 import type { Profile } from "../database.types"
-import type { SupabaseClient } from "@supabase/supabase-js"
 
-// Minimal database schema type for SupabaseClient
-// Note: Full database types would be generated from Supabase, but this provides type safety
-type Database = {
-  public: {
-    Tables: {
-      profiles: {
-        Row: Profile & { tickets?: number; linked_wallets?: Array<{ address: string; type: string; linkedAt: string }> }
-        Insert: unknown
-        Update: unknown
-      }
-    }
-    Functions: Record<string, unknown>
-    Views: Record<string, unknown>
-  }
-}
+// Profile type extended with database-specific fields
+type ProfileRow = Profile & { tickets?: number; linked_wallets?: Array<{ address: string; type: string; linkedAt: string }> }
 
 export class ProfileService {
-  private supabase: SupabaseClient<Database>
+  private supabase = createClient()
 
-  constructor(supabaseClient?: SupabaseClient<Database>) {
-    this.supabase = supabaseClient ?? (createClient() as SupabaseClient<Database>)
+  constructor(supabaseClient?: ReturnType<typeof createClient>) {
+    if (supabaseClient) {
+      this.supabase = supabaseClient
+    }
   }
 
   /**
@@ -246,7 +234,7 @@ export class ProfileService {
     const profileWithTickets = profile as Profile & { tickets?: number }
     const currentTickets = profileWithTickets.tickets ?? profile.ticket_balance ?? 0
     const ticketChange = balances.ticket_balance - currentTickets
-    return service.updateBalance(profile.id, apeChange, ticketChange, 0)
+    return service.updateBalance(profile.id, apeChange, ticketChange, 0, "balance_sync", "Balance synchronization")
   }
 
   static async updateProfile(walletAddress: string, updates: Partial<Profile>): Promise<boolean> {

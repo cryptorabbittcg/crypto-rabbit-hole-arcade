@@ -130,13 +130,12 @@ export function ProfileMenu() {
   async function handleConnectClick() {
     if (!isConnected) {
       // Close profile menu and show auth dialog
+      // Dispatch event synchronously from click handler to preserve user gesture chain
+      // This ensures popups work on mobile Safari/Chrome
       setOpen(false)
-      // Trigger a custom event that the arcade hub can listen to
-      // Use requestAnimationFrame to ensure DOM is ready
-      requestAnimationFrame(() => {
-        window.dispatchEvent(new CustomEvent("showAuthDialog"))
-        console.log("🔔 Dispatched showAuthDialog event")
-      })
+      // Synchronous event dispatch - preserves user gesture for popup to work on mobile
+      window.dispatchEvent(new CustomEvent("showAuthDialog"))
+      console.log("🔔 Dispatched showAuthDialog event")
     } else {
       // Disconnect: clear wagmi connection, hub auth token, and hub session
       if (isConnected) {

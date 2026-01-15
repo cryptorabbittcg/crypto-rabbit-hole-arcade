@@ -78,7 +78,11 @@ CREATE OR REPLACE FUNCTION update_user_balance(
   p_transaction_type TEXT DEFAULT 'manual',
   p_description TEXT DEFAULT NULL
 )
-RETURNS VOID AS $$
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'pg_catalog, public'
+AS $$
 BEGIN
   -- Update profile balances
   UPDATE profiles
@@ -109,7 +113,7 @@ BEGIN
     WHERE user_id = p_user_id;
   END IF;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- =====================================================
 -- RECORD GAME SESSION

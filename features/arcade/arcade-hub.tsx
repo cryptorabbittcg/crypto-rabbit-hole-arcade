@@ -25,18 +25,13 @@ export default function ArcadeHub() {
   const [apeInHighScores, setApeInHighScores] = useState<ApeInLeaderboardEntry[]>([])
   const [loadingApeInHighScores, setLoadingApeInHighScores] = useState(false)
 
-  // Show auth dialog on mount - always show on page load for security
+  // Close dialog when user becomes authenticated (but don't auto-show)
   useEffect(() => {
-    // Always show dialog on initial mount to require fresh sign-in
-    logger.log("🔍 Showing auth dialog - fresh sign-in required")
-    setShowAuthDialog(true)
-    
-    // Close dialog when user becomes authenticated
-    if (isAuthenticated) {
+    if (isAuthenticated && showAuthDialog) {
       logger.log("✅ Authenticated, hiding auth dialog")
       setShowAuthDialog(false)
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, showAuthDialog])
 
   // Listen for show auth dialog event from profile menu
   useEffect(() => {
@@ -179,6 +174,21 @@ export default function ArcadeHub() {
               Building on ApeChain
             </p>
           </div>
+
+          {/* Sign In button - only show when not authenticated */}
+          {!isAuthenticated && (
+            <div className="flex justify-center mb-4">
+              <Button
+                onClick={() => {
+                  // Direct synchronous call from click handler - ensures popup works on mobile
+                  setShowAuthDialog(true)
+                }}
+                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all"
+              >
+                Sign In with Glyph Wallet
+              </Button>
+            </div>
+          )}
 
           {/* Banner Logo with glow */}
           <div className="flex justify-center mb-4 relative">

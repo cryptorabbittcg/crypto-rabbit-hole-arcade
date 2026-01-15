@@ -468,7 +468,7 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
             ref={iframeRef}
             src={gameUrl}
             className="w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; popups; popups-to-escape-sandbox"
             allowFullScreen
             title={gameTitle}
           />
