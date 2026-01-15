@@ -170,12 +170,21 @@ export class ProfileService {
     return true
   }
 
-  async updateBalance(userId: string, apeChange = 0, ticketChange = 0, pointsChange = 0): Promise<boolean> {
+  async updateBalance(
+    userId: string,
+    apeChange = 0,
+    ticketsChange = 0,
+    pointsChange = 0,
+    transactionType = "game_reward",
+    description = "Balance update",
+  ): Promise<boolean> {
     const { error } = await this.supabase.rpc("update_user_balance", {
       p_user_id: userId,
       p_ape_change: apeChange,
-      p_ticket_change: ticketChange,
+      p_tickets_change: ticketsChange,
       p_points_change: pointsChange,
+      p_transaction_type: transactionType,
+      p_description: description,
     })
 
     if (error) {
