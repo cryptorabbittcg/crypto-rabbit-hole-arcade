@@ -67,16 +67,32 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess = () => {} }: Aut
 
   // Fallback detection: Monitor for failed connection attempts on mobile
   // This is a backup in case the direct popup test doesn't catch it
+  // IMPORTANT: On mobile, Glyph connection can take longer, so we use a longer timeout
+  // and check more carefully to avoid false positives
   useEffect(() => {
-    if (open && isMobileDevice && connectionAttempted && !isConnected && !address && !popupBlocked) {
-      // Set a timeout to detect if connection failed (could be popup blocked or other error)
+    if (open && isMobileDevice && connectionAttempted && !isConnected && !address && !popupBlocked && !hasProcessedAuth) {
+      // Set a longer timeout for mobile - Glyph connection can take 5-10 seconds on mobile
       const timeout = setTimeout(() => {
-        // Only show error if dialog is still open, no connection, attempt was made, and not already marked as blocked
-        if (open && connectionAttempted && !isConnected && !address && !hasProcessedAuth && !popupBlocked) {
-          // This could be popup blocked or connection failed for other reasons
-          setError("Connection failed. Please try again or check your browser settings.")
+        // Double-check conditions before showing error:
+        // 1. Dialog still open
+        // 2. Connection was attempted
+        // 3. Still not connected
+        // 4. No address
+        // 5. Not already processed
+        // 6. Not popup blocked
+        // 7. Still on mobile (user didn't switch to desktop)
+        if (open && 
+            connectionAttempted && 
+            !isConnected && 
+            !address && 
+            !hasProcessedAuth && 
+            !popupBlocked &&
+            isMobile()) {
+          // Only show error if we're absolutely sure connection failed
+          // On mobile, Glyph can take longer, so be conservative
+          setError("Connection is taking longer than expected. If your wallet is connected, you can close this dialog.")
         }
-      }, 3000) // Longer timeout since popup test should catch it first
+      }, 8000) // Longer timeout for mobile - Glyph can take 5-10 seconds
       return () => clearTimeout(timeout)
     }
   }, [open, isMobileDevice, connectionAttempted, isConnected, address, hasProcessedAuth, popupBlocked])
@@ -84,8 +100,11 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess = () => {} }: Aut
   const handleAuthSuccess = async () => {
     try {
       if (address) {
-        // Clear any previous errors
+        console.log("[AuthDialog] Processing auth success for:", address.substring(0, 10) + "...")
+        
+        // Clear any previous errors immediately
         setError(null)
+        setPopupBlocked(false)
         
         // For Glyph wallet, use the address as the token identifier
         // Glyph handles authentication internally, so we use the address
@@ -99,18 +118,31 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess = () => {} }: Aut
         // Store the connection info (address as token)
         storeAuthToken(address)
         
-        // The Providers component will handle the wallet connection
+        // Mark as processed BEFORE calling callbacks (prevents double-processing)
         setHasProcessedAuth(true)
+        
+        // Call the success callback
         if (typeof onAuthSuccess === "function") {
+          console.log("[AuthDialog] Calling onAuthSuccess callback")
           onAuthSuccess(result)
         } else {
-          console.warn("onAuthSuccess missing; continuing without callback")
+          console.warn("[AuthDialog] onAuthSuccess missing; continuing without callback")
         }
-        onOpenChange(false)
+        
+        // Close dialog after a brief delay to ensure callbacks complete
+        // On mobile, give a moment for the connection to fully establish
+        setTimeout(() => {
+          onOpenChange(false)
+        }, isMobileDevice ? 500 : 100)
+      } else {
+        console.warn("[AuthDialog] handleAuthSuccess called but no address available")
       }
     } catch (error) {
-      console.error("Error handling auth success:", error)
-      setError(error instanceof Error ? error.message : "Failed to authenticate. Please try again.")
+      console.error("[AuthDialog] Error handling auth success:", error)
+      // Don't set error if we're already connected - just log it
+      if (!address || !isConnected) {
+        setError(error instanceof Error ? error.message : "Failed to authenticate. Please try again.")
+      }
     }
   }
 
