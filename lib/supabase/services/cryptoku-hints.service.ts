@@ -223,33 +223,23 @@ export class CryptokuHintsService {
 
   /**
    * Create default hints record for a user
+   * Uses RPC function to bypass RLS
    */
   private async createDefaultHints(userId: string): Promise<PlayerHints> {
     try {
-      const { data, error } = await this.supabase
-        .from("cryptoku_hints")
-        .insert({
-          user_id: userId,
-          hint_balance: 3,
-          total_ranked_completed: 0,
-        })
-        .select()
-        .single()
+      // Use RPC function which has SECURITY DEFINER and can bypass RLS
+      const { error: rpcError } = await this.supabase.rpc("ensure_cryptoku_hints", {
+        p_user_id: userId,
+      })
 
-      if (error) {
-        // If conflict (race condition), fetch existing
-        if (error.code === "23505") {
-          return this.getHints(userId)
-        }
-        console.error("[CryptokuHintsService] Error creating default hints:", error)
-        return HINTS_DEFAULT
+      if (rpcError) {
+        console.error("[CryptokuHintsService] Error calling ensure_cryptoku_hints:", rpcError)
+        // If RPC fails, try to fetch existing (might have been created by another request)
+        return this.getHints(userId)
       }
 
-      return {
-        hintBalance: data.hint_balance,
-        gamesUntilNextFreeHint: 10,
-        totalRankedCompleted: data.total_ranked_completed,
-      }
+      // Fetch the created/existing hints
+      return this.getHints(userId)
     } catch (error) {
       console.error("[CryptokuHintsService] Exception creating default hints:", error)
       return HINTS_DEFAULT
