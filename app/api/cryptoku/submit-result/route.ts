@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import {
   getCryptokuStats,
   updateCryptokuStats,
-} from "@/lib/cryptoku-store"
+} from "@/lib/cryptoku-stats"
 import { CryptokuHintsService } from "@/lib/supabase/services/cryptoku-hints.service"
 import { CryptokuLeaderboardService } from "@/lib/supabase/services/cryptoku-leaderboard.service"
 import { ProfileService } from "@/lib/supabase/services/profile.service"
