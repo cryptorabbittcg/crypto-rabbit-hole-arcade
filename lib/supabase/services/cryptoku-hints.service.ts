@@ -33,7 +33,7 @@ export class CryptokuHintsService {
 
   /**
    * Get hints for a user by wallet address
-   * Includes one-time migration from localStorage
+   * Includes one-time migration from localStorage (client-side only)
    */
   async getHintsByWallet(walletAddress: string): Promise<PlayerHints> {
     try {
@@ -48,13 +48,20 @@ export class CryptokuHintsService {
         return HINTS_DEFAULT
       }
 
-      // Try migration from localStorage (one-time)
-      await this.migrateFromLocalStorage(walletAddress, profile.id)
+      // Try migration from localStorage (one-time, client-side only)
+      // Skip on server-side to prevent timeouts
+      if (typeof window !== "undefined") {
+        await this.migrateFromLocalStorage(walletAddress, profile.id)
+      }
 
       return this.getHints(profile.id)
     } catch (error) {
       console.error("[CryptokuHintsService] Error getting hints:", error)
-      return this.getHintsFromLocalStorage(walletAddress) || HINTS_DEFAULT
+      // Only try localStorage fallback on client-side
+      if (typeof window !== "undefined") {
+        return this.getHintsFromLocalStorage(walletAddress) || HINTS_DEFAULT
+      }
+      return HINTS_DEFAULT
     }
   }
 
@@ -234,12 +241,31 @@ export class CryptokuHintsService {
 
       if (rpcError) {
         console.error("[CryptokuHintsService] Error calling ensure_cryptoku_hints:", rpcError)
-        // If RPC fails, try to fetch existing (might have been created by another request)
-        return this.getHints(userId)
+        // If RPC fails, return default instead of calling getHints again (prevents infinite loop)
+        return HINTS_DEFAULT
       }
 
-      // Fetch the created/existing hints
-      return this.getHints(userId)
+      // Fetch the created/existing hints directly (don't call getHints to avoid loop)
+      const { data, error } = await this.supabase
+        .from("cryptoku_hints")
+        .select("*")
+        .eq("user_id", userId)
+        .single()
+
+      if (error || !data) {
+        // If still not found after RPC call, return default
+        console.warn("[CryptokuHintsService] Hints not found after ensure_cryptoku_hints call")
+        return HINTS_DEFAULT
+      }
+
+      // Calculate gamesUntilNextFreeHint
+      const gamesUntilNext = 10 - (data.total_ranked_completed % 10)
+
+      return {
+        hintBalance: data.hint_balance,
+        gamesUntilNextFreeHint: gamesUntilNext,
+        totalRankedCompleted: data.total_ranked_completed,
+      }
     } catch (error) {
       console.error("[CryptokuHintsService] Exception creating default hints:", error)
       return HINTS_DEFAULT
