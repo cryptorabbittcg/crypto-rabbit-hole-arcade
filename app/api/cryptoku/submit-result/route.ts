@@ -174,6 +174,16 @@ export async function POST(request: NextRequest) {
       .eq('run_id', runId)
       .maybeSingle()
 
+    if (checkError) {
+      console.error("[CryptokuSubmit] Error checking for duplicate run:", {
+        code: checkError.code,
+        message: checkError.message,
+        details: checkError.details,
+        hint: checkError.hint,
+      })
+      // Continue anyway - this is not critical, just for idempotency
+    }
+
     // If existingEntry exists, this is a duplicate run
     const isDuplicateRun = existingEntry !== null
 
@@ -278,8 +288,19 @@ export async function POST(request: NextRequest) {
       gamesUntilNextFreeHint: hintsRewardResult.hints.gamesUntilNextFreeHint,
     })
   } catch (error) {
-    console.error("Error submitting result:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("[CryptokuSubmit] Unhandled error submitting result:", {
+      error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+      errorName: error instanceof Error ? error.name : typeof error,
+    })
+    return NextResponse.json(
+      { 
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    )
   }
 }
 
