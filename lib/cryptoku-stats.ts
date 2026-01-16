@@ -28,24 +28,37 @@ const cleanStreakCache = new Map<string, number>()
 export async function getCryptokuStats(address: string): Promise<PlayerStats> {
   const normalizedAddress = address.toLowerCase()
   
+  // Get clean streak from cache (in-memory, always available)
+  const cleanStreak = cleanStreakCache.get(normalizedAddress) ?? 0
+  
   try {
-    const hintsService = new CryptokuHintsService()
-    const hints = await hintsService.getHintsByWallet(normalizedAddress)
-    
-    // Get clean streak from hints (we'll track this in the hints table)
-    // For now, use in-memory cache as fallback
-    const cleanStreak = cleanStreakCache.get(normalizedAddress) ?? 0
+    // Try to get hints, but don't block if it fails or times out
+    let totalRankedCompleted = 0
+    try {
+      const hintsService = new CryptokuHintsService()
+      // Add timeout protection - if this takes too long, use defaults
+      const hintsPromise = hintsService.getHintsByWallet(normalizedAddress)
+      const timeoutPromise = new Promise<{ totalRankedCompleted: number }>((resolve) => 
+        setTimeout(() => resolve({ totalRankedCompleted: 0 }), 3000) // 3 second timeout
+      )
+      
+      const hints = await Promise.race([hintsPromise, timeoutPromise])
+      totalRankedCompleted = hints.totalRankedCompleted || 0
+    } catch (hintsError) {
+      // If hints service fails, just use default (don't block stats)
+      console.warn(`[getCryptokuStats] Could not fetch hints for ${normalizedAddress}:`, hintsError)
+      totalRankedCompleted = 0
+    }
     
     return {
       cleanStreak,
       degenCompletedCount: 0, // Not tracked separately, can be calculated from leaderboard
       apeCompletedCount: 0,    // Not tracked separately, can be calculated from leaderboard
-      totalCompletedCount: hints.totalRankedCompleted,
+      totalCompletedCount: totalRankedCompleted,
     }
   } catch (error) {
     console.error(`[getCryptokuStats] Error getting stats for ${normalizedAddress}:`, error)
-    // Return cached clean streak if available
-    const cleanStreak = cleanStreakCache.get(normalizedAddress) ?? 0
+    // Return with cached clean streak
     return {
       ...STATS_DEFAULT,
       cleanStreak,
