@@ -337,8 +337,32 @@ export function Providers({ children }: { children: ReactNode }) {
     setAddress(null)
     setIsConnected(false)
     setApeBalance("0.0000")
+    // Reset points and tickets on logout
+    setPoints(0)
+    setTickets(0)
+    // Reset profile to default Guest state
+    setProfile({
+      username: "Guest",
+      avatar: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Artboard-1-83QWedD6ivnkXqy5WoMh05oLPpdMO6.png",
+      referralCode: "RABBIT" + Math.random().toString(36).substring(2, 8).toUpperCase(),
+      referralCount: 0,
+      referralEarnings: 0,
+      joinedAt: new Date(),
+      stats: {
+        gamesPlayed: 0,
+        totalScore: 0,
+        achievements: [],
+      },
+    })
     clearAuthToken()
     clearGameSession()
+    // NOTE: arcade_profile_{wallet_address} persists in localStorage by design
+    // This allows profile to be restored when user reconnects with same wallet
+    // If you want to completely clear profile on logout, uncomment below:
+    // if (address) {
+    //   const { clearProfileByAddress } = require("@/lib/profile-storage")
+    //   clearProfileByAddress(address)
+    // }
   }, [])
 
   const disconnect = useCallback(async () => {
@@ -354,6 +378,23 @@ export function Providers({ children }: { children: ReactNode }) {
       setIsConnected(false)
       setAddress(null)
       setApeBalance("0.0000")
+      // Reset points and tickets on disconnect
+      setPoints(0)
+      setTickets(0)
+      // Reset profile to default Guest state on disconnect
+      setProfile({
+        username: "Guest",
+        avatar: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Artboard-1-83QWedD6ivnkXqy5WoMh05oLPpdMO6.png",
+        referralCode: "RABBIT" + Math.random().toString(36).substring(2, 8).toUpperCase(),
+        referralCount: 0,
+        referralEarnings: 0,
+        joinedAt: new Date(),
+        stats: {
+          gamesPlayed: 0,
+          totalScore: 0,
+          achievements: [],
+        },
+      })
       // Clear hub auth token and session on disconnect
       clearAuthToken()
       clearGameSession()
