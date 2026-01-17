@@ -87,8 +87,8 @@ export default function LeaderboardView() {
             ? `${entry.wallet_address.slice(0, 6)}...${entry.wallet_address.slice(-4)}`
             : "0x0000...0000",
           points: entry.score, // score field contains total_points
-          wins: 0, // RPC doesn't return wins in this format, set to 0 for now
-          streak: 0, // RPC doesn't return streak, set to 0 for now
+          wins: entry.total_wins || 0, // Use wins from RPC response
+          streak: entry.win_streak || 0, // Use streak from RPC response
           avatar: undefined, // Can be added later if needed
         }))
         

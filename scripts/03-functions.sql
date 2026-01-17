@@ -277,6 +277,7 @@ RETURNS TABLE (
   avatar_url TEXT,
   total_points INTEGER,
   total_wins INTEGER,
+  win_streak INTEGER,
   card_battle_wins INTEGER
 ) AS $$
 BEGIN
@@ -289,6 +290,7 @@ BEGIN
     p.avatar_url,
     l.total_points,
     p.total_wins,
+    p.win_streak,
     l.card_battle_wins
   FROM leaderboard l
   JOIN profiles p ON l.user_id = p.id

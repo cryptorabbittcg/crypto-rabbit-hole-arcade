@@ -7,6 +7,8 @@ export type LeaderboardScore = {
   wallet_address: string
   score: number
   game_type: string | null
+  total_wins?: number
+  win_streak?: number
 }
 
 export class LeaderboardService {
@@ -208,6 +210,8 @@ export class LeaderboardService {
         wallet_address: entry.wallet_address || "",
         score: entry.total_points || 0,
         game_type: null,
+        total_wins: entry.total_wins || 0,
+        win_streak: entry.win_streak || 0,
       }))
     } catch (err) {
       console.error("[v0] Error fetching top by points:", err)
