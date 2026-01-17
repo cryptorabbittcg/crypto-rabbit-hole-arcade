@@ -111,8 +111,11 @@ export function Providers({ children }: { children: ReactNode }) {
   useEffect(() => {
     const session = getGameSession()
     if (session) {
+      // Load tickets and username from session (these can be cached)
       setTickets(session.tickets)
-      setPoints(session.points)
+      // NOTE: Points should NOT be loaded from localStorage - always load from Supabase
+      // This ensures points are always accurate and consistent across devices
+      // Points will be loaded from Supabase in syncProfileWithWallet()
       setProfile((prev) => ({ ...prev, username: session.username }))
       if (session.address) {
         setIsConnected(true)
@@ -153,6 +156,9 @@ export function Providers({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isConnected || tickets > 0 || points > 0) {
+      // Store session in localStorage for offline access and cross-game communication
+      // NOTE: Points stored here are for offline/session continuity, but Supabase is source of truth
+      // When wallet connects, points will be loaded fresh from Supabase (syncProfileWithWallet)
       storeGameSession({
         sessionId: `session_${Date.now()}`,
         userId: profile.username,
@@ -160,7 +166,7 @@ export function Providers({ children }: { children: ReactNode }) {
         address,
         thirdwebClientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "", // Kept for backward compatibility with embedded games
         tickets,
-        points,
+        points, // Store current points for session continuity, but Supabase overrides on next load
         timestamp: Date.now(),
         avatar: profile.avatar || null, // Include avatar in session
       })
