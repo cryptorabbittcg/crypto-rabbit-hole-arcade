@@ -123,11 +123,18 @@ export function Providers({ children }: { children: ReactNode }) {
       }
     }
 
+    // NOTE: getStoredPointUpdates() is for pending game updates only
+    // Points from localStorage should NOT be applied here - always load from Supabase
+    // Clear any pending updates to avoid adding stale points
     const updates = getStoredPointUpdates()
     if (updates.length > 0) {
+      // Only apply ticket updates from games (points should come from Supabase)
       updates.forEach((update) => {
-        setPoints((prev) => prev + update.points)
-        setTickets((prev) => prev + update.tickets)
+        // Don't add points from localStorage - they may be stale
+        // Points will be loaded from Supabase in syncProfileWithWallet()
+        if (update.tickets) {
+          setTickets((prev) => prev + update.tickets)
+        }
         if (update.achievements && Array.isArray(update.achievements) && update.achievements.length > 0) {
           const newAchievements = update.achievements as string[]
           setProfile((prev) => ({
@@ -212,7 +219,8 @@ export function Providers({ children }: { children: ReactNode }) {
           stats: savedProfile.stats || profile.stats,
         })
         setTickets(savedProfile.tickets || 0)
-        setPoints(savedProfile.points || 0)
+        // NOTE: Points should NOT be loaded from localStorage - always load from Supabase
+        // Points will be loaded from Supabase below (line 275)
       }
       
       const supabase = createClient()
