@@ -562,6 +562,8 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
   const [isGamePrepared, setIsGamePrepared] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [pauseStartTime, setPauseStartTime] = useState<Date | null>(null)
+  const [activeElapsedMs, setActiveElapsedMs] = useState(0)
+  const [lastResumeAtMs, setLastResumeAtMs] = useState<number | null>(null)
   const [isVerifying, setIsVerifying] = useState(false)
   const [verificationAttempted, setVerificationAttempted] = useState(false)
   const [verificationProofId, setVerificationProofId] = useState<string | null>(null)
@@ -651,11 +653,38 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
     return () => clearInterval(interval)
   }, [hintCooldownTime])
 
+  // Stop active timer: freeze accumulator when game ends
+  const stopActiveTimer = useCallback((atMs?: number) => {
+    const now = atMs ?? Date.now()
+    // If currently running, lock in elapsed time up to now
+    if (!isPaused && lastResumeAtMs != null) {
+      setActiveElapsedMs(prev => prev + (now - lastResumeAtMs))
+    }
+    setLastResumeAtMs(null) // critical: prevents further ticking
+  }, [isPaused, lastResumeAtMs])
+
+  // Accumulator-based timer: tracks only active (non-paused) elapsed time
+  const getActiveElapsedMs = useCallback(() => {
+    let total = activeElapsedMs
+    // Guard: don't tick if game has ended
+    if ((showVictory || gameEndTime) || isPaused || lastResumeAtMs == null) {
+      return total
+    }
+    // Add running time only if game is active and not paused
+    if (!isPaused && lastResumeAtMs != null) {
+      total += Date.now() - lastResumeAtMs
+    }
+    return total
+  }, [activeElapsedMs, isPaused, lastResumeAtMs, showVictory, gameEndTime])
+
+  const getCurrentGameTimeSeconds = useCallback(() => {
+    return Math.floor(getActiveElapsedMs() / 1000)
+  }, [getActiveElapsedMs])
+
+  // Legacy function name for display purposes - now uses accumulator
   const getCurrentGameTime = useCallback(() => {
-    if (!gameStartTime) return 0
-    const now = isPaused && pauseStartTime ? pauseStartTime : new Date()
-    return Math.floor((now.getTime() - gameStartTime.getTime()) / 1000)
-  }, [gameStartTime, isPaused, pauseStartTime])
+    return getCurrentGameTimeSeconds()
+  }, [getCurrentGameTimeSeconds])
 
   const showToastMessage = useCallback((msg: string) => {
     setToast(msg)
@@ -683,7 +712,10 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
   // Confirm forfeit - actually forfeit the game
   const confirmForfeit = useCallback(() => {
     if (currentSession && currentSession.status === "in-progress" && gameHasStarted && playerAddress) {
-      const timeInSeconds = getCurrentGameTime()
+      // Stop the timer immediately when forfeiting
+      stopActiveTimer()
+      
+      const timeInSeconds = getCurrentGameTimeSeconds()
       
       // Forfeit the session
       forfeitGameSession(currentSession.id, errors, hintsUsedInGame)
@@ -733,7 +765,7 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
       // No active game, just close
       onClose?.()
     }
-  }, [currentSession, gameHasStarted, playerAddress, errors, hintsUsedInGame, getCurrentGameTime, currentDifficulty, runId, onGameEnd, onClose])
+  }, [currentSession, gameHasStarted, playerAddress, errors, hintsUsedInGame, getCurrentGameTimeSeconds, stopActiveTimer, currentDifficulty, runId, onGameEnd, onClose])
 
   // Cancel forfeit - return to game
   const cancelForfeit = useCallback(() => {
@@ -767,7 +799,10 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
       if (currentSession && currentSession.status === "in-progress" && gameHasStarted && playerAddress) {
         forfeitGameSession(currentSession.id, errors, hintsUsedInGame)
 
-        const timeInSeconds = getCurrentGameTime()
+        // Stop the timer immediately when forfeiting
+        stopActiveTimer()
+        
+        const timeInSeconds = getCurrentGameTimeSeconds()
 
         // Submit forfeit to API (won't be logged to leaderboard)
         fetch("/api/cryptoku/submit-result", {
@@ -831,6 +866,8 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
       setIsPaused(false)
       setPauseStartTime(null)
       setTimerTicks(0)
+      setActiveElapsedMs(0)
+      setLastResumeAtMs(null)
       animatedTokensRef.current = new Set()
       setCompletedTokens(new Set())
       setCompletedSections(new Set())
@@ -844,7 +881,8 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
       gameHasStarted,
       errors,
       hintsUsedInGame,
-      getCurrentGameTime,
+      getCurrentGameTimeSeconds,
+      stopActiveTimer,
       onGameEnd,
       currentDifficulty,
       runId,
@@ -866,6 +904,10 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
     setPauseStartTime(null)
     setTimerTicks(0)
 
+    // Initialize accumulator-based timer
+    setActiveElapsedMs(0)
+    setLastResumeAtMs(Date.now())
+
     const session = startGameSession(currentDifficulty)
     setCurrentSession(session)
 
@@ -875,15 +917,26 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
   }, [currentDifficulty, gameHasStarted, isGamePrepared, onGameStart])
 
   const togglePause = useCallback(() => {
-    if (!gameHasStarted || showVictory) return
+    // Hard guard: don't allow pause/resume after game has ended
+    if (!gameHasStarted || showVictory || gameEndTime) return
+
+    const now = Date.now()
+
     if (isPaused) {
+      // Resume: record resume time
       setIsPaused(false)
       setPauseStartTime(null)
+      setLastResumeAtMs(now)
     } else {
+      // Pause: accumulate active time up to now
+      if (lastResumeAtMs != null) {
+        setActiveElapsedMs(prev => prev + (now - lastResumeAtMs))
+      }
       setIsPaused(true)
       setPauseStartTime(new Date())
+      setLastResumeAtMs(null)
     }
-  }, [gameHasStarted, isPaused, showVictory])
+  }, [gameHasStarted, showVictory, gameEndTime, isPaused, lastResumeAtMs])
 
   const placeValue = useCallback(
     (v: number) => {
@@ -1290,10 +1343,13 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
     setIsVerifying(true)
     setVerificationAttempted(true)
 
+    // Mark game end time, then stop the timer at exactly that time
     const endTime = new Date()
     setGameEndTime(endTime)
+    stopActiveTimer(endTime.getTime())
 
-    const timeInSeconds = Math.floor((endTime.getTime() - gameStartTime.getTime()) / 1000)
+    // Use accumulator-based timer (excludes paused time)
+    const timeInSeconds = getCurrentGameTimeSeconds()
 
     const hasApiKey =
       typeof process !== "undefined" &&
@@ -1525,6 +1581,8 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
     playerAddress,
     runId,
     verificationAttempted,
+    getCurrentGameTimeSeconds,
+    stopActiveTimer,
   ])
 
   // Fetch leaderboard from API

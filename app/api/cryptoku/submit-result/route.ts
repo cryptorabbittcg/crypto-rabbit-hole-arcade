@@ -72,6 +72,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid mode" }, { status: 400 })
     }
 
+    // Server-side hardening: clamp timeSeconds to prevent leaderboard pollution
+    let safeTimeSeconds = Number(timeSeconds) || 0
+    if (safeTimeSeconds < 0) safeTimeSeconds = 0
+    if (safeTimeSeconds > 3600) safeTimeSeconds = 3600
+
     // Step 1: Normalize address lowercase
     const normalizedAddress = playerAddress.toLowerCase()
     console.log("[CryptokuSubmit] Step 1: Normalized address", {
@@ -139,12 +144,12 @@ export async function POST(request: NextRequest) {
 
     // Get clean streak for score calculation (read-only, no updates)
     const playerStats = await getCryptokuStats(normalizedAddress)
-    const score = calculateScore(mode, timeSeconds, hintsUsed, errors, playerStats.cleanStreak)
+    const score = calculateScore(mode, safeTimeSeconds, hintsUsed, errors, playerStats.cleanStreak)
     
     console.log("[CryptokuSubmit] Step 1: Score calculated", {
       score,
       mode,
-      timeSeconds,
+      timeSeconds: safeTimeSeconds,
       hintsUsed,
       errors,
       cleanStreak: playerStats.cleanStreak,
@@ -209,7 +214,7 @@ export async function POST(request: NextRequest) {
       address: normalizedAddress,
       mode,
       score,
-      timeSeconds,
+      timeSeconds: safeTimeSeconds,
       hintsUsed,
       errors,
       timestamp: Date.now(),
@@ -237,7 +242,7 @@ export async function POST(request: NextRequest) {
       userId: profile.id,
       game_type: 'cryptoku',
       game_mode: mode,
-      duration: timeSeconds,
+      duration: safeTimeSeconds,
       score,
       result: 'won',
       points_earned: score,
@@ -253,7 +258,7 @@ export async function POST(request: NextRequest) {
         user_id: profile.id,
         game_type: 'cryptoku',
         game_mode: mode,
-        duration: timeSeconds,
+        duration: safeTimeSeconds,
         score: score,
         result: 'won',
         points_earned: score, // ranked only (DEGEN/APE)
