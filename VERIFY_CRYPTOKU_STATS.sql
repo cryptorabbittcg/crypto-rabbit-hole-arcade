@@ -20,11 +20,11 @@ SELECT
   duration,
   result,
   points_earned,
-  created_at,
+  started_at,
   ended_at
 FROM game_sessions
 WHERE game_type = 'cryptoku'
-ORDER BY created_at DESC
+ORDER BY ended_at DESC NULLS LAST, started_at DESC
 LIMIT 10;
 
 -- =====================================================
@@ -41,7 +41,8 @@ LIMIT 10;
 --   duration,
 --   result,
 --   points_earned,
---   created_at
+--   started_at,
+--   ended_at
 -- FROM game_sessions
 -- WHERE run_id = 'YOUR_RUN_ID';
 
@@ -80,7 +81,7 @@ SELECT
   p.total_playtime,
   p.points,
   COUNT(gs.id) as cryptoku_sessions_count,
-  MAX(gs.created_at) as last_cryptoku_session
+  MAX(gs.ended_at) as last_cryptoku_session
 FROM profiles p
 LEFT JOIN game_sessions gs ON gs.user_id = p.id AND gs.game_type = 'cryptoku'
 WHERE EXISTS (
@@ -134,7 +135,7 @@ SELECT
   gs.score,
   gs.duration,
   gs.points_earned,
-  gs.created_at,
+  gs.ended_at,
   cl.id as leaderboard_entry_id,
   CASE 
     WHEN gs.run_id IS NOT NULL THEN '✅ Has run_id'
@@ -143,7 +144,7 @@ SELECT
 FROM game_sessions gs
 LEFT JOIN cryptoku_leaderboard cl ON cl.run_id = gs.run_id
 WHERE gs.game_type = 'cryptoku'
-ORDER BY gs.created_at DESC
+ORDER BY gs.ended_at DESC NULLS LAST, gs.started_at DESC
 LIMIT 10;
 
 -- =====================================================

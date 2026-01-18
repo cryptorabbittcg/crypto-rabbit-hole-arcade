@@ -36,6 +36,10 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
     // Server awards points. We refresh local profile/state.
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("ARCADE_REFRESH_PROFILE"))
+      // Delayed refresh to ensure DB transaction has committed
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("ARCADE_REFRESH_PROFILE"))
+      }, 1200)
     }
   }, [])
   
@@ -55,6 +59,10 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
     // We just refresh local profile/state after the run.
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("ARCADE_REFRESH_PROFILE"))
+      // Delayed refresh to ensure DB transaction has committed
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("ARCADE_REFRESH_PROFILE"))
+      }, 1200)
     }
   }, [])
 
@@ -350,6 +358,10 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
         // Server awards points. We refresh local profile/state.
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("ARCADE_REFRESH_PROFILE"))
+          // Delayed refresh to ensure DB transaction has committed
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent("ARCADE_REFRESH_PROFILE"))
+          }, 1200)
         }
       }
     }

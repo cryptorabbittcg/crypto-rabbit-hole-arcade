@@ -114,6 +114,13 @@ export default function LeaderboardView() {
     }
 
     fetchOverallLeaderboard()
+
+    // Refresh leaderboard when tab regains focus (prevents stale data)
+    const handleFocus = () => {
+      fetchOverallLeaderboard()
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
   }, [address])
 
   // Helper function to format time
