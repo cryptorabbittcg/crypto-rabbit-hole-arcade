@@ -215,6 +215,7 @@ export async function POST(request: NextRequest) {
       timestamp: Date.now(),
       completed: true,
       forfeited: false,
+      season: CURRENT_SEASON,
     })
 
     if (!leaderboardResult) {

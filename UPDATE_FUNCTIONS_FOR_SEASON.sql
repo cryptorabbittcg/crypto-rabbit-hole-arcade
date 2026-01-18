@@ -145,3 +145,84 @@ BEGIN
   END IF;
 END;
 $$;
+
+-- =====================================================
+-- UPDATE: get_cryptoku_leaderboard
+-- =====================================================
+-- Add season filter to leaderboard reads
+CREATE OR REPLACE FUNCTION get_cryptoku_leaderboard(
+  p_mode TEXT DEFAULT 'ALL',
+  p_limit INTEGER DEFAULT 50,
+  p_season INTEGER DEFAULT 1  -- Add season parameter (default to Season 1)
+)
+RETURNS TABLE (
+  rank BIGINT,
+  run_id TEXT,
+  user_id UUID,
+  wallet_address TEXT,
+  username TEXT,
+  mode TEXT,
+  score INTEGER,
+  time_seconds INTEGER,
+  hints_used INTEGER,
+  errors INTEGER,
+  created_at TIMESTAMP WITH TIME ZONE
+) AS $$
+BEGIN
+  RETURN QUERY
+  WITH ranked_runs AS (
+    SELECT 
+      cl.id,
+      cl.run_id,
+      cl.user_id,
+      cl.mode,
+      cl.score,
+      cl.time_seconds,
+      cl.hints_used,
+      cl.errors,
+      cl.created_at,
+      p.wallet_address,
+      p.username,
+      ROW_NUMBER() OVER (
+        ORDER BY 
+          CASE WHEN p_mode = 'ALL' THEN 
+            CASE cl.mode WHEN 'APE' THEN 1 WHEN 'DEGEN' THEN 2 ELSE 3 END 
+          ELSE 0 END,
+          cl.score DESC,
+          cl.time_seconds ASC
+      ) as global_rank,
+      ROW_NUMBER() OVER (
+        PARTITION BY cl.mode 
+        ORDER BY cl.score DESC, cl.time_seconds ASC
+      ) as mode_rank
+    FROM cryptoku_leaderboard cl
+    JOIN profiles p ON cl.user_id = p.id
+    WHERE 
+      cl.completed = TRUE 
+      AND cl.forfeited = FALSE
+      AND cl.mode IN ('DEGEN', 'APE')
+      AND (p_mode = 'ALL' OR cl.mode = p_mode)
+      AND cl.season = p_season  -- Filter by season
+  )
+  SELECT 
+    CASE WHEN p_mode = 'ALL' THEN rr.global_rank ELSE rr.mode_rank END as rank,
+    rr.run_id,
+    rr.user_id,
+    rr.wallet_address,
+    rr.username,
+    rr.mode,
+    rr.score,
+    rr.time_seconds,
+    rr.hints_used,
+    rr.errors,
+    rr.created_at
+  FROM ranked_runs rr
+  ORDER BY 
+    CASE WHEN p_mode = 'ALL' THEN 
+      CASE rr.mode WHEN 'APE' THEN 1 WHEN 'DEGEN' THEN 2 ELSE 3 END 
+    ELSE 0 END,
+    rr.score DESC,
+    rr.time_seconds ASC
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;
