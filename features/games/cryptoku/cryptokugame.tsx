@@ -95,7 +95,7 @@ const TOKENS = [
 const DIFF: Record<Difficulty, number> = {
   noob: 40,
   degen: 40, // Changed to 40 clues (same as Noob) for easier testing
-  ape: 25,
+  ape: 32,
 }
 
 const TUTORIAL_SLIDES = [
@@ -1851,7 +1851,7 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
                     : "opacity-50 cursor-not-allowed"
                 }`}
               >
-                🟡 Ape — 25 clues (Hard) • Ranked {!playerAddress && "(Login Required)"}
+                🟡 Ape — 32 clues (Hard) • Ranked {!playerAddress && "(Login Required)"}
               </button>
             </div>
 
