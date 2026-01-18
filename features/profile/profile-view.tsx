@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { useArcade } from "@/components/providers"
 import { useAccount } from "wagmi"
 import { ProfileService } from "@/lib/supabase/services/profile.service"
-import { GameService } from "@/lib/supabase/services/game.service"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -75,10 +74,47 @@ export default function ProfileView() {
 
       try {
         const profileService = new ProfileService()
-        const [profileData, games, stats, linkedWalletsResponse] = await Promise.all([
-          profileService.getProfileByWallet(profileAddress),
-          GameService.getRecentGames(profileAddress, 10),
-          GameService.computeStats(profileAddress), // Compute stats from game_sessions
+        // First fetch profile to get user_id
+        const profileData = await profileService.getProfileByWallet(profileAddress)
+        
+        if (cancelled) return
+
+        if (!profileData) {
+          if (!cancelled) {
+            setLoading(false)
+          }
+          return
+        }
+
+        setSupabaseProfile(profileData)
+        setUsername(profileData.username)
+
+        // Now fetch games and stats using server API (admin client, bypasses RLS)
+        const [gamesResponse, statsResponse, linkedWalletsResponse] = await Promise.all([
+          fetch(`/api/profile/recent-games?wallet=${encodeURIComponent(profileAddress)}&limit=10`).then(async (res) => {
+            if (!res.ok) {
+              console.error(`[ProfileView] Failed to fetch recent games: ${res.status}`)
+              return []
+            }
+            const json = await res.json()
+            if (json.error) {
+              console.error(`[ProfileView] Recent games API error:`, json.error)
+              return []
+            }
+            return json
+          }),
+          fetch(`/api/profile/stats?wallet=${encodeURIComponent(profileAddress)}`).then(async (res) => {
+            if (!res.ok) {
+              console.error(`[ProfileView] Failed to fetch stats: ${res.status}`)
+              return { gamesPlayed: 0, wins: 0, losses: 0, winStreak: 0, bestWinStreak: 0, totalPlaytime: 0 }
+            }
+            const json = await res.json()
+            if (json.error) {
+              console.error(`[ProfileView] Stats API error:`, json.error)
+              return { gamesPlayed: 0, wins: 0, losses: 0, winStreak: 0, bestWinStreak: 0, totalPlaytime: 0 }
+            }
+            return json
+          }),
           fetch(`/api/profile/linked-wallets?address=${encodeURIComponent(profileAddress)}`).then(async (res) => {
             console.log(`[ProfileView] Fetching linked wallets for ${profileAddress.substring(0, 10)}...`)
             if (!res.ok) {
@@ -97,13 +133,8 @@ export default function ProfileView() {
 
         if (cancelled) return
 
-        if (profileData) {
-          setSupabaseProfile(profileData)
-          setUsername(profileData.username)
-        }
-
-        setRecentGames(games)
-        setComputedStats(stats)
+        setRecentGames(gamesResponse)
+        setComputedStats(statsResponse)
 
         if (linkedWalletsResponse.ok && linkedWalletsResponse.linked_wallets) {
           setLinkedWallets(linkedWalletsResponse.linked_wallets)

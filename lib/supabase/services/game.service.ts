@@ -161,7 +161,7 @@ export class GameService {
   }> {
     let query = this.supabase
       .from("game_sessions")
-      .select("result, duration, duration_seconds, ended_at, started_at, created_at")
+      .select("result, duration, started_at, ended_at")
       .eq("user_id", userId)
 
     if (gameType) {
@@ -171,7 +171,15 @@ export class GameService {
     const { data, error } = await query.order("ended_at", { ascending: false, nullsLast: true })
 
     if (error) {
-      console.error("[GameService] Error computing stats:", error)
+      console.error("[GameService] Error computing stats:", {
+        error,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        userId,
+        gameType,
+      })
       return {
         gamesPlayed: 0,
         wins: 0,
@@ -183,6 +191,13 @@ export class GameService {
     }
 
     const sessions = data || []
+    console.log("[GameService] computeStatsFromSessions", {
+      userId,
+      gameType: gameType || "overall",
+      sessionsCount: sessions.length,
+      sampleSession: sessions[0] || null,
+      sampleResult: sessions[0]?.result || null,
+    })
     const gamesPlayed = sessions.length
     let wins = 0
     let losses = 0
@@ -194,8 +209,7 @@ export class GameService {
     // Sessions are ordered by ended_at descending (most recent first)
     for (const session of sessions) {
       const result = session.result?.toLowerCase()
-      // Handle both duration and duration_seconds column names
-      const duration = session.duration ?? session.duration_seconds ?? 0
+      const duration = session.duration ?? 0
       totalPlaytime += duration
 
       if (result === "won" || result === "win") {

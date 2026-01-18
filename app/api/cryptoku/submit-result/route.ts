@@ -322,11 +322,13 @@ export async function POST(request: NextRequest) {
     // Step 3D: Return success
     console.log("[CryptokuSubmit] Step 3D: Request completed successfully", {
       runId,
+      score,
       pointsEarned: score,
       isDuplicate: false,
     })
 
     return NextResponse.json({
+      score,
       pointsEarned: score,
       isDuplicate: false,
     })
