@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import {
-  getCryptokuStats,
-  updateCryptokuStats,
-} from "@/lib/cryptoku-stats"
-import { CryptokuHintsService } from "@/lib/supabase/services/cryptoku-hints.service"
 import { CryptokuLeaderboardService } from "@/lib/supabase/services/cryptoku-leaderboard.service"
 import { ProfileService } from "@/lib/supabase/services/profile.service"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getCryptokuStats } from "@/lib/cryptoku-stats"
 
 // Server-side scoring formula
 function calculateScore(
@@ -38,7 +34,6 @@ function calculateScore(
   const rawScore = baseTimeScore - hintPenalty - errorPenalty + cleanRunBonus + streakBonus
   
   // Minimum score floor: ensure completion always rewards at least 20 points
-  // This prevents scores from going too low even with heavy penalties
   const minScore = 20
   const score = Math.max(minScore, Math.round(rawScore))
 
@@ -59,312 +54,285 @@ export async function POST(request: NextRequest) {
       forfeited,
     } = body
 
+    console.log("[CryptokuSubmit] Step 0: Received request", {
+      runId,
+      mode,
+      address: playerAddress ? playerAddress.substring(0, 10) + "..." : "missing",
+    })
+
     // Validation
     if (!playerAddress || !mode || !runId) {
+      console.error("[CryptokuSubmit] Step 0: Missing required fields", { playerAddress: !!playerAddress, mode, runId })
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
     if (!["NOOB", "DEGEN", "APE"].includes(mode)) {
+      console.error("[CryptokuSubmit] Step 0: Invalid mode", { mode })
       return NextResponse.json({ error: "Invalid mode" }, { status: 400 })
     }
 
+    // Step 1: Normalize address lowercase
     const normalizedAddress = playerAddress.toLowerCase()
-
-    // NOOB mode: Early return - NO mutations (no streak, no counters, no hints, no leaderboard)
-    if (mode === "NOOB") {
-      return NextResponse.json({
-        success: true,
-        unranked: true,
-        message: "NOOB mode is unranked",
-      })
-    }
-
-    // Forfeited games: Early return - NO mutations (no streak, no counters, no hints, no leaderboard)
-    if (forfeited) {
-      return NextResponse.json({
-        success: true,
-        unranked: true,
-        message: "Forfeited games are not ranked",
-      })
-    }
-
-    // Only process completed ranked games (DEGEN or APE)
-    // If not completed or invalid mode, return early without mutations
-    if (!completed || !["DEGEN", "APE"].includes(mode)) {
-      return NextResponse.json({
-        success: true,
-        unranked: true,
-        message: "Only completed ranked games are logged",
-      })
-    }
-
-    // Get player stats
-    const playerStats = await getCryptokuStats(normalizedAddress)
-    const isCleanRun = hintsUsed === 0 && errors === 0
-
-    // Calculate score
-    const score = calculateScore(mode, timeSeconds, hintsUsed, errors, playerStats.cleanStreak)
-
-    // Update clean streak and completion counts
-    const updatedStats = await updateCryptokuStats(normalizedAddress, (stats) => {
-      const newStats = { ...stats }
-      
-      // Update clean streak
-      if (isCleanRun) {
-        newStats.cleanStreak += 1
-      } else {
-        newStats.cleanStreak = 0
-      }
-
-      // Update completion counts
-      if (mode === "DEGEN") {
-        newStats.degenCompletedCount += 1
-      } else if (mode === "APE") {
-        newStats.apeCompletedCount += 1
-      }
-      newStats.totalCompletedCount += 1
-
-      return newStats
+    console.log("[CryptokuSubmit] Step 1: Normalized address", {
+      original: playerAddress.substring(0, 10) + "...",
+      normalized: normalizedAddress.substring(0, 10) + "...",
     })
 
-    // Update hints economy: +1 hint every 10 completed ranked games (atomic operation)
-    const hintsService = new CryptokuHintsService()
-    const profileService = new ProfileService()
-    
-    // PHASE 1 FIX: Add retry-only profile lookup (mobile profile sync may be in progress)
-    // Retry up to 3 times with 800ms delays if profile not found
-    let profile = await profileService.getProfileByWallet(normalizedAddress)
-    let retryAttempt = 0
-    const maxRetries = 2 // 3 total attempts (initial + 2 retries)
-    
-    while (!profile && retryAttempt < maxRetries) {
-      console.log(`[CryptokuSubmit] Profile not found, retrying (attempt ${retryAttempt + 1}/${maxRetries})...`)
-      await new Promise(resolve => setTimeout(resolve, 800))
-      profile = await profileService.getProfileByWallet(normalizedAddress)
-      retryAttempt++
+    // Early returns for unranked modes
+    if (mode === "NOOB") {
+      console.log("[CryptokuSubmit] NOOB mode - unranked, returning early")
+      return NextResponse.json({
+        pointsEarned: 0,
+        isDuplicate: false,
+        unranked: true,
+      })
     }
+
+    if (forfeited) {
+      console.log("[CryptokuSubmit] Forfeited game - unranked, returning early", { runId })
+      return NextResponse.json({
+        pointsEarned: 0,
+        isDuplicate: false,
+        unranked: true,
+      })
+    }
+
+    if (!completed || !["DEGEN", "APE"].includes(mode)) {
+      console.log("[CryptokuSubmit] Not completed or invalid mode - unranked, returning early", { completed, mode })
+      return NextResponse.json({
+        pointsEarned: 0,
+        isDuplicate: false,
+        unranked: true,
+      })
+    }
+
+    // Step 1 (continued): Resolve user_id from profiles (create if needed)
+    const profileService = new ProfileService()
+    let profile = await profileService.getProfileByWallet(normalizedAddress)
     
     if (!profile) {
-      console.error("[CryptokuSubmit] Profile not found after retries for address:", normalizedAddress.substring(0, 10) + "...")
-      return NextResponse.json(
-        { 
-          error: "PROFILE_NOT_READY",
-          message: "Profile not ready yet. Please reconnect and try again in a moment."
-        },
-        { status: 425 } // 425 Too Early - profile sync in progress
-      )
-    }
-    
-    console.log("[CryptokuSubmit] Profile found:", {
-      userId: profile.id,
-      address: normalizedAddress.substring(0, 10) + "...",
-      mode,
-      score,
-    })
-    
-    let hintsRewardResult
-    try {
-      hintsRewardResult = await hintsService.rewardHint(profile.id)
-    } catch (error) {
-      console.error("[CryptokuSubmit] Error rewarding hint:", error)
-      hintsRewardResult = { hintsEarned: 0, hints: { hintBalance: 0, gamesUntilNextFreeHint: 10, totalRankedCompleted: 0 } }
+      console.log("[CryptokuSubmit] Step 1: Profile not found, creating new profile", {
+        address: normalizedAddress.substring(0, 10) + "...",
+      })
+      // Create profile if it doesn't exist
+      profile = await profileService.createProfile({
+        wallet_address: normalizedAddress,
+        username: `Player_${normalizedAddress.substring(2, 8)}`, // Generate a default username
+      })
+      
+      if (!profile) {
+        console.error("[CryptokuSubmit] Step 1: Failed to create profile", {
+          address: normalizedAddress.substring(0, 10) + "...",
+        })
+        return NextResponse.json(
+          { error: "Failed to create profile" },
+          { status: 500 }
+        )
+      }
     }
 
-    // Create admin client for points awarding (bypasses RLS)
-    let adminClient
-    try {
-      adminClient = createAdminClient()
-    } catch (error) {
-      console.error("[CryptokuSubmit] Error creating admin client:", error)
+    console.log("[CryptokuSubmit] Step 1: Profile resolved", {
+      userId: profile.id,
+      address: normalizedAddress.substring(0, 10) + "...",
+    })
+
+    // Get clean streak for score calculation (read-only, no updates)
+    const playerStats = await getCryptokuStats(normalizedAddress)
+    const score = calculateScore(mode, timeSeconds, hintsUsed, errors, playerStats.cleanStreak)
+    
+    console.log("[CryptokuSubmit] Step 1: Score calculated", {
+      score,
+      mode,
+      timeSeconds,
+      hintsUsed,
+      errors,
+      cleanStreak: playerStats.cleanStreak,
+    })
+
+    // Create admin client
+    const adminClient = createAdminClient()
+    if (!adminClient) {
+      console.error("[CryptokuSubmit] Step 1: Failed to create admin client")
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : "Server configuration error" },
+        { error: "Server configuration error" },
         { status: 500 }
       )
     }
 
-    // Check if this run already exists (idempotency check)
+    // Step 2: Duplicate check BEFORE any insert
+    console.log("[CryptokuSubmit] Step 2: Checking for duplicate run_id", { runId })
     const { data: existingEntry, error: checkError } = await adminClient
       .from('cryptoku_leaderboard')
-      .select('id')
+      .select('run_id')
       .eq('run_id', runId)
       .maybeSingle()
 
     if (checkError) {
-      console.error("[CryptokuSubmit] Error checking for duplicate run:", {
+      console.error("[CryptokuSubmit] Step 2: Error checking for duplicate", {
         code: checkError.code,
         message: checkError.message,
         details: checkError.details,
         hint: checkError.hint,
+        runId,
       })
-      // Continue anyway - this is not critical, just for idempotency
+      return NextResponse.json(
+        { error: "Failed to check for duplicate run" },
+        { status: 500 }
+      )
     }
 
-    // If existingEntry exists, this is a duplicate run
-    const isDuplicateRun = existingEntry !== null
+    if (existingEntry) {
+      console.log("[CryptokuSubmit] Step 2: Duplicate run_id detected, returning early", {
+        runId,
+        existingEntry,
+      })
+      return NextResponse.json({
+        pointsEarned: 0,
+        isDuplicate: true,
+      })
+    }
 
-    // Add to leaderboard (Supabase) - use admin client to bypass RLS
-    const leaderboardService = new CryptokuLeaderboardService(adminClient)
-    console.log("[CryptokuSubmit] Calling leaderboardService.addEntry with RPC: add_cryptoku_leaderboard_entry", {
+    console.log("[CryptokuSubmit] Step 2: No duplicate found, proceeding with insert", { runId })
+
+    // Step 3A: Insert cryptoku_leaderboard row
+    console.log("[CryptokuSubmit] Step 3A: Inserting leaderboard entry", {
       runId,
       address: normalizedAddress.substring(0, 10) + "...",
       mode,
       score,
     })
-    
-    let leaderboardResult
-    try {
-      leaderboardResult = await leaderboardService.addEntry({
-        runId,
-        address: normalizedAddress,
-        mode,
-        score,
-        timeSeconds,
-        hintsUsed,
-        errors,
-        timestamp: Date.now(),
-        completed: true,
-        forfeited: false,
-      })
-      
-      console.log("[CryptokuSubmit] leaderboardService.addEntry returned:", {
-        result: leaderboardResult,
-        runId,
-      })
-    } catch (error) {
-      console.error("[CryptokuSubmit] Exception caught in leaderboardService.addEntry:", {
-        errorMessage: error instanceof Error ? error.message : String(error),
-        errorStack: error instanceof Error ? error.stack : undefined,
-        errorName: error instanceof Error ? error.name : typeof error,
-        runId,
-        mode,
-        score,
-      })
-      leaderboardResult = false
-    }
-    
+
+    const leaderboardService = new CryptokuLeaderboardService(adminClient)
+    const leaderboardResult = await leaderboardService.addEntry({
+      runId,
+      address: normalizedAddress,
+      mode,
+      score,
+      timeSeconds,
+      hintsUsed,
+      errors,
+      timestamp: Date.now(),
+      completed: true,
+      forfeited: false,
+    })
+
     if (!leaderboardResult) {
-      console.error("[CryptokuSubmit] Failed to add leaderboard entry - leaderboardResult is falsy", {
+      console.error("[CryptokuSubmit] Step 3A: Failed to insert leaderboard entry", {
         runId,
-        address: normalizedAddress.substring(0, 10) + "...",
         mode,
         score,
-        leaderboardResult,
       })
       return NextResponse.json(
         { error: "Failed to save leaderboard entry" },
         { status: 500 }
       )
     }
-    
-    console.log("[CryptokuSubmit] Leaderboard entry added successfully", { runId, score })
 
-    // Award points only for ranked modes (DEGEN/APE) and only if this is a new submission
-    // Points = score (MVP)
-    const rankedMode = mode === "DEGEN" || mode === "APE"
-    const eligibleForPoints = rankedMode && completed && !forfeited
-    const pointsEarned = eligibleForPoints && !isDuplicateRun ? score : 0
+    console.log("[CryptokuSubmit] Step 3A: Leaderboard entry inserted successfully", { runId })
 
-    // Record game session and update stats (only for completed, non-forfeited runs, and not duplicates)
-    // record_game_session awards points internally via update_user_balance
-    // Use isDuplicateRun from leaderboard check for idempotency (if leaderboard entry exists, skip session recording)
-    let sessionId: string | null = null
-    let sessionRecorded = false
+    // Step 3B: Insert game_sessions row (admin client)
+    console.log("[CryptokuSubmit] Step 3B: Inserting game_sessions row", {
+      userId: profile.id,
+      game_type: 'cryptoku',
+      game_mode: mode,
+      duration: timeSeconds,
+      score,
+      result: 'won',
+      points_earned: score,
+      run_id: runId,
+    })
 
-    if (completed && !forfeited && !isDuplicateRun && profile) {
-      // New submission - record game session (updates stats + awards points)
-      try {
-        const { data: sessionData, error: sessionError } = await adminClient.rpc('record_game_session', {
-          p_user_id: profile.id,
-          p_game_type: 'cryptoku',
-          p_game_mode: mode,
-          p_duration: timeSeconds,
-          p_result: 'won', // Cryptoku completions are wins
-          p_ape_earned: 0,
-          p_tickets_earned: 0,
-          p_points_earned: pointsEarned, // Will award points via update_user_balance internally
-        })
+    const startedAt = new Date().toISOString()
+    const endedAt = new Date().toISOString()
 
-        if (sessionError) {
-          console.error("[CryptokuSubmit] Error recording game session:", {
-            code: sessionError.code,
-            message: sessionError.message,
-            details: sessionError.details,
-            hint: sessionError.hint,
-          })
-          // Don't fail the request if session recording fails - leaderboard entry was successful
-          console.log("[CryptokuSubmit] Session recording failed, but continuing (points awarded via record_game_session if it partially succeeded)")
-        } else {
-          sessionId = sessionData || null
-          sessionRecorded = true
-          
-          // Update session with run_id for idempotency (record_game_session doesn't support run_id parameter)
-          if (sessionId) {
-            const { error: updateError } = await adminClient
-              .from('game_sessions')
-              .update({ run_id: runId })
-              .eq('id', sessionId)
+    const { data: sessionData, error: sessionError } = await adminClient
+      .from('game_sessions')
+      .insert({
+        user_id: profile.id,
+        game_type: 'cryptoku',
+        game_mode: mode,
+        duration: timeSeconds,
+        score: score,
+        result: 'won',
+        points_earned: score, // ranked only (DEGEN/APE)
+        started_at: startedAt,
+        ended_at: endedAt,
+        run_id: runId,
+      })
+      .select('id')
+      .single()
 
-            if (updateError) {
-              // Non-fatal - run_id update is for idempotency but not critical
-              console.warn("[CryptokuSubmit] Could not update game_session with run_id (non-fatal):", {
-                sessionId,
-                runId,
-                error: updateError.message,
-              })
-            }
-          }
-
-          console.log("[CryptokuSubmit] Game session recorded successfully", {
-            sessionId,
-            runId,
-            userId: profile.id,
-            mode,
-            pointsEarned,
-            duration: timeSeconds,
-            pointsAwardedVia: 'record_game_session',
-          })
-        }
-      } catch (error) {
-        console.error("[CryptokuSubmit] Exception recording game session:", {
-          errorMessage: error instanceof Error ? error.message : String(error),
-          errorStack: error instanceof Error ? error.stack : undefined,
-        })
-        // Continue - don't fail the request
-      }
-    } else if (isDuplicateRun) {
-      console.log("[CryptokuSubmit] Duplicate run_id detected, skipping session recording (already processed)", {
+    if (sessionError) {
+      console.error("[CryptokuSubmit] Step 3B: Failed to insert game_sessions row", {
+        code: sessionError.code,
+        message: sessionError.message,
+        details: sessionError.details,
+        hint: sessionError.hint,
         runId,
-        completed,
-        forfeited,
       })
+      return NextResponse.json(
+        { error: "Failed to save game session" },
+        { status: 500 }
+      )
     }
 
-    // Note: Points are now awarded via record_game_session (which calls update_user_balance internally)
-    // We removed the separate update_user_balance call to prevent double-awarding
+    console.log("[CryptokuSubmit] Step 3B: Game session inserted successfully", {
+      sessionId: sessionData.id,
+      runId,
+    })
 
-    if (isDuplicateRun && eligibleForPoints) {
-      console.log("[CryptokuSubmit] Duplicate run detected, skipping points (already awarded in previous submission)", { runId })
-    } else if (pointsEarned === 0 && eligibleForPoints) {
-      console.log("[CryptokuSubmit] No points earned (duplicate run)", { runId })
-    } else if (!eligibleForPoints) {
-      console.log("[CryptokuSubmit] Not eligible for points", {
-        rankedMode,
-        completed,
-        forfeited,
+    // Step 3C: Award points ONLY ONCE using update_user_balance (admin client)
+    const description = `cryptoku ${mode} run_id:${runId}`
+    console.log("[CryptokuSubmit] Step 3C: Awarding points via update_user_balance", {
+      userId: profile.id,
+      amount: score,
+      currency: 'points',
+      description,
+    })
+
+    const { error: balanceError } = await adminClient.rpc('update_user_balance', {
+      p_user_id: profile.id,
+      p_ape_change: 0,
+      p_tickets_change: 0,
+      p_points_change: score,
+      p_transaction_type: 'game_reward',
+      p_description: description,
+    })
+
+    if (balanceError) {
+      console.error("[CryptokuSubmit] Step 3C: Failed to award points", {
+        code: balanceError.code,
+        message: balanceError.message,
+        details: balanceError.details,
+        hint: balanceError.hint,
+        runId,
       })
+      return NextResponse.json(
+        { error: "Failed to award points" },
+        { status: 500 }
+      )
     }
+
+    console.log("[CryptokuSubmit] Step 3C: Points awarded successfully", {
+      userId: profile.id,
+      pointsAwarded: score,
+      runId,
+    })
+
+    // Step 3D: Return success
+    console.log("[CryptokuSubmit] Step 3D: Request completed successfully", {
+      runId,
+      pointsEarned: score,
+      isDuplicate: false,
+    })
 
     return NextResponse.json({
-      success: true,
-      score,
-      pointsEarned,
-      cleanStreak: updatedStats.cleanStreak,
-      hintsEarned: hintsRewardResult.hintsEarned,
-      hintBalance: hintsRewardResult.hints.hintBalance,
-      gamesUntilNextFreeHint: hintsRewardResult.hints.gamesUntilNextFreeHint,
+      pointsEarned: score,
+      isDuplicate: false,
     })
+
   } catch (error) {
-    console.error("[CryptokuSubmit] Unhandled error submitting result:", {
+    console.error("[CryptokuSubmit] Unhandled error:", {
       error,
       errorMessage: error instanceof Error ? error.message : String(error),
       errorStack: error instanceof Error ? error.stack : undefined,
@@ -379,5 +347,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
-// Deployment trigger
