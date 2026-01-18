@@ -48,6 +48,13 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
     metadata?: any
   }) => {
     console.log("🎮 Cryptoku game ended:", result)
+    
+    // Don't award points if submission failed - wait for successful server response
+    if (result.metadata?.submissionFailed) {
+      console.warn("⚠️ Submission failed - not awarding points client-side", result.metadata)
+      return
+    }
+    
     // Add points when game ends (only for ranked modes with points > 0)
     if (result.metadata?.points !== undefined && result.metadata.points > 0) {
       console.log("💰 Adding points from Cryptoku:", result.metadata.points)

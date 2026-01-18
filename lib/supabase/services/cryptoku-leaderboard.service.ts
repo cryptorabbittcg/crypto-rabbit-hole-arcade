@@ -70,7 +70,8 @@ export class CryptokuLeaderboardService {
         return false
       }
 
-      const { data, error } = await this.supabase.rpc("add_cryptoku_leaderboard_entry", {
+      const rpcName = "add_cryptoku_leaderboard_entry"
+      const rpcParams = {
         p_run_id: entry.runId,
         p_user_id: userId,
         p_mode: entry.mode,
@@ -80,21 +81,37 @@ export class CryptokuLeaderboardService {
         p_errors: entry.errors,
         p_completed: entry.completed,
         p_forfeited: entry.forfeited,
-      })
+      }
+      
+      console.error("[CryptokuLeaderboardService] CALLING RPC:", rpcName, "WITH PARAMS:", JSON.stringify(rpcParams, null, 2))
+      
+      const { data, error } = await this.supabase.rpc(rpcName, rpcParams)
 
       if (error) {
-        console.error("[CryptokuLeaderboardService] Error adding leaderboard entry:", {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
+        // Log FULL error object for production debugging
+        const errorLog = {
+          rpcName,
+          errorCode: error.code,
+          errorMessage: error.message,
+          errorDetails: error.details,
+          errorHint: error.hint,
+          errorFull: error,
+          paramsSent: rpcParams,
           runId: entry.runId,
           userId,
           mode: entry.mode,
           score: entry.score,
-        })
+        }
+        console.error("[CryptokuLeaderboardService] RPC ERROR - Full error object:", JSON.stringify(errorLog, null, 2))
+        console.error("[CryptokuLeaderboardService] RPC ERROR - Error code:", error.code)
+        console.error("[CryptokuLeaderboardService] RPC ERROR - Error message:", error.message)
+        console.error("[CryptokuLeaderboardService] RPC ERROR - Error details:", error.details)
+        console.error("[CryptokuLeaderboardService] RPC ERROR - Error hint:", error.hint)
         return false
       }
+      
+      console.error("[CryptokuLeaderboardService] RPC SUCCESS - Returned data:", JSON.stringify(data, null, 2))
+      console.error("[CryptokuLeaderboardService] RPC SUCCESS - Data type:", typeof data, "Data value:", data)
       
       console.log("[CryptokuLeaderboardService] Successfully added leaderboard entry", {
         runId: entry.runId,
