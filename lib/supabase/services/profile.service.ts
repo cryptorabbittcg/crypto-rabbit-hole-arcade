@@ -36,12 +36,13 @@ export class ProfileService {
       // Check if Supabase is configured before making requests
       if (!this.isConfigured()) {
         // Silently return null if Supabase is not configured (prevents error spam)
+        console.log("[MOBILE-AUTH] ProfileService: Supabase not configured")
         return null
       }
 
       // Validate Supabase client is initialized
       if (!this.supabase) {
-        console.error("[ProfileService] Supabase client not initialized")
+        console.error("[MOBILE-AUTH] ProfileService: Supabase client not initialized")
         return null
       }
 
@@ -56,26 +57,30 @@ export class ProfileService {
       if (error) {
         if (error.code === "PGRST116") {
           // No rows returned - profile doesn't exist yet (this is expected)
-          return null
-        }
-        // Only log non-expected errors
-        if (!error.message?.includes("Failed to fetch") && !error.message?.includes("ERR_NAME_NOT_RESOLVED")) {
-          console.warn("[ProfileService] Error fetching profile by wallet:", {
-            code: error.code,
-            message: error.message,
+          console.log("[MOBILE-AUTH] ProfileService: Profile not found (PGRST116)", {
             wallet: normalizedWallet.substring(0, 10) + "...",
           })
+          return null
         }
+        // Log errors for debugging (including network errors on mobile)
+        console.warn("[MOBILE-AUTH] ProfileService: Error fetching profile by wallet", {
+          code: error.code,
+          message: error.message,
+          wallet: normalizedWallet.substring(0, 10) + "...",
+          timestamp: new Date().toISOString(),
+        })
         return null
       }
 
       return data
     } catch (err: unknown) {
-      // Only log if it's not a network error (prevents spam)
+      // Log exceptions for debugging (including network errors on mobile)
       const error = err as { message?: string }
-      if (!error?.message?.includes("Failed to fetch") && !error?.message?.includes("ERR_NAME_NOT_RESOLVED")) {
-        console.error("[ProfileService] Exception fetching profile by wallet:", error?.message || err)
-      }
+      console.error("[MOBILE-AUTH] ProfileService: Exception fetching profile by wallet", {
+        message: error?.message || String(err),
+        wallet: walletAddress.substring(0, 10) + "...",
+        timestamp: new Date().toISOString(),
+      })
       return null
     }
   }

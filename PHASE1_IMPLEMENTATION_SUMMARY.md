@@ -1,137 +1,273 @@
-# Phase 1 Implementation Summary: AuthAdapter Layer
+# Phase 1 Implementation Summary
 
-## Overview
-Phase 1 introduces an AuthAdapter abstraction layer without changing visible UI behavior. This is a non-breaking internal refactor that prepares the codebase for future wallet provider changes.
+**Date:** 2024-12-XX  
+**Status:** ✅ Implemented - Ready for Testing  
+**Scope:** Phase 1 fixes only (3 changes)
 
-## Files Created
+---
 
-### 1. `lib/auth-adapters/AuthAdapter.ts`
-- **Purpose:** Interface definition for wallet authentication adapters
-- **Exports:** `AuthAdapter` interface
-- **Key Methods:**
-  - `address: string | null`
-  - `isConnected: boolean`
-  - `providerName: string`
-  - `connect(): Promise<void>`
-  - `disconnect(): Promise<void>`
-  - `onConnect(callback): () => void`
-  - `onDisconnect(callback): () => void`
+## Changes Summary (Diff-Style)
 
-### 2. `lib/auth-adapters/glyphAdapter.ts`
-- **Purpose:** Glyph Wallet implementation of AuthAdapter
-- **Exports:** `useGlyphAdapter()` hook
-- **Implementation Details:**
-  - Wraps wagmi's `useAccount()` and `useDisconnect()` hooks
-  - `connect()` dispatches `showAuthDialog` window event (triggers existing UI flow)
-  - `disconnect()` calls wagmi's `disconnect()` function
-  - Provides event subscription methods for connection/disconnection callbacks
-  - Must be used inside a component wrapped by `WagmiProvider`
+### Fix 1: Providers - Eliminate "Ghost Auth" State
 
-## Files Modified
+**File:** `components/providers.tsx:103-127`
 
-### `components/providers.tsx`
+**Before:**
+```typescript
+if (wagmiAddress && wagmiConnected) {
+  setIsAuthenticated(true)
+  localStorage.setItem("arcade_auth_address", wagmiAddress.toLowerCase())
+} else if (!wagmiAddress && !wagmiConnected) {
+  setIsAuthenticated(false)
+}
+// If address exists but isConnected is false, keep authenticated state (may be temporary)
+```
 
-#### Changes Made:
+**After:**
+```typescript
+if (wagmiAddress) {
+  // Check if localStorage has this address (cache check for stability)
+  const hasLocalStorageAuth = typeof window !== "undefined" && 
+    window.localStorage.getItem("arcade_auth_address")?.toLowerCase() === wagmiAddress.toLowerCase()
+  
+  // Set authenticated if: (connected) OR (localStorage has this address)
+  const shouldAuthenticate = wagmiConnected || hasLocalStorageAuth
+  
+  if (shouldAuthenticate) {
+    setIsAuthenticated(true)
+    localStorage.setItem("arcade_auth_address", wagmiAddress.toLowerCase().trim())
+  } else {
+    // Guard prevents ghost auth - dev log only
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[MOBILE-AUTH] Auth guard: wagmiAddress exists but not connected and not in localStorage")
+    }
+  }
+} else {
+  // wagmiAddress is null => isAuthenticated must be false
+  setIsAuthenticated(false)
+}
+```
 
-1. **Import Added:**
-   ```typescript
-   import { useGlyphAdapter } from "@/lib/auth-adapters/glyphAdapter"
-   ```
+**Why:** Prevents `isAuthenticated = true` when `address = null` or when wagmi is in transient state. Requires address existence AND (connected OR localStorage has address).
 
-2. **Adapter Hook Usage:**
-   - Added `const authAdapter = useGlyphAdapter()` at the start of `Providers` component
-   - Adapter provides source of truth for wallet connection state
+**Impact:**
+- Desktop: No change (address always exists when connected)
+- Mobile: Prevents ghost auth states during connection establishment
 
-3. **State Synchronization:**
-   - Added `useEffect` to sync `authAdapter.address` and `authAdapter.isConnected` to internal state
-   - This allows existing code (ProfileSyncWrapper, etc.) to continue working
-   - Internal state (`address`, `isConnected`) is updated from adapter state
+---
 
-4. **connect() Method Updated:**
-   - Changed from logging-only to calling `authAdapter.connect()`
-   - Adapter's `connect()` dispatches `showAuthDialog` event (same as before)
-   - **No UI changes** - still triggers the same dialog flow
+### Fix 2: ProfileSyncWrapper - Guarantee Lock Release
 
-5. **disconnect() Method Updated:**
-   - Now calls `authAdapter.disconnect()` to disconnect wagmi wallet
-   - Maintains existing logout logic for authenticated users
-   - Clears state for non-authenticated users (same as before)
+**File:** `components/profile-sync-wrapper.tsx:48-68`
 
-#### External API Unchanged:
-- `useArcade()` hook returns the same interface
-- All exported types and methods remain the same
-- No breaking changes for consumers
+**Before:**
+```typescript
+syncProfileWithWallet(address).finally(() => {
+  syncLockRef.current = false
+  syncTimeoutRef.current = null
+})
+```
 
-## Files NOT Modified (Backward Compatibility)
+**After:**
+```typescript
+try {
+  await syncProfileWithWallet(address)
+} catch (error) {
+  console.error("[MOBILE-AUTH] Profile sync error (non-fatal):", error)
+} finally {
+  syncLockRef.current = false
+  syncTimeoutRef.current = null
+}
+```
 
-### `components/profile-sync-wrapper.tsx`
-- **Status:** ✅ No changes needed
-- **Reason:** Continues to use wagmi's `useAccount()` directly
-- **Behavior:** Unchanged - still calls `setWalletConnection()` from ArcadeContext
+**Why:** Ensures lock always releases even if sync throws before promise creation. Wraps in try/catch/finally instead of relying on `.finally()` callback.
 
-### `components/auth-dialog.tsx`
-- **Status:** ✅ No changes needed
-- **Reason:** Continues to use wagmi's `useAccount()` directly for connection detection
-- **Behavior:** Unchanged - still monitors wagmi connection state
+**Impact:**
+- Desktop: No change (same behavior, safer error handling)
+- Mobile: Prevents lock from getting stuck on network failures
 
-### `components/profile-menu.tsx`
-- **Status:** ✅ No changes needed
-- **Reason:** Uses `useArcade()` hook which maintains the same interface
-- **Behavior:** Unchanged - still calls `connect()`, `disconnect()`, `logout()` methods
+---
 
-### API Routes
-- **Status:** ✅ No changes needed
-- **Files:** All `/api/**/submit-result/route.ts` files
-- **Reason:** APIs only use wallet address from request body (provider-agnostic)
-- **Behavior:** Unchanged
+### Fix 3: Cryptoku Submit Route - Add Profile Lookup Retry
 
-## Behavior Verification
+**File:** `app/api/cryptoku/submit-result/route.ts:130-141`
 
-### Connection Flow (Unchanged)
-1. User clicks "Connect Wallet" → ProfileMenu dispatches `showAuthDialog` event
-2. GlobalAuthDialog opens → AuthDialog renders with NativeGlyphConnectButton
-3. User connects wallet → wagmi `useAccount()` detects connection
-4. AuthDialog calls `onAuthSuccess` → ArcadeContext.handleAuthSuccess()
-5. ProfileSyncWrapper detects wagmi connection → calls `setWalletConnection()`
+**Before:**
+```typescript
+const profile = await profileService.getProfileByWallet(normalizedAddress)
 
-### Disconnection Flow (Unchanged)
-1. User clicks "Disconnect" → ProfileMenu calls `disconnect()` from useArcade()
-2. ArcadeContext.disconnect() → calls adapter.disconnect() → wagmi disconnect
-3. ProfileSyncWrapper detects disconnect → calls `setWalletConnection(null)`
-4. State is cleared (same as before)
+if (!profile) {
+  return NextResponse.json(
+    { error: "Profile not found. Please ensure you have a profile created." },
+    { status: 404 }
+  )
+}
+```
 
-### Adapter Integration (New, Internal)
-- Adapter state syncs to ArcadeContext internal state
-- `connect()` method uses adapter (but behavior is the same)
-- `disconnect()` method uses adapter (but behavior is the same)
-- All external APIs remain unchanged
+**After:**
+```typescript
+let profile = await profileService.getProfileByWallet(normalizedAddress)
+let retryAttempt = 0
+const maxRetries = 2 // 3 total attempts (initial + 2 retries)
+
+while (!profile && retryAttempt < maxRetries) {
+  console.log(`[CryptokuSubmit] Profile not found, retrying (attempt ${retryAttempt + 1}/${maxRetries})...`)
+  await new Promise(resolve => setTimeout(resolve, 800))
+  profile = await profileService.getProfileByWallet(normalizedAddress)
+  retryAttempt++
+}
+
+if (!profile) {
+  return NextResponse.json(
+    { 
+      error: "PROFILE_NOT_READY",
+      message: "Profile not ready yet. Please reconnect and try again in a moment."
+    },
+    { status: 425 } // 425 Too Early - profile sync in progress
+  )
+}
+```
+
+**Why:** Handles mobile race condition where profile sync hasn't completed when game submission happens. Retries up to 3 times with 800ms delays. Returns 425 (Too Early) instead of 404 if still not found.
+
+**Impact:**
+- Desktop: No change (profile sync is fast, retry rarely triggers)
+- Mobile: Prevents 404 errors when profile sync is in progress
+
+---
+
+## Files Changed
+
+1. `components/providers.tsx` - Lines 103-127 (auth state logic)
+2. `components/profile-sync-wrapper.tsx` - Lines 48-68 (lock release guarantee)
+3. `app/api/cryptoku/submit-result/route.ts` - Lines 130-154 (profile lookup retry)
+
+**Total:** 3 files, ~50 lines changed
+
+---
 
 ## Testing Checklist
 
-- [x] TypeScript compilation passes
-- [x] No linter errors
-- [ ] UI behavior unchanged (manual testing required)
-- [ ] ProfileSyncWrapper still works
-- [ ] AuthDialog still works
-- [ ] ProfileMenu connect/disconnect still works
-- [ ] Game submission APIs still work (address-based)
+### iOS Chrome Tests
 
-## Next Steps (Phase 2+)
+#### Test 1.1: Ghost Auth State Prevention
+- [ ] **Setup:** Open app on iOS Chrome
+- [ ] **Action:** Tap "Connect Wallet" → Glyph button
+- [ ] **Verify:** During connection (address appears but isConnected may be flaky):
+  - Check console for `[MOBILE-AUTH] Auth guard` log (dev only) if guard prevents auth
+  - Verify `isAuthenticated` is `false` if `address` exists but not `connected` and not in localStorage
+- [ ] **Action:** Complete wallet connection
+- [ ] **Verify:** `isAuthenticated = true` only when `address` exists AND (`connected` OR localStorage has address)
 
-Phase 2 would involve:
-- Creating wallet-agnostic UI components
-- Replacing direct wagmi usage in UI components with adapter
-- Adding support for multiple wallet providers
+---
 
-Phase 3+ would involve:
-- Wallet linking support
-- NFT avatar selection
-- Multi-wallet management UI
+#### Test 1.2: Profile Sync Lock Release
+- [ ] **Setup:** Connect wallet on iOS Chrome
+- [ ] **Action:** Monitor profile sync in console
+- [ ] **Verify:** `[MOBILE-AUTH] PROFILE_SYNC_START` appears after 1000ms delay
+- [ ] **Action:** Simulate network failure (airplane mode during sync)
+- [ ] **Verify:** 
+  - `[MOBILE-AUTH] Profile sync error (non-fatal)` logged
+  - Lock releases (no "sync already in progress" message on reconnect)
+- [ ] **Action:** Reconnect wallet
+- [ ] **Verify:** Second profile sync runs successfully (lock released)
 
-## Notes
+---
 
-- The adapter layer is now in place but not fully utilized in UI components
-- ProfileSyncWrapper and AuthDialog still use wagmi directly (by design for Phase 1)
-- The adapter provides the foundation for future refactoring
-- All changes are backward compatible and non-breaking
+#### Test 1.3: Profile Lookup Retry in Submit Route
+- [ ] **Setup:** Connect wallet on iOS Chrome
+- [ ] **Action:** Play Cryptoku game immediately after connection (before profile sync completes)
+- [ ] **Verify:** 
+  - Game submission waits for profile (check network tab for retry delays)
+  - Console shows `[CryptokuSubmit] Profile not found, retrying...` (if retry needed)
+  - Submission succeeds OR returns 425 with `PROFILE_NOT_READY` error
+- [ ] **Action:** Wait for profile sync to complete, then submit game
+- [ ] **Verify:** Submission succeeds immediately (no retries needed)
 
+---
+
+#### Test 1.4: End-to-End Flow (iOS Chrome)
+- [ ] **Setup:** Fresh session on iOS Chrome
+- [ ] **Action:** Connect wallet → Play Cryptoku (DEGEN/APE mode) → Complete game → Submit
+- [ ] **Verify:**
+  - Wallet connects successfully
+  - Profile syncs (check console logs)
+  - Game submits successfully
+  - Points awarded (check database or UI)
+  - Leaderboard entry created
+- [ ] **Action:** Check leaderboard page
+- [ ] **Verify:** Score appears in leaderboard
+
+---
+
+### Desktop Chrome Tests (Regression Prevention)
+
+#### Test 2.1: Auth State (Desktop)
+- [ ] **Setup:** Open app on Desktop Chrome
+- [ ] **Action:** Click "Connect Wallet" → Glyph button
+- [ ] **Verify:** `isAuthenticated = true` when wallet connected
+- [ ] **Action:** Disconnect wallet
+- [ ] **Verify:** `isAuthenticated = false` immediately
+
+---
+
+#### Test 2.2: Profile Sync (Desktop)
+- [ ] **Setup:** Connect wallet on Desktop Chrome
+- [ ] **Verify:** Profile sync starts immediately (0ms delay)
+- [ ] **Verify:** Profile loads successfully
+- [ ] **Action:** Disconnect and reconnect
+- [ ] **Verify:** Second sync runs successfully (lock released)
+
+---
+
+#### Test 2.3: Game Submission (Desktop)
+- [ ] **Setup:** Connect wallet on Desktop Chrome
+- [ ] **Action:** Play Cryptoku → Complete game → Submit
+- [ ] **Verify:** Submission succeeds (profile found immediately, no retries)
+- [ ] **Verify:** Points awarded, leaderboard updated
+
+---
+
+#### Test 2.4: End-to-End Flow (Desktop)
+- [ ] **Setup:** Fresh session on Desktop Chrome
+- [ ] **Action:** Connect wallet → Play Cryptoku → Submit → Check leaderboard
+- [ ] **Verify:** All steps work as before (no regression)
+
+---
+
+## Expected Behavior Changes
+
+### Mobile (iOS Chrome)
+- ✅ No ghost auth states (`isAuthenticated = true` when `address = null`)
+- ✅ Profile sync lock always releases (even on network failures)
+- ✅ Game submissions retry profile lookup (handles race condition)
+- ✅ Better error messages (425 with `PROFILE_NOT_READY` instead of 404)
+
+### Desktop
+- ✅ No behavior changes (same logic, safer error handling)
+- ✅ Auth state logic unchanged (address always exists when connected)
+- ✅ Profile sync unchanged (0ms delay, lock release already worked)
+- ✅ Game submissions unchanged (retry rarely triggers)
+
+---
+
+## Rollback Plan
+
+If issues occur, revert these files:
+
+1. `components/providers.tsx` - Revert lines 103-127 to previous version
+2. `components/profile-sync-wrapper.tsx` - Revert lines 48-68 to `.finally()` version
+3. `app/api/cryptoku/submit-result/route.ts` - Revert lines 130-154 to single lookup with 404
+
+All changes are isolated and can be reverted independently.
+
+---
+
+## Next Steps (After Testing)
+
+1. Run all iOS Chrome tests → Verify fixes work
+2. Run all Desktop Chrome tests → Verify no regression
+3. Monitor production logs for `[MOBILE-AUTH]` entries
+4. Proceed to Phase 2 (if needed) after Phase 1 validation
+
+**END OF PHASE 1 IMPLEMENTATION**

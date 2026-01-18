@@ -130,13 +130,28 @@ export async function POST(request: NextRequest) {
     // Update hints economy: +1 hint every 10 completed ranked games (atomic operation)
     const hintsService = new CryptokuHintsService()
     const profileService = new ProfileService()
-    const profile = await profileService.getProfileByWallet(normalizedAddress)
+    
+    // PHASE 1 FIX: Add retry-only profile lookup (mobile profile sync may be in progress)
+    // Retry up to 3 times with 800ms delays if profile not found
+    let profile = await profileService.getProfileByWallet(normalizedAddress)
+    let retryAttempt = 0
+    const maxRetries = 2 // 3 total attempts (initial + 2 retries)
+    
+    while (!profile && retryAttempt < maxRetries) {
+      console.log(`[CryptokuSubmit] Profile not found, retrying (attempt ${retryAttempt + 1}/${maxRetries})...`)
+      await new Promise(resolve => setTimeout(resolve, 800))
+      profile = await profileService.getProfileByWallet(normalizedAddress)
+      retryAttempt++
+    }
     
     if (!profile) {
-      console.error("[CryptokuSubmit] Profile not found for address:", normalizedAddress.substring(0, 10) + "...")
+      console.error("[CryptokuSubmit] Profile not found after retries for address:", normalizedAddress.substring(0, 10) + "...")
       return NextResponse.json(
-        { error: "Profile not found. Please ensure you have a profile created." },
-        { status: 404 }
+        { 
+          error: "PROFILE_NOT_READY",
+          message: "Profile not ready yet. Please reconnect and try again in a moment."
+        },
+        { status: 425 } // 425 Too Early - profile sync in progress
       )
     }
     

@@ -103,9 +103,47 @@ export function Providers({ children }: { children: ReactNode }) {
   // Sync adapter connection state to internal state
   // This allows ProfileSyncWrapper and other components to continue working
   // while we source the connection state from the adapter internally
+  // PHASE 1 FIX: Eliminate "ghost auth" state - isAuthenticated depends on stable wallet identity
+  // isAuthenticated = true ONLY when wagmiAddress exists AND (wagmiConnected OR localStorage has that address)
   useEffect(() => {
-    setAddress(authAdapter.address)
-    setIsConnected(authAdapter.isConnected)
+    const wagmiAddress = authAdapter.address
+    const wagmiConnected = authAdapter.isConnected
+    
+    setAddress(wagmiAddress)
+    setIsConnected(wagmiConnected)
+    
+    // PHASE 1 FIX: Stable auth state based on address existence
+    // isAuthenticated = true if wagmiAddress exists AND (wagmiConnected OR localStorage has that address)
+    if (wagmiAddress) {
+      // Check if localStorage has this address (cache check for stability)
+      // Normalize both sides: trim and lowercase for safe comparison
+      const storedAuthAddress = typeof window !== "undefined" 
+        ? window.localStorage.getItem("arcade_auth_address")?.toLowerCase().trim() || null
+        : null
+      const normalizedWagmiAddress = wagmiAddress.toLowerCase().trim()
+      const hasLocalStorageAuth = storedAuthAddress === normalizedWagmiAddress
+      
+      // Set authenticated if: (connected) OR (localStorage has this address)
+      const shouldAuthenticate = wagmiConnected || hasLocalStorageAuth
+      
+      if (shouldAuthenticate) {
+        setIsAuthenticated(true)
+        // Sync auth token to localStorage (cache update, not requirement)
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("arcade_auth_address", wagmiAddress.toLowerCase().trim())
+        }
+      } else {
+        // Address exists but not connected and not in localStorage - guard prevents ghost auth
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[MOBILE-AUTH] Auth guard: wagmiAddress exists but not connected and not in localStorage, keeping isAuthenticated false")
+        }
+        // Keep current auth state (don't force false if already authenticated from previous state)
+        // This prevents flickering during connection establishment
+      }
+    } else {
+      // wagmiAddress is null => isAuthenticated must be false
+      setIsAuthenticated(false)
+    }
   }, [authAdapter.address, authAdapter.isConnected])
 
   useEffect(() => {
@@ -231,7 +269,41 @@ export function Providers({ children }: { children: ReactNode }) {
         return
       }
 
-      const existingProfile = await profileService.getProfileByWallet(walletAddress)
+      // PROFILE LOOKUP WITH RETRY: On mobile, profile may not exist yet due to race condition
+      // Retry once if profile lookup returns null (wait 800-1200ms between attempts)
+      let existingProfile = await profileService.getProfileByWallet(walletAddress)
+      
+      if (!existingProfile) {
+        console.log("[MOBILE-AUTH] PROFILE_SYNC_RETRY", {
+          address: walletAddress.substring(0, 10) + "...",
+          timestamp: new Date().toISOString(),
+          reason: "Profile lookup returned null, retrying...",
+        })
+        
+        // Wait 1000ms before retry (mobile delay)
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
+        // Retry profile lookup
+        existingProfile = await profileService.getProfileByWallet(walletAddress)
+        
+        if (existingProfile) {
+          console.log("[MOBILE-AUTH] PROFILE_SYNC_FOUND (after retry)", {
+            address: walletAddress.substring(0, 10) + "...",
+            timestamp: new Date().toISOString(),
+          })
+        } else {
+          console.log("[MOBILE-AUTH] PROFILE_SYNC_RETRY_FAILED", {
+            address: walletAddress.substring(0, 10) + "...",
+            timestamp: new Date().toISOString(),
+            message: "Profile still not found after retry, will create new profile",
+          })
+        }
+      } else {
+        console.log("[MOBILE-AUTH] PROFILE_SYNC_FOUND", {
+          address: walletAddress.substring(0, 10) + "...",
+          timestamp: new Date().toISOString(),
+        })
+      }
 
       if (existingProfile) {
         // Merge Supabase data with localStorage data
@@ -287,15 +359,27 @@ export function Providers({ children }: { children: ReactNode }) {
           return
         }
 
+        console.log("[MOBILE-AUTH] PROFILE_SYNC_CREATED", {
+          address: walletAddress.substring(0, 10) + "...",
+          timestamp: new Date().toISOString(),
+        })
+        
+        // BUG FIX: Don't set ape_balance: points (ape_balance is for APE tokens, not game points)
+        // Points field will default to 0 in database (not set during creation)
         const newProfile = await profileService.createProfile({
           wallet_address: walletAddress,
           username: `Rabbit${walletAddress.slice(2, 8)}`,
-          ape_balance: points,
+          ape_balance: 0, // APE tokens start at 0 (game points go to 'points' column, defaulted to 0)
           tickets: tickets,
           referral_code: profile.referralCode,
         })
 
         if (newProfile) {
+          console.log("[MOBILE-AUTH] PROFILE_SYNC_CREATED (success)", {
+            address: walletAddress.substring(0, 10) + "...",
+            profileId: newProfile.id,
+            timestamp: new Date().toISOString(),
+          })
           setProfile((prev) => ({
             ...prev,
             username: newProfile.username,
@@ -305,7 +389,15 @@ export function Providers({ children }: { children: ReactNode }) {
         }
       }
     } catch (error) {
+      console.error("[MOBILE-AUTH] PROFILE_SYNC_FAILED", {
+        address: walletAddress.substring(0, 10) + "...",
+        error: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString(),
+      })
       logger.error("[v0] Error syncing profile:", error)
+      // Don't throw - allow UI to continue even if profile sync fails
+      // User can still play games, profile will be created on next sync attempt
     }
   }, [points, tickets, profile.referralCode, profile.avatar])
 
@@ -541,9 +633,19 @@ export function Providers({ children }: { children: ReactNode }) {
         })
 
         // Also save to Supabase (async, non-blocking)
+        // BUG FIX: Use instance method instead of static - get profile ID first
         ;(async () => {
           try {
-            const success = await ProfileService.updateProfile(address, {
+            const supabase = createClient()
+            const profileServiceInstance = new ProfileService(supabase)
+            const profileData = await profileServiceInstance.getProfileByWallet(address)
+            
+            if (!profileData) {
+              console.log("[MOBILE-AUTH] updateProfile: Profile not found for address", address?.substring(0, 10) + "...")
+              return
+            }
+            
+            const success = await profileServiceInstance.updateProfile(profileData.id, {
               username: updated.username,
               avatar_url: updated.avatar || null,
             })

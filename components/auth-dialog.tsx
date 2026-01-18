@@ -36,7 +36,10 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess = () => {} }: Aut
   // Monitor for successful connection
   useEffect(() => {
     if (open && address && isConnected && !hasProcessedAuth) {
-      console.log("✅ Wallet connected! Processing auth...", { address, isConnected })
+      console.log("[MOBILE-AUTH] AUTH_SUCCESS_CALLBACK", {
+        address: address.substring(0, 10) + "...",
+        timestamp: new Date().toISOString(),
+      })
       setPopupBlocked(false) // Clear popup blocked state on successful connection
       setConnectionAttempted(true) // Mark as attempted since connection succeeded
       setError(null) // Clear any errors
@@ -46,9 +49,17 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess = () => {} }: Aut
   }, [open, address, isConnected, hasProcessedAuth])
 
   // Monitor for connection errors
+  // FIX: Suppress error if address exists (wallet may be connecting slowly)
   useEffect(() => {
+    // Rule: if address exists, never show "connection failed" - clear errors immediately
+    if (open && address) {
+      setError(null)
+      return
+    }
+    
     if (open && !address && !isConnected && hasProcessedAuth) {
       // Connection was attempted but failed
+      // Only show error if address truly doesn't exist
       setError("Failed to connect wallet. Please try again.")
       setHasProcessedAuth(false)
       setConnectionAttempted(true) // Keep as attempted since user tried to connect
@@ -69,6 +80,7 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess = () => {} }: Aut
   // This is a backup in case the direct popup test doesn't catch it
   // IMPORTANT: On mobile, Glyph connection can take longer, so we use a longer timeout
   // and check more carefully to avoid false positives
+  // FIX: Suppress error if address becomes available within 2-3s window after timeout
   useEffect(() => {
     if (open && isMobileDevice && connectionAttempted && !isConnected && !address && !popupBlocked && !hasProcessedAuth) {
       // Set a longer timeout for mobile - Glyph connection can take 5-10 seconds on mobile
@@ -90,6 +102,7 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess = () => {} }: Aut
             isMobile()) {
           // Only show error if we're absolutely sure connection failed
           // On mobile, Glyph can take longer, so be conservative
+          // FIX: Show softer message, not "connection failed"
           setError("Connection is taking longer than expected. If your wallet is connected, you can close this dialog.")
         }
       }, 8000) // Longer timeout for mobile - Glyph can take 5-10 seconds
@@ -100,7 +113,10 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess = () => {} }: Aut
   const handleAuthSuccess = async () => {
     try {
       if (address) {
-        console.log("[AuthDialog] Processing auth success for:", address.substring(0, 10) + "...")
+        console.log("[MOBILE-AUTH] AUTH_UI_CLICK processed -> handleAuthSuccess", {
+          address: address.substring(0, 10) + "...",
+          timestamp: new Date().toISOString(),
+        })
         
         // Clear any previous errors immediately
         setError(null)
@@ -158,6 +174,11 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess = () => {} }: Aut
   // Handle click with popup permission test - runs in capture phase via React onClickCapture
   // This is the FIRST side-effect: window.open test happens synchronously in the click handler
   const handleGlyphButtonClick = (e: React.MouseEvent) => {
+    console.log("[MOBILE-AUTH] AUTH_UI_CLICK", {
+      timestamp: new Date().toISOString(),
+      isMobile: isMobileDevice,
+    })
+    
     // Desktop: skip popup test entirely, let click proceed without state updates
     // State will be updated in success/failure callbacks to preserve user activation
     if (!isMobileDevice) {
@@ -187,14 +208,21 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess = () => {} }: Aut
       testPopup.close()
     }
     
-    // State updates happen AFTER popup test
-    setPopupBlocked(false)
-    setError(null)
-    setConnectionAttempted(true)
+    // FIX: Defer state updates to preserve user gesture context for nested Glyph button on iOS
+    // React state updates in onClickCapture can break activation context for child button
+    // Use queueMicrotask to defer updates until after Glyph button click executes
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[MOBILE-AUTH] CLICK_CAPTURE_POPUP_ALLOWED - deferring state updates")
+    }
+    queueMicrotask(() => {
+      setPopupBlocked(false)
+      setError(null)
+      setConnectionAttempted(true)
+    })
     
     // Allow click to continue to NativeGlyphConnectButton
     // The popup test above preserves the user gesture context, so Glyph's window.open will work
-    // The test popup is closed synchronously, so no double-tab issue
+    // Deferred state updates don't interrupt the activation chain for the nested button
   }
 
   // Handle manual fallback button click - uses same safe handler path
