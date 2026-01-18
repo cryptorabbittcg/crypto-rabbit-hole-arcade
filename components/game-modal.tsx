@@ -17,7 +17,7 @@ interface GameModalProps {
 }
 
 export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProps) {
-  const { isConnected, address, connect, profile, addPoints, addTickets, points, tickets } = useArcade()
+  const { isConnected, address, connect, profile, addTickets, points, tickets } = useArcade()
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const cryptokuRef = useRef<CryptokuGameHandle>(null)
   const apeInRef = useRef<ApeInGameHandle>(null)
@@ -31,38 +31,32 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
     points?: number
   }) => {
     console.log("🎮 Ape In game ended:", result)
-    // Add points when game ends (only for ranked modes with points > 0)
-    if (result.points !== undefined && result.points > 0) {
-      console.log("💰 Adding points from Ape In:", result.points, "from mode:", result.mode)
-      addPoints(result.points)
-    } else {
-      console.log("ℹ️ No points to add (tutorial mode or 0 points):", {
-        mode: result.mode,
-        points: result.points,
-      })
+
+    // ✅ Do NOT call addPoints here.
+    // Server awards points. We refresh local profile/state.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("ARCADE_REFRESH_PROFILE"))
     }
-  }, [addPoints])
+  }, [])
   
   const handleCryptokuGameEnd = useCallback((result: {
     score: number
     metadata?: any
   }) => {
     console.log("🎮 Cryptoku game ended:", result)
-    
-    // Don't award points if submission failed - wait for successful server response
+
     if (result.metadata?.submissionFailed) {
-      console.warn("⚠️ Submission failed - not awarding points client-side", result.metadata)
+      console.warn("⚠️ Submission failed - no server award", result.metadata)
       return
     }
-    
-    // Add points when game ends (only for ranked modes with points > 0)
-    if (result.metadata?.points !== undefined && result.metadata.points > 0) {
-      console.log("💰 Adding points from Cryptoku:", result.metadata.points)
-      addPoints(result.metadata.points)
-    } else {
-      console.log("ℹ️ No points to add (unranked mode or 0 points):", result.metadata)
+
+    // ✅ Do NOT call addPoints here.
+    // Server awards points + updates stats via record_game_session.
+    // We just refresh local profile/state after the run.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("ARCADE_REFRESH_PROFILE"))
     }
-  }, [addPoints])
+  }, [])
 
   // Handle close/exit with forfeit confirmation for active games
   const handleClose = useCallback(() => {
@@ -350,18 +344,12 @@ export function GameModal({ isOpen, onClose, gameUrl, gameTitle }: GameModalProp
       
       // Handle points earned from Ape In
       if (event.data?.type === "APE_IN_GAME_END" || event.data?.type === "GAME_POINTS_UPDATE") {
-        const pointsEarned = event.data?.points || event.data?.pointsEarned || 0
-        const gameMode = event.data?.gameMode || event.data?.mode || "unknown"
-        const score = event.data?.score || 0
-        
-        console.log("🎮 Ape In game ended:", { pointsEarned, gameMode, score })
-        
-        // Only add points if > 0 and not Sandy (tutorial mode)
-        if (pointsEarned > 0 && gameMode !== "sandy" && gameMode !== "Sandy") {
-          console.log("💰 Adding points from Ape In:", pointsEarned, "from mode:", gameMode)
-          addPoints(pointsEarned)
-        } else {
-          console.log("ℹ️ No points to add (tutorial mode or 0 points):", { gameMode, pointsEarned })
+        console.log("🎮 Ape In game ended (postMessage):", event.data)
+
+        // ✅ Do NOT call addPoints here.
+        // Server awards points. We refresh local profile/state.
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("ARCADE_REFRESH_PROFILE"))
         }
       }
     }

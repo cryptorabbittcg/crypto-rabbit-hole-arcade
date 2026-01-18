@@ -28,6 +28,11 @@ type UserProfile = {
   joinedAt: Date
   stats: {
     gamesPlayed: number
+    wins: number
+    losses: number
+    winStreak: number
+    bestWinStreak: number
+    totalPlaytimeSeconds: number
     totalScore: number
     achievements: string[]
   }
@@ -95,6 +100,11 @@ export function Providers({ children }: { children: ReactNode }) {
     joinedAt: new Date(),
     stats: {
       gamesPlayed: 0,
+      wins: 0,
+      losses: 0,
+      winStreak: 0,
+      bestWinStreak: 0,
+      totalPlaytimeSeconds: 0,
       totalScore: 0,
       achievements: [],
     },
@@ -343,6 +353,11 @@ export function Providers({ children }: { children: ReactNode }) {
           joinedAt: new Date(existingProfile.created_at),
           stats: {
             gamesPlayed: existingProfile.total_games_played || 0,
+            wins: (existingProfile as any).total_wins || 0,
+            losses: (existingProfile as any).total_losses || 0,
+            winStreak: (existingProfile as any).win_streak || 0,
+            bestWinStreak: (existingProfile as any).best_win_streak || 0,
+            totalPlaytimeSeconds: (existingProfile as any).total_playtime || 0,
             totalScore: (existingProfile as any).points || 0,
             achievements: [],
           },
@@ -401,6 +416,20 @@ export function Providers({ children }: { children: ReactNode }) {
     }
   }, [points, tickets, profile.referralCode, profile.avatar])
 
+  // Listen for ARCADE_REFRESH_PROFILE event to refresh profile after game completion
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const handler = () => {
+      if (!address) return
+      // Re-pull from Supabase (source of truth)
+      syncProfileWithWallet(address)
+    }
+
+    window.addEventListener("ARCADE_REFRESH_PROFILE", handler as EventListener)
+    return () => window.removeEventListener("ARCADE_REFRESH_PROFILE", handler as EventListener)
+  }, [address, syncProfileWithWallet])
+
   const handleAuthSuccess = useCallback((result: { token: string; walletAddress: string; type: string; isNewUser?: boolean }) => {
     logger.log("[v0] Auth success:", result)
     setIsAuthenticated(true)
@@ -442,6 +471,11 @@ export function Providers({ children }: { children: ReactNode }) {
       joinedAt: new Date(),
       stats: {
         gamesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        winStreak: 0,
+        bestWinStreak: 0,
+        totalPlaytimeSeconds: 0,
         totalScore: 0,
         achievements: [],
       },
@@ -483,6 +517,11 @@ export function Providers({ children }: { children: ReactNode }) {
         joinedAt: new Date(),
         stats: {
           gamesPlayed: 0,
+          wins: 0,
+          losses: 0,
+          winStreak: 0,
+          bestWinStreak: 0,
+          totalPlaytimeSeconds: 0,
           totalScore: 0,
           achievements: [],
         },
