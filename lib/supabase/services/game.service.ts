@@ -147,6 +147,80 @@ export class GameService {
     }
   }
 
+  /**
+   * Compute stats from game_sessions dynamically
+   * Optionally filter by game_type for game-specific stats
+   */
+  async computeStatsFromSessions(userId: string, gameType?: string): Promise<{
+    gamesPlayed: number
+    wins: number
+    losses: number
+    winStreak: number
+    bestWinStreak: number
+    totalPlaytime: number
+  }> {
+    let query = this.supabase
+      .from("game_sessions")
+      .select("result, duration, duration_seconds, ended_at, started_at, created_at")
+      .eq("user_id", userId)
+
+    if (gameType) {
+      query = query.eq("game_type", gameType)
+    }
+
+    const { data, error } = await query.order("ended_at", { ascending: false, nullsLast: true })
+
+    if (error) {
+      console.error("[GameService] Error computing stats:", error)
+      return {
+        gamesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        winStreak: 0,
+        bestWinStreak: 0,
+        totalPlaytime: 0,
+      }
+    }
+
+    const sessions = data || []
+    const gamesPlayed = sessions.length
+    let wins = 0
+    let losses = 0
+    let totalPlaytime = 0
+    let currentWinStreak = 0
+    let bestWinStreak = 0
+
+    // Count wins/losses and calculate streaks
+    // Sessions are ordered by ended_at descending (most recent first)
+    for (const session of sessions) {
+      const result = session.result?.toLowerCase()
+      // Handle both duration and duration_seconds column names
+      const duration = session.duration ?? session.duration_seconds ?? 0
+      totalPlaytime += duration
+
+      if (result === "won" || result === "win") {
+        wins++
+        currentWinStreak++
+        bestWinStreak = Math.max(bestWinStreak, currentWinStreak)
+      } else if (result === "lost" || result === "loss") {
+        losses++
+        currentWinStreak = 0
+      } else {
+        // For incomplete/draw results, reset streak but don't count as win/loss
+        currentWinStreak = 0
+      }
+    }
+
+    return {
+      gamesPlayed,
+      wins,
+      losses,
+      winStreak: currentWinStreak,
+      bestWinStreak,
+      totalPlaytime,
+    }
+  }
+
   // Static wrapper method for convenience
   static async getRecentGames(walletAddress: string, limit: number): Promise<NormalizedGameSession[]> {
     // First get the profile by wallet to get the user_id
@@ -158,5 +232,31 @@ export class GameService {
     }
     const service = new GameService()
     return service.getRecentGamesNormalized(profile.id, limit)
+  }
+
+  // Static wrapper for computing stats
+  static async computeStats(walletAddress: string, gameType?: string): Promise<{
+    gamesPlayed: number
+    wins: number
+    losses: number
+    winStreak: number
+    bestWinStreak: number
+    totalPlaytime: number
+  }> {
+    const { ProfileService } = await import("./profile.service")
+    const serviceInstance = new ProfileService()
+    const profile = await serviceInstance.getProfileByWallet(walletAddress)
+    if (!profile) {
+      return {
+        gamesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        winStreak: 0,
+        bestWinStreak: 0,
+        totalPlaytime: 0,
+      }
+    }
+    const service = new GameService()
+    return service.computeStatsFromSessions(profile.id, gameType)
   }
 }

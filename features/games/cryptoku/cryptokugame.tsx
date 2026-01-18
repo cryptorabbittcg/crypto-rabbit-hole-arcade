@@ -1351,7 +1351,8 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
 
             if (response.ok) {
               const data = await response.json()
-              const serverScore = data.score || 0
+              // API returns 'pointsEarned', not 'score'
+              const serverScore = data.pointsEarned || 0
               setCurrentScore(serverScore)
 
               // Update hints balance if earned

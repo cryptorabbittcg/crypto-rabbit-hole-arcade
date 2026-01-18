@@ -49,6 +49,14 @@ export default function ProfileView() {
   const [linkingWallet, setLinkingWallet] = useState(false)
   const [unlinkingAddress, setUnlinkingAddress] = useState<string | null>(null)
   const [nftDialogOpen, setNftDialogOpen] = useState(false)
+  const [computedStats, setComputedStats] = useState<{
+    gamesPlayed: number
+    wins: number
+    losses: number
+    winStreak: number
+    bestWinStreak: number
+    totalPlaytime: number
+  } | null>(null)
 
   // Prefer useArcade().address if present, else fallback to useAccount().address
   const profileAddress = address || wagmiAddress
@@ -67,9 +75,10 @@ export default function ProfileView() {
 
       try {
         const profileService = new ProfileService()
-        const [profileData, games, linkedWalletsResponse] = await Promise.all([
+        const [profileData, games, stats, linkedWalletsResponse] = await Promise.all([
           profileService.getProfileByWallet(profileAddress),
           GameService.getRecentGames(profileAddress, 10),
+          GameService.computeStats(profileAddress), // Compute stats from game_sessions
           fetch(`/api/profile/linked-wallets?address=${encodeURIComponent(profileAddress)}`).then(async (res) => {
             console.log(`[ProfileView] Fetching linked wallets for ${profileAddress.substring(0, 10)}...`)
             if (!res.ok) {
@@ -94,6 +103,7 @@ export default function ProfileView() {
         }
 
         setRecentGames(games)
+        setComputedStats(stats)
 
         if (linkedWalletsResponse.ok && linkedWalletsResponse.linked_wallets) {
           setLinkedWallets(linkedWalletsResponse.linked_wallets)
@@ -423,14 +433,14 @@ export default function ProfileView() {
   // Check if NFT avatars should be shown
   const showNFTAvatars = process.env.NEXT_PUBLIC_NFT_AVATARS === "true"
 
-  // Get stats from Supabase profile or use defaults
-  const stats = {
-    gamesPlayed: supabaseProfile?.total_games_played ?? 0,
-    wins: supabaseProfile?.total_wins ?? 0,
-    losses: supabaseProfile?.total_losses ?? 0,
-    winStreak: supabaseProfile?.win_streak ?? 0,
-    bestWinStreak: (supabaseProfile as any)?.best_win_streak ?? (supabaseProfile as any)?.highest_win_streak ?? 0,
-    totalPlaytime: (supabaseProfile as any)?.total_playtime ?? 0,
+  // Get stats computed from game_sessions (more accurate than profile columns)
+  const stats = computedStats ?? {
+    gamesPlayed: 0,
+    wins: 0,
+    losses: 0,
+    winStreak: 0,
+    bestWinStreak: 0,
+    totalPlaytime: 0,
   }
 
   return (
