@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { CURRENT_SEASON } from "@/lib/season"
 
 /**
  * Server-side API route to compute profile stats from game_sessions
@@ -53,11 +54,12 @@ export async function GET(request: NextRequest) {
 
     // Step 2: Query game_sessions using admin client (bypasses RLS)
 
-    // Query game_sessions for this user_id
+    // Query game_sessions for this user_id (current season only)
     const { data: sessions, error } = await adminClient
       .from("game_sessions")
       .select("result, duration, started_at, ended_at")
       .eq("user_id", profile.id)
+      .eq("season", CURRENT_SEASON)
       .order("ended_at", { ascending: false })
 
     if (error) {

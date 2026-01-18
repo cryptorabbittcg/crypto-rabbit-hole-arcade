@@ -1,5 +1,6 @@
 import { createClient, hasSupabaseConfig } from "../client"
 import { ProfileService } from "./profile.service"
+import { CURRENT_SEASON } from "@/lib/season"
 
 export interface CryptokuLeaderboardEntry {
   runId: string
@@ -81,6 +82,7 @@ export class CryptokuLeaderboardService {
         p_errors: entry.errors,
         p_completed: entry.completed,
         p_forfeited: entry.forfeited,
+        p_season: CURRENT_SEASON,
       }
       
       console.error("[CryptokuLeaderboardService] CALLING RPC:", rpcName, "WITH PARAMS:", JSON.stringify(rpcParams, null, 2))

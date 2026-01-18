@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { CURRENT_SEASON } from "@/lib/season"
 
 /**
  * Server-side API route to fetch recent game sessions
@@ -48,11 +49,12 @@ export async function GET(request: NextRequest) {
 
     // Step 2: Query game_sessions using admin client (bypasses RLS)
 
-    // Query game_sessions for this user_id, ordered by ended_at descending
+    // Query game_sessions for this user_id (current season only), ordered by ended_at descending
     const { data: sessions, error } = await adminClient
       .from("game_sessions")
       .select("id, game_type, game_mode, score, points_earned, result, duration, ended_at, run_id, started_at")
       .eq("user_id", profile.id)
+      .eq("season", CURRENT_SEASON)
       .order("ended_at", { ascending: false })
       .limit(limit)
 

@@ -3,6 +3,7 @@ import { CryptokuLeaderboardService } from "@/lib/supabase/services/cryptoku-lea
 import { ProfileService } from "@/lib/supabase/services/profile.service"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getCryptokuStats } from "@/lib/cryptoku-stats"
+import { CURRENT_SEASON } from "@/lib/season"
 
 // Server-side scoring formula
 function calculateScore(
@@ -258,6 +259,7 @@ export async function POST(request: NextRequest) {
         started_at: startedAt,
         ended_at: endedAt,
         run_id: runId,
+        season: CURRENT_SEASON,
       })
       .select('id')
       .single()
@@ -297,6 +299,7 @@ export async function POST(request: NextRequest) {
       p_points_change: score,
       p_transaction_type: 'game_reward',
       p_description: description,
+      p_season: CURRENT_SEASON,
     })
 
     if (balanceError) {
