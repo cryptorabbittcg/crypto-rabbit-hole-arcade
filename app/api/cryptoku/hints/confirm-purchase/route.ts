@@ -3,10 +3,17 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { verifyAndCompleteIntent } from "@/lib/payments/cryptokuHintsPayment"
 
 /**
- * Validate Ethereum address format
+ * Validate Ethereum address format (40 hex chars)
  */
 function isValidAddress(address: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(address)
+}
+
+/**
+ * Validate transaction hash format (64 hex chars)
+ */
+function isValidTxHash(txHash: string): boolean {
+  return /^0x[a-fA-F0-9]{64}$/.test(txHash)
 }
 
 /**
@@ -51,7 +58,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!isValidAddress(txHash)) {
+    if (!isValidTxHash(txHash)) {
       return NextResponse.json(
         { error: "Invalid transaction hash format" },
         { status: 400 }
