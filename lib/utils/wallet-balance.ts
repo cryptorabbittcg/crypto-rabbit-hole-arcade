@@ -8,29 +8,20 @@
 
 import { createPublicClient, http, formatUnits } from "viem"
 import { apeChainMainnet } from "@/lib/wagmi-chains"
-import { APE_ADDRESS } from "@/adapters/well-known"
 
-// ERC20 balanceOf ABI
-const ERC20_ABI = [
-  {
-    name: "balanceOf",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "account", type: "address" }],
-    outputs: [{ name: "", type: "uint256" }],
-  },
-] as const
+// Note: Removed ERC20_ABI and APE_ADDRESS import
+// On ApeChain, APE is native currency, so we use getBalance() instead of readContract()
 
 /**
  * Fetch APE token balance for an address using viem public client
- * This works independently and can be called from anywhere
+ * 
+ * IMPORTANT: On ApeChain (33139), APE is the NATIVE currency, not an ERC-20 token.
+ * We use getBalance() for native currency instead of readContract() for ERC-20.
  * 
  * Note: The connected Glyph wallet is accessible via wagmi hooks:
  * - useAccount() - Get connected address
- * - useBalance() - Get native token balance
+ * - useBalance() - Get native token balance (USE THIS FOR APE ON APECHAIN)
  * - useWalletClient() - Get wallet client for transactions
- * - useReadContract() - Read contract data
- * - useWriteContract() - Write contract transactions
  * 
  * @param address - Wallet address
  * @returns Balance as formatted string (e.g., "123.4567")
@@ -56,30 +47,18 @@ export async function getApeBalance(address: string): Promise<string> {
       }),
     })
 
-    // Validate contract address
-    if (!APE_ADDRESS || !/^0x[a-fA-F0-9]{40}$/.test(APE_ADDRESS)) {
-      console.error("[Wallet Balance] Invalid APE contract address:", APE_ADDRESS)
-      return "0.0000"
-    }
-
-    const balance = await publicClient.readContract({
-      address: APE_ADDRESS as `0x${string}`,
-      abi: ERC20_ABI,
-      functionName: "balanceOf",
-      args: [address as `0x${string}`],
+    // On ApeChain, APE is native currency (like ETH on Ethereum)
+    // Use getBalance() for native currency, NOT readContract() for ERC-20
+    const balance = await publicClient.getBalance({
+      address: address as `0x${string}`,
     })
 
     // Format from wei (18 decimals) to human-readable
-    const formatted = formatUnits(balance as bigint, 18)
+    const formatted = formatUnits(balance, 18)
     return parseFloat(formatted).toFixed(4)
   } catch (error: any) {
     // Handle specific error types gracefully
-    if (error?.name === "ContractFunctionExecutionError") {
-      console.warn("[Wallet Balance] Contract execution error (wallet may have no balance or contract issue):", error.message)
-    } else if (error?.message?.includes("Cannot decode zero data") || 
-               error?.name === "AbiDecodingZeroDataError") {
-      console.warn("[Wallet Balance] Empty data returned (wallet may not be ready or no balance):", error.message)
-    } else if (error?.message?.includes("timeout") || error?.message?.includes("fetch")) {
+    if (error?.message?.includes("timeout") || error?.message?.includes("fetch")) {
       console.warn("[Wallet Balance] Network error (RPC may be unavailable):", error.message)
     } else {
       console.error("[Wallet Balance] Error fetching APE balance:", error)

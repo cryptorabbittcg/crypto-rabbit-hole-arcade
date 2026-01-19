@@ -1,0 +1,22 @@
+name: Check Treasury Address in Client Code
+
+on:
+  pull_request:
+    paths:
+      - "features/**"
+      - "components/**"
+      - "scripts/check-treasury-address.sh"
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  check-treasury:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Check treasury address not in client code
+        run: |
+          chmod +x scripts/check-treasury-address.sh
+          ./scripts/check-treasury-address.sh
