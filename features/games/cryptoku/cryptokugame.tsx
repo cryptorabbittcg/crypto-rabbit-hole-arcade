@@ -541,10 +541,17 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
   // Wagmi hooks for wallet operations
   const { address: wagmiAddress, isConnected } = useAccount()
   const chainId = useChainId()
-  const { switchChain } = useSwitchChain()
-  const { sendTransaction, isPending: isSendingTransaction } = useSendTransaction()
+  const { switchChainAsync } = useSwitchChain()
+  const { sendTransactionAsync, isPending: isSendingTransaction } = useSendTransaction()
 
   const APE_CHAIN_ID = 33139 // ApeChain mainnet
+  const PENDING_HINT_PURCHASE_KEY = "cryptoku:pendingHintPurchase"
+
+  type PendingHintPurchase = {
+    address: string
+    intentId: string
+    txHash: `0x${string}`
+  }
   const [solutionBoard, setSolutionBoard] = useState<Board>(() => emptyBoard())
   const [puzzleBoard, setPuzzleBoard] = useState<Board>(() => emptyBoard())
   const [userBoard, setUserBoard] = useState<Board>(() => emptyBoard())
@@ -614,6 +621,7 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
 
   const animatedTokensRef = useRef<Set<number>>(new Set())
   const completedSectionsRef = useRef<Set<string>>(new Set())
+  const confirmingRef = useRef(false) // Prevent parallel confirm calls
 
   // Load hints balance from API (only on mount or when playerAddress changes)
   useEffect(() => {
@@ -700,6 +708,63 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
     setToast(msg)
     setTimeout(() => setToast(""), 1800)
   }, [])
+
+  // Recovery effect: auto-confirm pending purchases on mount
+  useEffect(() => {
+    if (!playerAddress) return
+
+    const maybeRecover = async () => {
+      try {
+        const raw = localStorage.getItem(PENDING_HINT_PURCHASE_KEY)
+        if (!raw) return
+
+        const pending: PendingHintPurchase = JSON.parse(raw)
+        if (!pending?.address || !pending?.intentId || !pending?.txHash) {
+          localStorage.removeItem(PENDING_HINT_PURCHASE_KEY)
+          return
+        }
+
+        // Only recover for the currently active player
+        if (pending.address.toLowerCase() !== playerAddress.toLowerCase()) {
+          return
+        }
+
+        // Prevent parallel confirmations
+        if (confirmingRef.current) return
+        confirmingRef.current = true
+
+        console.log("[PurchaseHint] Recovering pending purchase:", pending)
+
+        // Try confirm
+        const confirmResponse = await fetch("/api/cryptoku/hints/confirm-purchase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(pending),
+        })
+
+        if (!confirmResponse.ok) {
+          // Leave it in localStorage so the user can retry later
+          console.log("[PurchaseHint] Recovery failed, keeping in localStorage")
+          return
+        }
+
+        const confirmData = await confirmResponse.json()
+        if (confirmData?.success && typeof confirmData?.hintBalance === "number") {
+          setHintBalance(confirmData.hintBalance)
+          localStorage.removeItem(PENDING_HINT_PURCHASE_KEY)
+          showToastMessage("✅ Purchase finalized. Hints added.")
+          console.log("[PurchaseHint] Recovery successful, hints credited")
+        }
+      } catch (e) {
+        // Don't spam users with recovery errors
+        console.error("[PurchaseHint] Recovery failed:", e)
+      } finally {
+        confirmingRef.current = false
+      }
+    }
+
+    maybeRecover()
+  }, [playerAddress, showToastMessage])
 
   // Handle game exit/forfeit confirmation
   const handleGameExit = useCallback(() => {
@@ -1114,32 +1179,19 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
   }, [gameHasStarted, hintCooldownTime, hintBalance, userBoard, solutionBoard, playerAddress, showToastMessage])
 
   const purchaseHint = useCallback(async () => {
-    if (!playerAddress) {
-      showToastMessage("Player address required")
-      return
-    }
+    if (!playerAddress) return showToastMessage("Player address required")
 
-    // Check wallet connection
-    if (!isConnected || !wagmiAddress) {
-      showToastMessage("Please connect your wallet first")
-      return
-    }
+    if (!isConnected || !wagmiAddress) return showToastMessage("Please connect your wallet first")
 
-    // Verify wallet address matches
     if (wagmiAddress.toLowerCase() !== playerAddress.toLowerCase()) {
-      showToastMessage("Wallet address mismatch. Please reconnect your wallet.")
-      return
+      return showToastMessage("Wallet address mismatch. Please reconnect your wallet.")
     }
 
-    // Prevent multiple simultaneous purchases
-    if (isPurchasingHints) {
-      return
-    }
-
+    if (isPurchasingHints) return
     setIsPurchasingHints(true)
 
     try {
-      // Step 1: Create purchase intent
+      // 1) Create intent
       const intentResponse = await fetch("/api/cryptoku/hints/purchase-intent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1147,135 +1199,147 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
       })
 
       if (!intentResponse.ok) {
-        const data = await intentResponse.json()
-        showToastMessage(data.error || "Failed to create purchase intent")
-        setIsPurchasingHints(false)
-        return
+        const data = await intentResponse.json().catch(() => ({}))
+        throw new Error(data?.error || "Failed to create purchase intent")
       }
 
       const intentData = await intentResponse.json()
 
-      // Validate intent response
-      if (!intentData.intentId || !intentData.recipient || !intentData.priceWei) {
-        showToastMessage("Invalid purchase intent response")
-        setIsPurchasingHints(false)
-        return
+      if (!intentData?.intentId || !intentData?.recipient || !intentData?.priceWei) {
+        throw new Error("Invalid purchase intent response")
       }
 
-      // Step 2: Ensure we're on ApeChain (33139)
+      console.log("[PurchaseHint] Intent created:", {
+        intentId: intentData.intentId,
+        recipient: intentData.recipient,
+        priceWei: intentData.priceWei,
+      })
+
+      // 2) Ensure ApeChain
       if (chainId !== APE_CHAIN_ID) {
         try {
-          // Try to switch chain using wagmi
-          if (switchChain) {
-            await switchChain({ chainId: APE_CHAIN_ID })
-            // Wait a moment for chain switch to complete
-            await new Promise((resolve) => setTimeout(resolve, 1000))
+          if (switchChainAsync) {
+            await switchChainAsync({ chainId: APE_CHAIN_ID })
           } else {
-            // Fallback to direct window.ethereum if wagmi switchChain not available
             await ensureApeChain()
-            await new Promise((resolve) => setTimeout(resolve, 1000))
           }
+          // Give providers a moment to settle (some wallets lag after switch)
+          await new Promise((r) => setTimeout(r, 750))
         } catch (switchError: any) {
-          // Handle user rejection
-          if (switchError?.code === 4001 || switchError?.message?.includes("reject")) {
-            showToastMessage("Chain switch was rejected. Please switch to ApeChain manually.")
-            setIsPurchasingHints(false)
-            return
+          if (switchError?.code === 4001 || String(switchError?.message || "").toLowerCase().includes("reject")) {
+            throw new Error("Chain switch was rejected. Please switch to ApeChain and try again.")
           }
-          // Handle other switch errors
-          console.error("Error switching chain:", switchError)
-          showToastMessage("Failed to switch to ApeChain. Please switch manually in your wallet.")
-          setIsPurchasingHints(false)
+          throw new Error(switchError?.message || "Failed to switch to ApeChain. Please switch manually and try again.")
+        }
+      }
+
+      // 3) Send tx (await hash!) - must use sendTransactionAsync for deterministic flow
+      if (!sendTransactionAsync) {
+        throw new Error("sendTransactionAsync not available. Please update wagmi or use a compatible wallet.")
+      }
+      
+      const txHash = await sendTransactionAsync({
+        to: intentData.recipient as `0x${string}`,
+        value: BigInt(intentData.priceWei),
+        chainId: APE_CHAIN_ID,
+      })
+
+      console.log("[PurchaseHint] Transaction sent, hash:", txHash)
+
+      // 4) Persist pending immediately (this is your "never lose credit" guarantee)
+      const pending: PendingHintPurchase = {
+        address: playerAddress,
+        intentId: intentData.intentId,
+        txHash: txHash as `0x${string}`,
+      }
+      localStorage.setItem(PENDING_HINT_PURCHASE_KEY, JSON.stringify(pending))
+
+      // 5) Confirm (with lock to prevent parallel calls)
+      if (confirmingRef.current) {
+        throw new Error("Purchase confirmation already in progress")
+      }
+      confirmingRef.current = true
+
+      try {
+        const confirmResponse = await fetch("/api/cryptoku/hints/confirm-purchase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(pending),
+        })
+
+        if (!confirmResponse.ok) {
+          const errorData = await confirmResponse.json().catch(() => ({}))
+          // keep localStorage so recovery effect can finalize later
+          // Throw user-friendly message - catch will show it (avoid double toast)
+          throw new Error(errorData?.error || "Payment sent. Finalizing hints… If they don't appear, refresh the page.")
+        }
+
+        const confirmData = await confirmResponse.json()
+        if (confirmData?.success && typeof confirmData?.hintBalance === "number") {
+          setHintBalance(confirmData.hintBalance)
+          localStorage.removeItem(PENDING_HINT_PURCHASE_KEY)
+          showToastMessage("Purchased 10 hints for 1.0 $APE")
+          console.log("[PurchaseHint] Purchase completed successfully")
+          
+          // Optionally re-fetch balance to ensure UI is in sync
+          try {
+            const balanceResponse = await fetch(`/api/cryptoku/hints/balance?address=${encodeURIComponent(playerAddress)}`)
+            if (balanceResponse.ok) {
+              const balanceData = await balanceResponse.json()
+              if (balanceData.hintBalance !== undefined && typeof balanceData.hintBalance === "number") {
+                setHintBalance(balanceData.hintBalance)
+              }
+            }
+          } catch (e) {
+            // Non-critical - we already have the balance from confirm response
+            console.warn("[PurchaseHint] Failed to re-fetch balance:", e)
+          }
+          
           return
         }
+        
+        throw new Error(confirmData?.error || "Purchase verification failed")
+      } finally {
+        confirmingRef.current = false
       }
+    } catch (err: any) {
+      const msg = String(err?.message || "Failed to purchase hints")
+      const lower = msg.toLowerCase()
 
-      // Step 3: Send native APE transaction
-      try {
-        const priceWei = BigInt(intentData.priceWei)
-        
-        sendTransaction({
-          to: intentData.recipient as `0x${string}`,
-          value: priceWei,
-          chainId: APE_CHAIN_ID,
-        }, {
-          onSuccess: async (hash) => {
-            // Step 4: Confirm purchase with transaction hash
-            try {
-              const confirmResponse = await fetch("/api/cryptoku/hints/confirm-purchase", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  address: playerAddress,
-                  intentId: intentData.intentId,
-                  txHash: hash,
-                }),
-              })
+      // Detect actual user rejection (wallet tx rejection, not chain switch)
+      const isUserRejected =
+        lower.includes("user rejected") ||
+        lower.includes("user denied") ||
+        lower.includes("denied transaction") ||
+        lower.includes("rejected request") ||
+        String(err?.code || "") === "4001" ||
+        err?.name === "UserRejectedRequestError"
 
-              if (!confirmResponse.ok) {
-                const errorData = await confirmResponse.json()
-                showToastMessage(errorData.error || "Transaction failed verification")
-                setIsPurchasingHints(false)
-                return
-              }
-
-              const confirmData = await confirmResponse.json()
-
-              if (confirmData.success && confirmData.hintBalance !== undefined) {
-                setHintBalance(confirmData.hintBalance)
-                showToastMessage(`Purchased 10 hints for 1.0 $APE`)
-              } else {
-                showToastMessage(confirmData.error || "Purchase verification failed")
-              }
-            } catch (confirmError) {
-              console.error("Error confirming purchase:", confirmError)
-              showToastMessage("Failed to confirm purchase. Transaction may still be processing.")
-            } finally {
-              setIsPurchasingHints(false)
-            }
-          },
-          onError: (error: Error) => {
-            console.error("Transaction error:", error)
-            
-            // Handle specific error cases
-            if (error?.message?.includes("reject") || error?.message?.includes("denied")) {
-              showToastMessage("Transaction rejected by user")
-            } else if (error?.message?.includes("insufficient funds") || error?.message?.includes("balance")) {
-              showToastMessage("Insufficient funds. Please ensure you have enough APE.")
-            } else if (error?.message?.includes("network") || error?.message?.includes("chain")) {
-              showToastMessage("Network error. Please check your connection and try again.")
-            } else {
-              showToastMessage(`Transaction failed: ${error.message || "Unknown error"}`)
-            }
-            
-            setIsPurchasingHints(false)
-          },
-        })
-      } catch (txError: any) {
-        console.error("Error sending transaction:", txError)
-        
-        if (txError?.code === 4001 || txError?.message?.includes("reject")) {
-          showToastMessage("Transaction rejected by user")
-        } else if (txError?.message?.includes("insufficient funds") || txError?.message?.includes("balance")) {
-          showToastMessage("Insufficient funds. Please ensure you have enough APE.")
-        } else {
-          showToastMessage(`Transaction failed: ${txError.message || "Unknown error"}`)
-        }
-        
-        setIsPurchasingHints(false)
-      }
-    } catch (error: any) {
-      console.error("Error purchasing hints:", error)
-      
-      if (error?.message?.includes("reject")) {
-        showToastMessage("Operation rejected by user")
+      // Handle errors with appropriate messages
+      if (lower.includes("chain switch was rejected")) {
+        showToastMessage("Chain switch was rejected. Please switch to ApeChain and try again.")
+      } else if (isUserRejected) {
+        showToastMessage("Transaction rejected by user")
+      } else if (lower.includes("insufficient")) {
+        showToastMessage("Insufficient funds. Please ensure you have enough APE.")
       } else {
-        showToastMessage(error?.message || "Failed to purchase hints")
+        showToastMessage(msg)
       }
-      
+
+      console.error("[PurchaseHint] Error:", err)
+    } finally {
       setIsPurchasingHints(false)
     }
-  }, [playerAddress, showToastMessage, isConnected, wagmiAddress, chainId, switchChain, sendTransaction, isPurchasingHints])
+  }, [
+    playerAddress,
+    isConnected,
+    wagmiAddress,
+    isPurchasingHints,
+    chainId,
+    switchChainAsync,
+    sendTransactionAsync,
+    showToastMessage,
+  ])
 
   // Track token usage and completed tokens (all 9 correctly placed)
   useEffect(() => {
