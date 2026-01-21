@@ -65,11 +65,12 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
   const [playTokenError, setPlayTokenError] = useState<string | null>(null)
   const [gameInitError, setGameInitError] = useState<string | null>(null)
   const [showForfeitConfirmFromModal, setShowForfeitConfirmFromModal] = useState(false)
-  const { setGameState, gameStatus, setPlayToken, setRunId, resetGame } = useGameStore()
+  const { setGameState, gameStatus, setPlayToken, setRunId, resetGame, runId: storeRunId } = useGameStore()
   const { hasCompletedIntro, markIntroCompleted } = useIntroTracking()
   const gameStartTimeRef = useRef<number | null>(null)
   const hasCalledOnGameStart = useRef(false)
   const initializedForModeRef = useRef<string>('') // Track which mode we've initialized for
+  const hasSubmittedResult = useRef(false) // Guard to prevent duplicate submissions
   
   // Refs for confirmForfeitFromModal to prevent dependency loops
   const gameIdRef = useRef(gameId)
@@ -164,6 +165,9 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
           setGameId(game.gameId)
           setGameState(game)
           
+          // Sandy is tutorial/unranked - no runId needed
+          hasSubmittedResult.current = false // Reset submission flag for new game
+          
           // Initialize intro state - match original line 111-113
           // Use hasCompletedIntro function directly (memoized) - call it here, don't put in deps
           const shouldShowIntro = !hasCompletedIntro('sandy')
@@ -231,6 +235,13 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
         setGameId(game.gameId)
         setGameState(game)
         
+        // Generate runId for this game session (only for ranked modes)
+        if (isRanked) {
+          const runId = `ape-in-run-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+          setRunId(runId)
+          hasSubmittedResult.current = false // Reset submission flag for new game
+        }
+        
         // Initialize intro state - match original line 239-243
         const shouldShowIntro = !hasCompletedIntro(selectedMode)
         console.log('🎬 Should show intro:', shouldShowIntro)
@@ -284,7 +295,7 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
   }, [selectedMode, markIntroCompleted]) // Both are stable or only change when needed
 
   // Handle game end (called from GameBoard)
-  const handleGameEnd = useCallback((result: {
+  const handleGameEnd = useCallback(async (result: {
     winner: string
     playerScore: number
     opponentScore: number
@@ -317,6 +328,84 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
       hasForfeited,
     })
     
+    // Submit result to API (only for ranked modes, skip Sandy)
+    const currentMode = selectedMode || 'sandy'
+    const isRanked = isRankedMode(currentMode)
+    
+    if (isRanked && playerAddress && !hasSubmittedResult.current) {
+      hasSubmittedResult.current = true // Prevent duplicate submissions
+      
+      // Ensure runId is set (should be set at game creation, but fallback for safety)
+      let runId = storeRunId
+      if (!runId) {
+        runId = `ape-in-run-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+        setRunId(runId)
+        console.warn('[ape-in submit-result] runId was missing, generated fallback:', runId)
+      }
+      
+      // Map result to API format using scores (deterministic)
+      let apiResult: 'won' | 'lost' | 'draw' | 'completed'
+      if (hasForfeited) {
+        apiResult = 'lost'
+      } else if (playerScore > opponentScore) {
+        apiResult = 'won'
+      } else if (playerScore < opponentScore) {
+        apiResult = 'lost'
+      } else {
+        apiResult = 'draw'
+      }
+      
+      // Ensure mode is lowercase (API expects lowercase)
+      const apiMode = currentMode.toLowerCase()
+      
+      console.log('[ape-in submit-result] submitting', {
+        playerAddress: playerAddress.substring(0, 10) + '...',
+        mode: apiMode,
+        score: playerScore,
+        opponentScore,
+        durationSeconds: gameDuration,
+        result: apiResult,
+        runId,
+      })
+      
+      try {
+        const response = await fetch('/api/ape-in/submit-result', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            playerAddress,
+            mode: apiMode,
+            score: playerScore,
+            durationSeconds: gameDuration,
+            result: apiResult,
+            runId,
+            opponentScore,
+            metadata: {
+              winner,
+              opponentScore,
+              roundsPlayed: roundCount,
+              roundsRemaining,
+              hasForfeited,
+            },
+          }),
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          console.log('[ape-in submit-result] success', data)
+        } else {
+          const errorData = await response.json().catch(() => ({}))
+          console.error('[ape-in submit-result] failed', {
+            status: response.status,
+            error: errorData.error || 'Unknown error',
+          })
+        }
+      } catch (error) {
+        console.error('[ape-in submit-result] error', error)
+        // Continue even if submission fails - don't block game end flow
+      }
+    }
+    
     // If forfeited, return to main menu after a short delay
     if (hasForfeited) {
       setTimeout(() => {
@@ -324,6 +413,7 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
         setGameId('')
         setSelectedMode(undefined)
         setShowMainMenu(true)
+        hasSubmittedResult.current = false // Reset for next game
       }, 2500) // Wait 2.5 seconds to show forfeit message
     }
     
@@ -341,7 +431,7 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
       },
       points,
     })
-  }, [selectedMode, onGameEnd, resetGame])
+  }, [selectedMode, onGameEnd, resetGame, playerAddress, playerName, storeRunId, setRunId])
 
   // Handle return to menu (for forfeited games)
   // MUST be declared before any conditional returns to follow Rules of Hooks

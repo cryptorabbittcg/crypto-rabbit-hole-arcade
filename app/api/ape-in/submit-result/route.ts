@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { ProfileService } from "@/lib/supabase/services/profile.service"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { CURRENT_SEASON } from "@/lib/season"
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,6 +17,15 @@ export async function POST(request: NextRequest) {
       runId,
       metadata,
     } = body
+
+    console.log("[ape-in submit-result] payload", {
+      playerAddress: playerAddress ? `${playerAddress.substring(0, 10)}...` : undefined,
+      mode,
+      score,
+      durationSeconds,
+      result,
+      runId,
+    })
 
     // Validation
     if (!playerAddress || !mode || score === undefined || durationSeconds === undefined || !result || !runId) {
@@ -76,6 +86,9 @@ export async function POST(request: NextRequest) {
 
     // Attempt insert with idempotency via unique constraint on run_id
     // Use INSERT ... ON CONFLICT to handle duplicate run_id atomically
+    const endedAt = new Date().toISOString()
+    const startedAt = new Date(Date.now() - durationSeconds * 1000).toISOString()
+    
     const { data: sessionData, error: insertError } = await adminClient
       .from('game_sessions')
       .insert({
@@ -83,15 +96,17 @@ export async function POST(request: NextRequest) {
         game_type: 'ape_in',
         game_mode: mode,
         score: score,
-        duration: durationSeconds,
         result: result,
-        points_earned: pointsEarned,
+        duration: durationSeconds,
         run_id: runId,
-        ended_at: new Date().toISOString(),
+        started_at: startedAt,
+        ended_at: endedAt,
+        season: CURRENT_SEASON,
+        points_earned: pointsEarned,
         ape_earned: 0,
         tickets_earned: 0,
       })
-      .select('id, points_earned')
+      .select('id')
       .single()
 
     let sessionId: string | null = null
@@ -104,7 +119,7 @@ export async function POST(request: NextRequest) {
         // Duplicate run_id - fetch existing session (idempotent response)
         const { data: existingSession, error: fetchError } = await adminClient
           .from('game_sessions')
-          .select('id, points_earned')
+          .select('id')
           .eq('run_id', runId)
           .single()
 
@@ -117,7 +132,7 @@ export async function POST(request: NextRequest) {
         }
 
         sessionId = existingSession.id
-        existingPointsEarned = existingSession.points_earned || 0
+        existingPointsEarned = 0 // Duplicate submission - no points earned
         shouldAwardPoints = false // Don't award points again for duplicate
       } else {
         // Other database error
@@ -134,6 +149,7 @@ export async function POST(request: NextRequest) {
       }
       sessionId = sessionData.id
       shouldAwardPoints = true // Award points for new submission
+      console.log("[ape-in submit-result] inserted run_id", runId)
     }
 
     // Award points only for ranked modes (all Ape In modes are ranked)
@@ -184,7 +200,7 @@ export async function POST(request: NextRequest) {
             })
           }
         }
-      } else if (leaderboardFetchError && leaderboardFetchError.code === 'PGRST116') {
+      } else if (!leaderboardData || (leaderboardFetchError && ((leaderboardFetchError as any).code === 'PGRST116' || ((leaderboardFetchError as any).message && (((leaderboardFetchError as any).message.includes('0 rows') || (leaderboardFetchError as any).message.includes('No rows'))))))) {
         // Leaderboard entry doesn't exist - create it
         const { error: createError } = await adminClient
           .from('leaderboard')
