@@ -10,6 +10,7 @@ import { useArcade } from '@/components/providers'
 import { isRankedMode } from '../utils/constants'
 import { calculatePoints } from '../utils/scoring'
 import { X } from 'lucide-react'
+import { startGameSession, completeGameSession, forfeitGameSession, getActiveSession } from '../utils/playerStats'
 
 interface GameBoardProps {
   gameId: string
@@ -105,6 +106,10 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
   const [cardsDrawn, setCardsDrawn] = useState<number[]>([])
   const [diceRolls, setDiceRolls] = useState<number[]>([])
   const [pointsSynced, setPointsSynced] = useState(false)
+  
+  // Stats tracking session
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const sessionStartedRef = useRef(false) // Track if session has been started to prevent duplicate starts
 
   // Refresh game state from backend
   const refreshGameState = async (preserveOpponentScore = false) => {
@@ -133,6 +138,29 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
     }
   }, [roundCount, currentRound, isBotPlaying, gameStatus])
   
+  // Start stats session when game starts playing (after intro)
+  useEffect(() => {
+    if (gameStatus === 'playing' && gameMode && !sessionStartedRef.current) {
+      // Set game start time when game actually starts (matches Cryptoku pattern)
+      setGameStartTime(Date.now())
+      
+      // Check if there's already an active session (shouldn't happen, but be safe)
+      const activeSession = getActiveSession()
+      if (activeSession && activeSession.gameMode === gameMode) {
+        // Reuse existing session
+        setCurrentSessionId(activeSession.id)
+        sessionStartedRef.current = true
+        console.log('📊 Reusing existing stats session:', activeSession.id)
+      } else {
+        // Start new session
+        const session = startGameSession(gameMode)
+        setCurrentSessionId(session.id)
+        sessionStartedRef.current = true
+        console.log('📊 Started stats session:', session.id, 'for mode:', gameMode)
+      }
+    }
+  }, [gameStatus, gameMode])
+
   // Show round 1 popup when game first starts playing (after intro)
   React.useEffect(() => {
     if (gameStatus === 'playing' && roundCount === 1 && currentRound === 0 && !isBotPlaying && !showRoundPopup) {
@@ -450,6 +478,16 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
       }
       setGameMoves(prev => [...prev, move])
       
+      // Forfeit stats session if we have one
+      if (currentSessionId) {
+        try {
+          forfeitGameSession(currentSessionId)
+          console.log('📊 Forfeited stats session:', currentSessionId)
+        } catch (error) {
+          console.error('❌ Error forfeiting stats session:', error)
+        }
+      }
+      
       await gameAPI.forfeitGame(gameId)
       setFloatingMessage({text: 'Game forfeited.'})
       // Game will end and result submission will pick up FORFEIT status
@@ -555,6 +593,12 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
       setHasForfeited(false)
       setGameStartTime(Date.now()) // Reset game start time for new game
       submitLockRef.current = false // Reset submission lock for new run
+      
+      // Reset stats session tracking when starting a new game
+      if (gameStatus === 'waiting' || gameStatus === 'idle') {
+        setCurrentSessionId(null)
+        sessionStartedRef.current = false
+      }
     }
   }, [gameStatus])
 
@@ -573,6 +617,34 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
       const playerWon = winner === playerName
       const isDraw = !winner
       
+      // Calculate game duration
+      const gameDuration = Math.floor((Date.now() - gameStartTime) / 1000)
+      
+      // Complete stats session if we have one (and not forfeited)
+      if (currentSessionId && !hasForfeited) {
+        try {
+          completeGameSession(
+            currentSessionId,
+            playerScore,
+            opponentScore,
+            winner || 'Draw',
+            roundCount,
+            gameDuration,
+            playerName,
+            verificationProofId || undefined
+          )
+          console.log('📊 Completed stats session:', currentSessionId, {
+            winner: winner || 'Draw',
+            playerScore,
+            opponentScore,
+            roundCount,
+            gameDuration,
+          })
+        } catch (error) {
+          console.error('❌ Error completing stats session:', error)
+        }
+      }
+      
       // Call parent callback with game result
       onGameEnd({
         winner: winner || 'Draw',
@@ -588,7 +660,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
         hasForfeited,
       })
     }
-  }, [gameStatus, winner, playerName, gameMode, playerScore, opponentScore, hasForfeited, onGameEnd])
+  }, [gameStatus, winner, playerName, gameMode, playerScore, opponentScore, hasForfeited, onGameEnd, currentSessionId, roundCount, gameStartTime, verificationProofId])
 
   // Calculate and send points to arcade hub when game ends (for all modes except Sandy)
   // Points calculation is now handled by parent component (ApeInGame) via onGameEnd callback
