@@ -74,25 +74,35 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
           isRekt ? 'bg-red-600' : 'bg-white'
         } border-2 border-slate-300 shadow-lg`}
       >
-        {/* Dice Face Content - Centered grid */}
-        <div className="relative z-10 grid grid-cols-3 w-full h-full items-center justify-center" style={{ gap: '0.25rem', padding: '1rem' }}>
-          {diceDots[displayValue]?.map(([row, col], index) => (
-            <div
-              key={index}
-              className="flex items-center justify-center"
-              style={{
-                gridColumn: col + 1,
-                gridRow: row + 1,
-              }}
-            >
+        {/* Dice Face Content - Centered grid or ApeCoin for value 1 */}
+        {displayValue === 1 ? (
+          <div className="relative z-10 w-full h-full flex items-center justify-center">
+            <img
+              src="/images/assets/cryptoku-tokens/ApeCoin.png"
+              alt="ApeCoin"
+              className="w-12 h-12 object-contain"
+            />
+          </div>
+        ) : (
+          <div className="relative z-10 grid grid-cols-3 w-full h-full items-center justify-center" style={{ gap: '0.25rem' }}>
+            {diceDots[displayValue]?.map(([row, col], index) => (
               <div
-                className={`rounded-full w-3 h-3 ${
-                  isRekt ? 'bg-white' : 'bg-slate-900'
-                }`}
-              />
-            </div>
-          ))}
-        </div>
+                key={index}
+                className="flex items-center justify-center"
+                style={{
+                  gridColumn: col + 1,
+                  gridRow: row + 1,
+                }}
+              >
+                <div
+                  className={`rounded-full w-3 h-3 ${
+                    isRekt ? 'bg-white' : 'bg-slate-900'
+                  }`}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </motion.div>
   )

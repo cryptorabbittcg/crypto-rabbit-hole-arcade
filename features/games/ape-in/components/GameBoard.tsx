@@ -535,7 +535,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
         gameId,
         playerName,
         gameMode || 'sandy',
-        useGameStore.getState().winningScore || 150, // Default winning score
+        useGameStore.getState().winningScore,
         playerScore,
         roundCount,
         cardsDrawn,
@@ -982,13 +982,13 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
           <div className="flex items-center justify-center gap-4 text-sm">
             <div className="flex items-center gap-2">
               <span className="text-slate-400">Goal:</span>
-              <span className="font-bold text-yellow-400">{winningScore || 150} sats</span>
+              <span className="font-bold text-yellow-400">{winningScore} sats</span>
             </div>
             <span className="text-slate-600">•</span>
             <div className="flex items-center gap-2">
               <span className="text-slate-400">Rounds:</span>
               <span className="font-bold text-purple-400">
-                {unlimitedRounds ? '∞' : `${roundCount}/${maxRounds}`}
+                {unlimitedRounds ? 'unlimited' : `${roundCount}/${maxRounds}`}
               </span>
             </div>
           </div>
@@ -1245,7 +1245,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
               ROUND {roundCount}
             </div>
             <div className="text-sm sm:text-lg opacity-90">
-              {unlimitedRounds ? '∞' : `of ${maxRounds}`}
+              {unlimitedRounds ? 'unlimited' : `of ${maxRounds}`}
             </div>
           </div>
         </motion.div>
@@ -1296,7 +1296,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
                   <div>• Draw card → Roll dice → Stack sats</div>
                   <div>• <span className="text-green-400">Ape In!</span> = Double next card value</div>
                   <div>• <span className="text-red-400">Roll 1</span> = Bust (lose turn score)</div>
-                  <div>• First to {useGameStore.getState().winningScore || 150} sats wins!</div>
+                  <div>• First to {useGameStore.getState().winningScore} sats wins!</div>
                 </div>
               </div>
               <p className="text-xs text-slate-400">
