@@ -402,12 +402,6 @@ export default function MainMenu({ onSelectMode, playerAddress, onClose }: MainM
   const buyPlays = useCallback(async () => {
     if (!identity.address) return showToastMessage("Player address required")
     
-    if (!isConnected || !wagmiAddress) return showToastMessage("Please connect your wallet first")
-    
-    if (wagmiAddress.toLowerCase() !== identity.address.toLowerCase()) {
-      return showToastMessage("Wallet address mismatch. Please reconnect your wallet.")
-    }
-    
     if (isBuyingPlays) return
     setIsBuyingPlays(true)
     setPurchaseError(null)
@@ -462,7 +456,16 @@ export default function MainMenu({ onSelectMode, playerAddress, onClose }: MainM
         }
       }
       
-      // 3) Send tx (await hash!) - use server-provided chainId
+      // 3) Require wagmi connection ONLY at transaction time
+      if (!isConnected || !wagmiAddress) {
+        throw new Error("Please reconnect your wallet to complete the purchase")
+      }
+      
+      if (wagmiAddress.toLowerCase() !== identity.address.toLowerCase()) {
+        throw new Error("Wallet address mismatch. Please reconnect your wallet.")
+      }
+      
+      // 4) Send tx (await hash!) - use server-provided chainId
       if (!sendTransactionAsync) {
         throw new Error("sendTransactionAsync not available. Please update wagmi or use a compatible wallet.")
       }
