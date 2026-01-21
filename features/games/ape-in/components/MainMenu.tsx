@@ -2,15 +2,25 @@
 
 import { motion } from 'framer-motion'
 import { GameMode } from '../types/game'
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useAccount, useChainId, useSendTransaction, useSwitchChain } from 'wagmi'
+import { ensureApeChain } from '@/lib/wallet-chain'
 import ParticleBackground from './ParticleBackground'
 import { useArcade } from '@/components/providers'
-import { PaymentService } from '../lib/paymentService'
 import { BOT_CONFIGS } from '../utils/botConfig'
-import { PlayBalanceService } from '../lib/playBalanceService'
 import StatsModal from './StatsModal'
 import LeaderboardModal from './LeaderboardModal'
 import { X } from 'lucide-react'
+
+const PENDING_PLAY_PURCHASE_KEY = "ape-in:pendingPlayPurchase"
+const FREE_PLAY_MODES = ["aida", "lana", "enj1n", "nifty"] as const
+const FALLBACK_CHAIN_ID = 33139 // ApeChain mainnet (fallback only)
+
+type PendingPlayPurchase = {
+  address: string
+  intentId: string
+  txHash: `0x${string}`
+}
 
 interface MainMenuProps {
   onSelectMode: (mode: GameMode) => void
@@ -131,6 +141,14 @@ export default function MainMenu({ onSelectMode, playerAddress, onClose }: MainM
     username: profile?.username,
     avatar: profile?.avatar,
   }
+  
+  // Wagmi hooks
+  const { address: wagmiAddress, isConnected } = useAccount()
+  const chainId = useChainId()
+  const { sendTransactionAsync, isPending: isSendingTransaction } = useSendTransaction()
+  const { switchChainAsync } = useSwitchChain()
+  
+  // UI state
   const [hoveredCard, setHoveredCard] = useState<string | null>(null)
   const [hoveredGuide, setHoveredGuide] = useState<string | null>(null)
   const [paymentError, setPaymentError] = useState<string | null>(null)
@@ -138,8 +156,407 @@ export default function MainMenu({ onSelectMode, playerAddress, onClose }: MainM
   const [showStatsModal, setShowStatsModal] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   
+  // Play balance state (server-authoritative)
+  const [freePlaysByMode, setFreePlaysByMode] = useState<Record<string, number>>({})
+  const [purchasedPlaysRemaining, setPurchasedPlaysRemaining] = useState<number>(0)
+  const [totalPlaysRemaining, setTotalPlaysRemaining] = useState<number>(0) // Menu-level: max(free) + purchased
+  
+  // Purchase flow state
+  const [isBuyingPlays, setIsBuyingPlays] = useState(false)
+  const [purchaseError, setPurchaseError] = useState<string | null>(null)
+  const confirmingRef = useRef(false)
+  const hasServerTotalRef = useRef(false) // Track if server provided total (prevents fallback override)
+  
   // Get game modes with safety checks (called during render, not module load)
   const gameModes = getGameModes()
+  
+  // Fetch play balance for all free modes (server-authoritative)
+  const fetchPlayBalance = useCallback(async () => {
+    if (!identity.address) return
+    
+    const address = identity.address // Type narrowing
+    
+    // ✅ Reset server total flag - treat fetch as baseline (client computed)
+    // This allows fallback to work again if future events omit totals
+    hasServerTotalRef.current = false
+    
+    try {
+      // Fetch balances for all free play modes
+      const balancePromises = FREE_PLAY_MODES.map(async (mode) => {
+        try {
+          const response = await fetch(
+            `/api/ape-in/plays/balance?address=${encodeURIComponent(address)}&mode=${mode}`
+          )
+          if (response.ok) {
+            const data = await response.json()
+            return { mode, data }
+          }
+          return null
+        } catch (error) {
+          console.error(`[MainMenu] Error fetching balance for mode ${mode}:`, error)
+          return null
+        }
+      })
+      
+      const results = await Promise.all(balancePromises)
+      
+      // Extract free plays per mode and purchased plays (global, same from any response)
+      const freePlaysMap: Record<string, number> = {}
+      let purchasedMax = 0
+      const purchasedSeen: number[] = []
+      
+      results.forEach((result) => {
+        if (result?.data) {
+          freePlaysMap[result.mode] = result.data.freePlaysRemaining || 0
+          // Purchased plays are global - take max across all successful responses
+          // (resilient to partial failures or caching mismatches)
+          const p = Number(result.data.purchasedPlaysRemaining ?? 0)
+          purchasedSeen.push(p)
+          purchasedMax = Math.max(purchasedMax, p)
+        }
+      })
+      
+      // Warn if purchased balance differs across responses (smoke alarm for caching/issues)
+      const uniquePurchased = Array.from(new Set(purchasedSeen))
+      if (uniquePurchased.length > 1) {
+        console.warn("[MainMenu] Purchased balance mismatch across balance responses:", uniquePurchased)
+      }
+      
+      // Compute menu-level totals
+      const purchasedFinal = purchasedMax
+      const maxFreeRemaining = Math.max(...Object.values(freePlaysMap), 0)
+      const menuTotal = maxFreeRemaining + purchasedFinal
+      
+      setFreePlaysByMode(freePlaysMap)
+      setPurchasedPlaysRemaining(purchasedFinal)
+      setTotalPlaysRemaining(menuTotal)
+      
+      console.log("[MainMenu] Play balance updated:", {
+        freePlaysByMode: freePlaysMap,
+        purchasedPlaysRemaining: purchasedFinal,
+        totalPlaysRemaining: menuTotal,
+      })
+    } catch (error) {
+      console.error("[MainMenu] Error fetching play balance:", error)
+    }
+  }, [identity.address])
+  
+  // Fetch balance on mount and when address changes
+  useEffect(() => {
+    fetchPlayBalance()
+  }, [fetchPlayBalance])
+  
+  // Refetch balance when user returns to menu (tab focus, visibility change, mobile resume)
+  useEffect(() => {
+    const onFocus = () => {
+      console.log("[MainMenu] Window/tab focused - refreshing play balance")
+      fetchPlayBalance()
+    }
+    
+    const onVisibility = () => {
+      if (!document.hidden) {
+        onFocus()
+      }
+    }
+    
+    window.addEventListener("focus", onFocus)
+    document.addEventListener("visibilitychange", onVisibility)
+    
+    return () => {
+      window.removeEventListener("focus", onFocus)
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
+  }, [fetchPlayBalance])
+  
+  // Listen for instant sync from game creation (server-authoritative balances)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{
+        address?: string
+        mode?: string
+        freePlaysRemaining?: number
+        purchasedPlaysRemaining?: number
+        totalPlaysRemaining?: number
+      }>).detail
+      
+      if (!detail) return
+      
+      // Ignore if event is for a different wallet (prevents wrong user updates)
+      if (detail.address && identity.address && detail.address.toLowerCase() !== identity.address.toLowerCase()) {
+        console.log("[MainMenu] Ignoring play balance event for different wallet:", detail.address)
+        return
+      }
+      
+      console.log("[MainMenu] Instant sync from game creation:", detail)
+      
+      // Update purchased plays (global)
+      if (typeof detail.purchasedPlaysRemaining === "number") {
+        setPurchasedPlaysRemaining(detail.purchasedPlaysRemaining)
+      }
+      
+      // Update free plays for specific mode (mode-specific)
+      if (detail.mode && typeof detail.freePlaysRemaining === "number") {
+        setFreePlaysByMode((prev) => ({
+          ...prev,
+          [detail.mode!]: detail.freePlaysRemaining!,
+        }))
+      }
+      
+      // Note: detail.totalPlaysRemaining is mode-specific (freePlaysRemaining[that mode] + purchased)
+      // We don't use it for menu-level totalPlaysRemaining, which is max(free across modes) + purchased
+      // The fallback effect will compute menu total correctly from freePlaysByMode + purchasedPlaysRemaining
+    }
+    
+    window.addEventListener("apein:playBalances", handler)
+    return () => {
+      window.removeEventListener("apein:playBalances", handler)
+      // Reset ref when listener is torn down (on address change)
+      hasServerTotalRef.current = false
+    }
+  }, [identity.address])
+  
+  // Fallback: recompute total plays from free + purchased if server didn't provide it
+  // (ensures menu total stays accurate even if server omits totalPlaysRemaining)
+  // This is gated to NEVER override server-provided totals (server might calculate differently)
+  useEffect(() => {
+    // ✅ Never override server total (even if computed differs - server is authoritative)
+    if (hasServerTotalRef.current) return
+    
+    const maxFree = Math.max(...Object.values(freePlaysByMode), 0)
+    const computedTotal = maxFree + purchasedPlaysRemaining
+    
+    // Only update if computed differs from current (avoids pointless rerenders)
+    setTotalPlaysRemaining((prev) => (prev === computedTotal ? prev : computedTotal))
+  }, [freePlaysByMode, purchasedPlaysRemaining])
+  
+  // Recovery effect: auto-confirm pending purchases on mount
+  useEffect(() => {
+    const address = identity.address
+    if (!address) return
+    
+    const maybeRecover = async () => {
+      try {
+        const raw = localStorage.getItem(PENDING_PLAY_PURCHASE_KEY)
+        if (!raw) return
+        
+        const pending: PendingPlayPurchase = JSON.parse(raw)
+        if (!pending?.address || !pending?.intentId || !pending?.txHash) {
+          localStorage.removeItem(PENDING_PLAY_PURCHASE_KEY)
+          return
+        }
+        
+        // Only recover for the currently active player
+        if (pending.address.toLowerCase() !== address.toLowerCase()) {
+          return
+        }
+        
+        // Prevent parallel confirmations
+        if (confirmingRef.current) return
+        confirmingRef.current = true
+        
+        console.log("[BuyPlays] Recovering pending purchase:", pending)
+        
+        // Try confirm
+        const confirmResponse = await fetch("/api/ape-in/plays/confirm-purchase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(pending),
+        })
+        
+        if (!confirmResponse.ok) {
+          const errorData = await confirmResponse.json().catch(() => ({}))
+          // If expired, clear localStorage
+          if (errorData?.error?.includes("expired")) {
+            localStorage.removeItem(PENDING_PLAY_PURCHASE_KEY)
+            setPurchaseError("Purchase intent expired. Please try again.")
+          }
+          // Otherwise leave it for retry
+          return
+        }
+        
+        const confirmData = await confirmResponse.json()
+        if (confirmData?.success) {
+          localStorage.removeItem(PENDING_PLAY_PURCHASE_KEY)
+          setPurchaseError(null)
+          // Refresh balance
+          await fetchPlayBalance()
+          console.log("[BuyPlays] Recovery successful, plays credited")
+        }
+      } catch (e) {
+        console.error("[BuyPlays] Recovery failed:", e)
+      } finally {
+        confirmingRef.current = false
+      }
+    }
+    
+    maybeRecover()
+  }, [identity.address, fetchPlayBalance])
+  
+  // Show toast message helper
+  const showToastMessage = useCallback((msg: string) => {
+    setPurchaseError(msg)
+    setTimeout(() => setPurchaseError(null), 4000)
+  }, [])
+  
+  // Buy plays function (mirrors Cryptoku's purchaseHint)
+  const buyPlays = useCallback(async () => {
+    if (!identity.address) return showToastMessage("Player address required")
+    
+    if (!isConnected || !wagmiAddress) return showToastMessage("Please connect your wallet first")
+    
+    if (wagmiAddress.toLowerCase() !== identity.address.toLowerCase()) {
+      return showToastMessage("Wallet address mismatch. Please reconnect your wallet.")
+    }
+    
+    if (isBuyingPlays) return
+    setIsBuyingPlays(true)
+    setPurchaseError(null)
+    
+    try {
+      // 1) Create intent
+      const intentResponse = await fetch("/api/ape-in/plays/purchase-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          address: identity.address,
+          gameMode: "ape-in",
+        }),
+      })
+      
+      if (!intentResponse.ok) {
+        const data = await intentResponse.json().catch(() => ({}))
+        throw new Error(data?.error || "Failed to create purchase intent")
+      }
+      
+      const intentData = await intentResponse.json()
+      
+      if (!intentData?.intentId || !intentData?.recipient || !intentData?.priceWei) {
+        throw new Error("Invalid purchase intent response")
+      }
+      
+      // Use chainId from intent (server-authoritative), fallback to 33139 if missing
+      const targetChainId = intentData.chainId ?? FALLBACK_CHAIN_ID
+      
+      console.log("[BuyPlays] Intent created:", {
+        intentId: intentData.intentId,
+        recipient: intentData.recipient,
+        priceWei: intentData.priceWei,
+        chainId: targetChainId,
+      })
+      
+      // 2) Ensure correct chain (use server-provided chainId)
+      if (chainId !== targetChainId) {
+        try {
+          if (switchChainAsync) {
+            await switchChainAsync({ chainId: targetChainId })
+          } else {
+            await ensureApeChain()
+          }
+          // Give providers a moment to settle
+          await new Promise((r) => setTimeout(r, 750))
+        } catch (switchError: any) {
+          if (switchError?.code === 4001 || String(switchError?.message || "").toLowerCase().includes("reject")) {
+            throw new Error("Chain switch was rejected. Please switch to ApeChain and try again.")
+          }
+          throw new Error(switchError?.message || "Failed to switch chain. Please switch manually and try again.")
+        }
+      }
+      
+      // 3) Send tx (await hash!) - use server-provided chainId
+      if (!sendTransactionAsync) {
+        throw new Error("sendTransactionAsync not available. Please update wagmi or use a compatible wallet.")
+      }
+      
+      const txHash = await sendTransactionAsync({
+        to: intentData.recipient as `0x${string}`,
+        value: BigInt(intentData.priceWei),
+        chainId: targetChainId,
+      })
+      
+      console.log("[BuyPlays] Transaction sent, hash:", txHash)
+      
+      // 4) Persist pending immediately (this is your "never lose credit" guarantee)
+      const pending: PendingPlayPurchase = {
+        address: identity.address,
+        intentId: intentData.intentId,
+        txHash: txHash as `0x${string}`,
+      }
+      localStorage.setItem(PENDING_PLAY_PURCHASE_KEY, JSON.stringify(pending))
+      
+      // 5) Confirm (with lock to prevent parallel calls)
+      if (confirmingRef.current) {
+        throw new Error("Purchase confirmation already in progress")
+      }
+      confirmingRef.current = true
+      
+      try {
+        const confirmResponse = await fetch("/api/ape-in/plays/confirm-purchase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(pending),
+        })
+        
+        if (!confirmResponse.ok) {
+          const errorData = await confirmResponse.json().catch(() => ({}))
+          // keep localStorage so recovery effect can finalize later
+          throw new Error(errorData?.error || "Payment sent. Finalizing plays… If they don't appear, refresh the page.")
+        }
+        
+        const confirmData = await confirmResponse.json()
+        if (confirmData?.success) {
+          localStorage.removeItem(PENDING_PLAY_PURCHASE_KEY)
+          showToastMessage("Purchased 5 plays for 1.0 $APE")
+          console.log("[BuyPlays] Purchase completed successfully")
+          
+          // Refresh balance
+          await fetchPlayBalance()
+          
+          return
+        }
+        
+        throw new Error(confirmData?.error || "Purchase verification failed")
+      } finally {
+        confirmingRef.current = false
+      }
+    } catch (err: any) {
+      const msg = String(err?.message || "Failed to purchase plays")
+      const lower = msg.toLowerCase()
+      
+      // Detect actual user rejection (wallet tx rejection, not chain switch)
+      const isUserRejected =
+        lower.includes("user rejected") ||
+        lower.includes("user denied") ||
+        lower.includes("denied transaction") ||
+        lower.includes("rejected request") ||
+        String(err?.code || "") === "4001" ||
+        err?.name === "UserRejectedRequestError"
+      
+      // Handle errors with appropriate messages
+      if (lower.includes("chain switch was rejected")) {
+        showToastMessage("Chain switch was rejected. Please switch to ApeChain and try again.")
+      } else if (isUserRejected) {
+        showToastMessage("Transaction rejected by user")
+      } else if (lower.includes("insufficient")) {
+        showToastMessage("Insufficient funds. Please ensure you have enough APE.")
+      } else {
+        showToastMessage(msg)
+      }
+      
+      console.error("[BuyPlays] Error:", err)
+    } finally {
+      setIsBuyingPlays(false)
+    }
+  }, [
+    identity.address,
+    isConnected,
+    wagmiAddress,
+    isBuyingPlays,
+    chainId,
+    switchChainAsync,
+    sendTransactionAsync,
+    showToastMessage,
+    fetchPlayBalance,
+  ])
 
   const handleModeSelect = async (mode: GameMode) => {
     setPaymentError(null)
@@ -159,25 +576,28 @@ export default function MainMenu({ onSelectMode, playerAddress, onClose }: MainM
         return
       }
 
-      // Check if user has free plays available (for display/validation only)
-      // NOTE: Free plays are NOT deducted here - they are deducted in GamePage.tsx
-      // after the game is successfully created to prevent loss if game creation fails
-      const hasFreePlays = PlayBalanceService.hasFreePlays(identity.address)
+      // Server-authoritative play availability check
+      // For free modes (aida/lana/enj1n/nifty), check if free plays available for this specific mode
+      const freePlayModes = ['aida', 'lana', 'enj1n', 'nifty']
+      const hasFreeForMode = freePlayModes.includes(mode) && (freePlaysByMode[mode] ?? 0) > 0
+      const purchasedAvailable = purchasedPlaysRemaining > 0
       
-      // Validate payment for paid games (but don't execute yet - wait for game creation)
-      if (!hasFreePlays) {
-        // Check if user can afford a play
-        const requiredAmount = PlayBalanceService.getPlayPrice()
-        const validation = await PaymentService.validatePayment(identity.address, requiredAmount)
-        
-        if (!validation.hasEnoughBalance) {
-          setPaymentError(`Insufficient ApeCoin balance. You need ${PaymentService.formatApeCoin(validation.requiredAmount)} to purchase a play, but only have ${PaymentService.formatApeCoin(validation.currentBalance)}`)
-          return
-        }
-        
-        // Payment will be executed in GamePage.tsx after game is created
-        console.log('✅ Payment validation passed - will execute after game creation')
+      // If no plays available (neither free for this mode nor purchased), block and show error
+      if (!hasFreeForMode && !purchasedAvailable) {
+        setPaymentError('No plays remaining. Buy 5 plays to continue.')
+        return
       }
+
+      // Plays available (either free for this mode or purchased) - proceed to game
+      // NOTE: Play consumption happens server-side in GamePage.tsx after game is successfully created
+      // to prevent loss if game creation fails
+      console.log('✅ Plays available:', {
+        mode,
+        hasFreeForMode,
+        freePlaysForMode: freePlaysByMode[mode] ?? 0,
+        purchasedAvailable,
+        purchasedPlaysRemaining,
+      })
 
       // Navigate to game (via callback)
       onSelectMode(mode)
@@ -376,6 +796,64 @@ export default function MainMenu({ onSelectMode, playerAddress, onClose }: MainM
             </div>
           </motion.div>
         )}
+        
+        {/* Purchase Error Display */}
+        {purchaseError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="max-w-md mx-auto mb-4 p-4 bg-red-500/20 border border-red-500/30 rounded-xl backdrop-blur-sm"
+          >
+            <div className="flex items-center space-x-2">
+              <span className="text-red-400">⚠️</span>
+              <p className="text-red-300 text-sm font-medium">{purchaseError}</p>
+            </div>
+          </motion.div>
+        )}
+        
+        {/* Buy Plays CTA - Show when total plays === 0 */}
+        {identity.address && totalPlaysRemaining === 0 && !isBuyingPlays && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-md mx-auto mb-4"
+          >
+            <button
+              onClick={buyPlays}
+              disabled={isBuyingPlays || isSendingTransaction}
+              className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 font-bold text-white shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isBuyingPlays || isSendingTransaction ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Processing...
+                </span>
+              ) : (
+                "Buy 5 Plays (1 APE)"
+              )}
+            </button>
+          </motion.div>
+        )}
+        
+        {/* Buy Plays Loading Overlay */}
+        {isBuyingPlays && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"
+          >
+            <div className="bg-slate-800 rounded-xl p-6 max-w-sm mx-4">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+                <p className="text-white font-semibold">Purchasing plays...</p>
+                <p className="text-slate-400 text-sm text-center">
+                  Please confirm the transaction in your wallet
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Compact Game Modes Grid */}
         <motion.div
@@ -397,6 +875,8 @@ export default function MainMenu({ onSelectMode, playerAddress, onClose }: MainM
                 onHoverChange={setHoveredCard}
                 identity={identity}
                 isLoading={paymentLoading === gameMode.mode}
+                freePlaysByMode={freePlaysByMode}
+                purchasedPlaysRemaining={purchasedPlaysRemaining}
               />
             ))}
           </div>
@@ -424,7 +904,9 @@ function CompactGameCard({
   isHovered,
   onHoverChange,
   identity,
-  isLoading = false
+  isLoading = false,
+  freePlaysByMode,
+  purchasedPlaysRemaining
 }: { 
   gameMode: GameModeCard
   index: number
@@ -433,22 +915,24 @@ function CompactGameCard({
   onHoverChange: (mode: string | null) => void
   identity: { address: string | null; username?: string; avatar?: string }
   isLoading?: boolean
+  freePlaysByMode: Record<string, number>
+  purchasedPlaysRemaining: number
 }) {
   const disabled = ['pvp', 'multiplayer', 'tournament'].includes(gameMode.mode)
   
-  // Determine display price
+  // Determine display price (server-authoritative)
   const getDisplayPrice = () => {
     if (gameMode.mode === 'sandy') return { price: 0, text: 'FREE', isFree: true }
     
-    const freePlaysRemaining = identity.address 
-      ? PlayBalanceService.getFreePlaysRemaining(identity.address)
-      : 0
+    // Get free plays for this specific mode (server-fetched)
+    const freePlaysForMode = freePlaysByMode[gameMode.mode] || 0
     
-    if (freePlaysRemaining > 0) {
-      return { price: 0, text: `Free plays: ${freePlaysRemaining}`, isFree: true, isDailyFree: true }
+    if (freePlaysForMode > 0) {
+      return { price: 0, text: `Free plays: ${freePlaysForMode}`, isFree: true, isDailyFree: true }
     }
     
-    return { price: 0.1, text: 'Cost: 0.1 APE', isFree: false }
+    // No free plays for this mode - show cost (uses purchased plays if available)
+    return { price: 0.1, text: purchasedPlaysRemaining > 0 ? 'Uses purchased play' : 'Cost: 0.1 APE', isFree: false }
   }
   
   const displayPrice = getDisplayPrice()

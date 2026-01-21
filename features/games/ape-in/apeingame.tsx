@@ -208,6 +208,26 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
           throw new Error('Game creation failed: No game ID returned')
         }
         
+        // Instant sync: dispatch server-authoritative balances to MainMenu
+        // (only for ranked modes - Sandy doesn't consume plays)
+        // Dispatch if any balance field exists (works for both free and purchased consumption)
+        const balances =
+          (game as any).freePlaysRemaining !== undefined ||
+          (game as any).purchasedPlaysRemaining !== undefined ||
+          (game as any).totalPlaysRemaining !== undefined
+        
+        if (isRanked && balances) {
+          window.dispatchEvent(new CustomEvent("apein:playBalances", {
+            detail: {
+              address: playerAddress || undefined,
+              mode: selectedMode,
+              freePlaysRemaining: (game as any).freePlaysRemaining,
+              purchasedPlaysRemaining: (game as any).purchasedPlaysRemaining,
+              totalPlaysRemaining: (game as any).totalPlaysRemaining,
+            }
+          }))
+        }
+        
         setGameId(game.gameId)
         setGameState(game)
         
