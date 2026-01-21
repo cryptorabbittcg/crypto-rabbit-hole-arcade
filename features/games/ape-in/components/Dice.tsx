@@ -76,43 +76,24 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
       >
         {/* Dice Face Content - Centered grid */}
         <div className="relative z-10 grid grid-cols-3 gap-2 p-4 w-full h-full items-center justify-center">
-          {diceDots[displayValue]?.map(([row, col], index) => {
-            const isCenterPip = displayValue === 1 && row === 1 && col === 1
-            return (
+          {diceDots[displayValue]?.map(([row, col], index) => (
+            <div
+              key={index}
+              className="flex items-center justify-center"
+              style={{
+                gridColumn: col + 1,
+                gridRow: row + 1,
+              }}
+            >
               <div
-                key={index}
-                className="flex items-center justify-center"
-                style={{
-                  gridColumn: col + 1,
-                  gridRow: row + 1,
-                }}
-              >
-                <div
-                  className={`rounded-full ${isCenterPip ? 'w-6 h-6' : 'w-3 h-3'} ${
-                    isRekt ? 'bg-white' : 'bg-slate-900'
-                  }`}
-                />
-              </div>
-            )
-          })}
+                className={`rounded-full w-3 h-3 ${
+                  isRekt ? 'bg-white' : 'bg-slate-900'
+                }`}
+              />
+            </div>
+          ))}
         </div>
       </div>
-
-      {/* "Rekt!" text for value 1 */}
-      {isRekt && (
-        <div
-          className="absolute -top-8 left-1/2 pointer-events-none z-20"
-          style={{
-            transform: 'translateX(-50%)',
-            textAlign: 'center',
-            width: '100%',
-          }}
-        >
-          <span className="text-white font-bold text-xs sm:text-sm whitespace-nowrap block">
-            Rekt!
-          </span>
-        </div>
-      )}
     </motion.div>
   )
 }

@@ -21,7 +21,6 @@ interface LeaderboardEntry {
 
 const MODE_TABS: Array<{ mode: GameMode | 'all'; label: string }> = [
   { mode: 'all', label: 'All' },
-  { mode: 'sandy', label: '🐰 Sandy' },
   { mode: 'aida', label: '🧠 Aida' },
   { mode: 'lana', label: '⚡ Lana' },
   { mode: 'enj1n', label: '🔥 En-J1n' },

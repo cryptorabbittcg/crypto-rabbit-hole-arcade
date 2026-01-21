@@ -90,7 +90,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
 
   const [isDrawing, setIsDrawing] = useState(false)
   const [isRolling, setIsRolling] = useState(false)
-  const [floatingMessage, setFloatingMessage] = useState<{text: string, sats?: number} | null>(null)
+  const [floatingMessage, setFloatingMessage] = useState<{text: string, sats?: number, isRekt?: boolean} | null>(null)
   const [botTurnData, setBotTurnData] = useState<{card: any, roll: number | null, turnSats: number, isRolling?: boolean} | null>(null)
   const [showEnlargedAvatar, setShowEnlargedAvatar] = useState(false)
   const [isBotPlaying, setIsBotPlaying] = useState(false)
@@ -254,7 +254,12 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
           }, 2000)
         } else {
           // Player busted - show message then replay bot turn
-          setFloatingMessage({text: result.message || 'Busted! Turn ended.'})
+          // Check if this is a roll of 1 (Rekt!)
+          const isRekt = result.value === 1
+          setFloatingMessage({
+            text: result.message || 'Busted! Turn ended.',
+            isRekt: isRekt
+          })
           // Clear the card (turn ended, card is consumed)
           setCurrentCard(null)
           
@@ -1035,11 +1040,22 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
                   initial={{ y: 20, opacity: 0, scale: 0.9 }}
                   animate={{ y: 0, opacity: 1, scale: 1 }}
                   exit={{ y: -20, opacity: 0 }}
-                  className="absolute top-full mt-4 left-1/2 transform -translate-x-1/2 z-50 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 sm:px-6 py-3 sm:py-4 rounded-xl shadow-2xl border-2 border-green-300 font-bold text-center max-w-[90vw] mx-4"
+                  className={`absolute top-full mt-4 left-1/2 transform -translate-x-1/2 z-50 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl shadow-2xl border-2 font-bold text-center max-w-[90vw] mx-4 ${
+                    floatingMessage.isRekt 
+                      ? 'bg-gradient-to-r from-red-500 to-red-600 border-red-300' 
+                      : 'bg-gradient-to-r from-green-500 to-emerald-500 border-green-300'
+                  }`}
                 >
-                  <div className="text-sm sm:text-lg">{floatingMessage.text}</div>
-                  {floatingMessage.sats !== undefined && (
-                    <div className="text-xs sm:text-sm mt-1">Turn Sats: {floatingMessage.sats}</div>
+                  {floatingMessage.isRekt ? (
+                    <div>
+                      <div className="text-xs sm:text-sm font-bold mb-1">Rekt!</div>
+                      <div className="text-xs sm:text-sm">{floatingMessage.text}</div>
+                    </div>
+                  ) : (
+                    <div className="text-xs sm:text-sm">{floatingMessage.text}</div>
+                  )}
+                  {floatingMessage.sats !== undefined && !floatingMessage.isRekt && (
+                    <div className="text-xs mt-1">Turn Sats: {floatingMessage.sats}</div>
                   )}
                 </motion.div>
               )}
