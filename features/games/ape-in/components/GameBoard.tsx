@@ -231,7 +231,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
           if (isBearishDodge) {
             // Show the dodge message from backend
             setFloatingMessage({
-              text: result.message || "Great Roll! Your sats are safe! Continue your turn.",
+              text: result.message || "Your sats are safe! Continue your turn.",
               sats: result.turnScore
             })
           } else {
@@ -239,7 +239,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
             const satsGained = result.satsGained !== undefined ? result.satsGained : currentCard.value
             console.log('Sats gained:', satsGained, 'Current card value:', currentCard.value, 'Ape In active:', apeInActive) // Debug
             setFloatingMessage({
-              text: `Great roll! +${satsGained} sats`,
+              text: `+${satsGained} sats`,
               sats: result.turnScore
             })
           }
@@ -1047,15 +1047,18 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
                   }`}
                 >
                   {floatingMessage.isRekt ? (
-                    <div>
-                      <div className="text-xs sm:text-sm font-bold mb-1">Rekt!</div>
+                    <div className="space-y-1">
+                      <div className="text-xs sm:text-sm font-bold">Rekt!</div>
                       <div className="text-xs sm:text-sm">{floatingMessage.text}</div>
                     </div>
                   ) : (
-                    <div className="text-xs sm:text-sm">{floatingMessage.text}</div>
-                  )}
-                  {floatingMessage.sats !== undefined && !floatingMessage.isRekt && (
-                    <div className="text-xs mt-1">Turn Sats: {floatingMessage.sats}</div>
+                    <div className="space-y-1">
+                      <div className="text-xs sm:text-sm font-bold">Great roll!</div>
+                      <div className="text-xs sm:text-sm">{floatingMessage.text}</div>
+                      {floatingMessage.sats !== undefined && (
+                        <div className="text-xs">Turn Sats: {floatingMessage.sats}</div>
+                      )}
+                    </div>
                   )}
                 </motion.div>
               )}

@@ -75,7 +75,7 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
         } border-2 border-slate-300 shadow-lg`}
       >
         {/* Dice Face Content - Centered grid */}
-        <div className="relative z-10 grid grid-cols-3 gap-2 p-4 w-full h-full items-center justify-center">
+        <div className="relative z-10 grid grid-cols-3 w-full h-full items-center justify-center" style={{ gap: '0.25rem', padding: '1rem' }}>
           {diceDots[displayValue]?.map(([row, col], index) => (
             <div
               key={index}

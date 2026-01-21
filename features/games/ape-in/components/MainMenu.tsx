@@ -919,6 +919,21 @@ function CompactGameCard({
   purchasedPlaysRemaining: number
 }) {
   const disabled = ['pvp', 'multiplayer', 'tournament'].includes(gameMode.mode)
+  const [imageFormat, setImageFormat] = useState<'gif' | 'png'>('gif')
+  const isBotMode = ['sandy', 'aida', 'lana', 'enj1n', 'nifty'].includes(gameMode.mode)
+  
+  // Test if GIF loads, fallback to PNG
+  useEffect(() => {
+    if (!isBotMode) return
+    
+    const img = new Image()
+    img.onload = () => setImageFormat('gif')
+    img.onerror = () => {
+      console.log(`GIF failed for ${gameMode.mode}, using PNG...`)
+      setImageFormat('png')
+    }
+    img.src = `/features/games/ape-in/assets/images/bots/${gameMode.mode}.gif`
+  }, [gameMode.mode, isBotMode])
   
   // Determine display price (server-authoritative)
   const getDisplayPrice = () => {
@@ -950,7 +965,28 @@ function CompactGameCard({
       className={`${disabled || isLoading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} relative`}
     >
       <div className={`bg-gradient-to-br ${gameMode.color} p-[1px] rounded-xl h-full shadow-lg hover:shadow-xl transition-shadow`}>
-        <div className="bg-slate-800/95 rounded-xl p-2 sm:p-3 h-full flex flex-col relative overflow-hidden">
+        <div 
+          className={`rounded-xl p-2 sm:p-3 h-full flex flex-col relative overflow-hidden ${
+            ['sandy', 'aida', 'lana', 'enj1n', 'nifty'].includes(gameMode.mode)
+              ? '' 
+              : 'bg-slate-800/95'
+          }`}
+          style={
+            isBotMode
+              ? {
+                  backgroundImage: `url(/features/games/ape-in/assets/images/bots/${gameMode.mode}.${imageFormat})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                }
+              : undefined
+          }
+        >
+          {/* Dark overlay for text readability */}
+          {isBotMode && (
+            <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80 rounded-xl pointer-events-none z-0" />
+          )}
+          
           {disabled && (
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm rounded-xl flex items-center justify-center z-20">
               <span className="text-xs font-bold text-slate-400 px-2 py-1 bg-slate-800/80 rounded">Coming Soon</span>
@@ -966,59 +1002,41 @@ function CompactGameCard({
             </div>
           )}
           
-          <div className="flex items-center justify-between mb-1 sm:mb-2">
-            {/* Bot Avatar Image or Icon */}
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 border-purple-500/30 shadow-lg flex items-center justify-center">
-              {['sandy', 'aida', 'lana', 'enj1n', 'nifty'].includes(gameMode.mode) ? (
-                <img 
-                  src={`/features/games/ape-in/assets/images/bots/${gameMode.mode}.gif`} 
-                  alt={`${gameMode.name} avatar`} 
-                  className="w-full h-full object-cover" 
-                  onError={(e) => {
-                    console.log(`GIF failed for ${gameMode.mode} HomePage, trying PNG...`);
-                    e.currentTarget.src = `/features/games/ape-in/assets/images/bots/${gameMode.mode}.png`;
-                  }}
-                  onLoad={(e) => {
-                    console.log(`Successfully loaded GIF HomePage avatar for ${gameMode.mode}`);
-                  }}
-                />
-              ) : (
-                <span className="text-lg sm:text-xl">{gameMode.icon}</span>
-              )}
-            </div>
+          
+          <div className="flex items-center justify-end mb-1 sm:mb-2 relative z-10">
             {gameMode.difficulty && (
-              <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase px-1 sm:px-1.5 py-0.5 rounded bg-slate-700/50">
+              <span className="text-[9px] sm:text-[10px] font-semibold text-white uppercase px-1 sm:px-1.5 py-0.5 rounded bg-black/50 backdrop-blur-sm border border-white/20">
                 {gameMode.difficulty}
               </span>
             )}
           </div>
 
-          <h3 className="text-sm sm:text-base font-bold mb-1 text-white">{gameMode.name}</h3>
-          <p className="text-slate-400 text-[10px] sm:text-[11px] mb-2 sm:mb-3 line-clamp-2 leading-tight">{gameMode.description}</p>
+          <h3 className="text-sm sm:text-base font-bold mb-1 text-white relative z-10 drop-shadow-lg">{gameMode.name}</h3>
+          <p className="text-white/90 text-[10px] sm:text-[11px] mb-2 sm:mb-3 line-clamp-2 leading-tight relative z-10 drop-shadow-md">{gameMode.description}</p>
           
           {/* zkVerify Verification Indicator */}
-          <div className="flex items-center justify-center gap-1 mb-2">
+          <div className="flex items-center justify-center gap-1 mb-2 relative z-10">
             <div className="w-1 h-1 bg-emerald-400 rounded-full animate-pulse"></div>
-            <span className="text-[9px] text-emerald-400 font-medium">zkVerify Protected</span>
+            <span className="text-[9px] text-emerald-300 font-medium drop-shadow-md">zkVerify Protected</span>
           </div>
           
           {/* Price Display */}
-          <div className="mb-2 sm:mb-3">
+          <div className="mb-2 sm:mb-3 relative z-10">
             {displayPrice.isFree ? (
-              <div className={`flex items-center justify-center px-2 py-1 rounded-lg border ${
+              <div className={`flex items-center justify-center px-2 py-1 rounded-lg border backdrop-blur-sm ${
                 displayPrice.isDailyFree 
-                  ? 'bg-blue-500/20 border-blue-500/30' 
-                  : 'bg-green-500/20 border-green-500/30'
+                  ? 'bg-blue-500/30 border-blue-400/50' 
+                  : 'bg-green-500/30 border-green-400/50'
               }`}>
                 <span className={`text-[9px] sm:text-[10px] font-bold ${
-                  displayPrice.isDailyFree ? 'text-blue-400' : 'text-green-400'
+                  displayPrice.isDailyFree ? 'text-blue-200' : 'text-green-200'
                 }`}>
                   {displayPrice.text}
                 </span>
               </div>
             ) : (
-              <div className="flex items-center justify-center px-2 py-1 bg-orange-500/20 rounded-lg border border-orange-500/30">
-                <span className="text-[9px] sm:text-[10px] font-bold text-orange-400">
+              <div className="flex items-center justify-center px-2 py-1 bg-orange-500/30 rounded-lg border border-orange-400/50 backdrop-blur-sm">
+                <span className="text-[9px] sm:text-[10px] font-bold text-orange-200">
                   {displayPrice.text}
                 </span>
               </div>
@@ -1026,7 +1044,7 @@ function CompactGameCard({
           </div>
           
           <button
-            className={`w-full px-2 py-1 sm:py-1.5 rounded-lg font-semibold text-[10px] sm:text-xs bg-gradient-to-r ${gameMode.color} mt-auto ${disabled ? 'opacity-50' : 'hover:opacity-90'}`}
+            className={`w-full px-2 py-1 sm:py-1.5 rounded-lg font-semibold text-[10px] sm:text-xs bg-gradient-to-r ${gameMode.color} mt-auto relative z-10 ${disabled ? 'opacity-50' : 'hover:opacity-90'} shadow-lg`}
             disabled={disabled}
           >
             {disabled ? 'Soon' : 'Play →'}
