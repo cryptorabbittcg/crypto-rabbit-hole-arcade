@@ -24,6 +24,15 @@ export class GameService {
     const winningScore = botConfig.winningScore
     const maxRounds = botConfig.maxRounds
     const noRoundLimit = botConfig.noRoundLimit || false
+    
+    console.log('[GameService.createGame] Config loaded:', {
+      mode,
+      botConfigName: botConfig.name,
+      winningScore,
+      maxRounds,
+      noRoundLimit,
+      fallbackUsed: !BOT_CONFIGS[mode],
+    })
 
     const gameId = `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const playerId = `player_${Date.now()}`

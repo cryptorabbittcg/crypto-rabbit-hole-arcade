@@ -56,7 +56,9 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
   console.log('🎯 ApeInGame component rendered', { mode, playerAddress, profileUsername })
   
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedMode, setSelectedMode] = useState<GameMode | undefined>(mode) // Use prop if provided, otherwise undefined
+  // Don't initialize selectedMode from mode prop - let user select from menu
+  // Only use mode prop if explicitly provided (not default 'sandy')
+  const [selectedMode, setSelectedMode] = useState<GameMode | undefined>(undefined)
   const [playerName, setPlayerName] = useState('')
   const [gameId, setGameId] = useState('')
   const [showIntro, setShowIntro] = useState(false) // Don't auto-show intro
@@ -149,9 +151,9 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
           console.log('📝 Player name for Sandy:', name)
           setPlayerName(name)
           
-          // Create game via API - match original line 94
+          // Create game via API - use selectedMode (not hardcoded 'sandy')
           console.log('🚀 Creating Sandy tutorial game via API...')
-          const game = await gameAPI.createGame('sandy', name, undefined, false)
+          const game = await gameAPI.createGame(selectedMode, name, undefined, false)
           
           if (!game || !game.gameId) {
             throw new Error('Game creation failed: No game ID returned')
@@ -161,6 +163,9 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
             gameId: game.gameId,
             mode: game.mode,
             playerName: game.playerName,
+            winningScore: game.winningScore,
+            maxRounds: game.maxRounds,
+            unlimitedRounds: game.unlimitedRounds,
           })
           setGameId(game.gameId)
           setGameState(game)
@@ -170,14 +175,14 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
           
           // Initialize intro state - match original line 111-113
           // Use hasCompletedIntro function directly (memoized) - call it here, don't put in deps
-          const shouldShowIntro = !hasCompletedIntro('sandy')
+          const shouldShowIntro = !hasCompletedIntro(selectedMode)
           console.log('🎬 Should show intro:', shouldShowIntro)
           setShowIntro(shouldShowIntro)
           
           console.log('✅ Sandy tutorial initialization complete')
           setIsLoading(false)
           gameStartTimeRef.current = Date.now()
-          initializedForModeRef.current = 'sandy' // Mark as initialized for this mode
+          initializedForModeRef.current = selectedMode // Mark as initialized for this mode
           return
         }
         
@@ -232,6 +237,14 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
           }))
         }
         
+        console.log('✅ Ranked game created successfully:', {
+          gameId: game.gameId,
+          mode: game.mode,
+          playerName: game.playerName,
+          winningScore: game.winningScore,
+          maxRounds: game.maxRounds,
+          unlimitedRounds: game.unlimitedRounds,
+        })
         setGameId(game.gameId)
         setGameState(game)
         
