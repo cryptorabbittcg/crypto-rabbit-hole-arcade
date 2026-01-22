@@ -460,6 +460,15 @@ export class GameService {
       const currentBehindBy = currentState.playerScore - currentState.opponentScore
       const currentTurnScore = currentState.opponentTurnScore
 
+      // Chain fatigue: after 6+ successful draw+roll cycles, reduce continue probability
+      // Aida/Lana decay faster (0.12/draw); Nifty/En-J1n slower (0.06/draw)
+      const CHAIN_THRESHOLD = 6
+      const chainFatigueRates: Record<string, number> = { aida: 0.12, lana: 0.12, nifty: 0.06, enj1n: 0.06 }
+      const successfulDrawsThisTurn = actions.filter(a => a.type === 'roll').length
+      const overBy = Math.max(0, successfulDrawsThisTurn - CHAIN_THRESHOLD)
+      const decayRate = chainFatigueRates[aiType] ?? 0
+      const chainDecay = (decayRate > 0 && overBy > 0) ? Math.max(0.15, 1.0 - overBy * decayRate) : 1.0
+
       // Sandy-specific tutorial logic (simple and predictable)
       if (aiType === "sandy" && currentTurnScore >= 21) {
         // Check if player is significantly ahead (>50 sats)
@@ -506,8 +515,16 @@ export class GameService {
         const aidaBehindGap = riskCfg.behindGap || 30
         const aidaBehindPush = riskCfg.behindPush || 0.60
 
+        // If stacking now would put Aida ahead, always bank (play safe—we've caught up)
+        const wouldBeAhead = currentState.opponentScore + ts > currentState.playerScore
+        if (wouldBeAhead) {
+          actions.push({ type: "decision", message: "Aida banks—she's caught up and plays it safe." })
+          break
+        }
+
         if (behindBy > aidaBehindGap) {
-          if (Math.random() < scalePush(aidaBehindPush + opponentPushNudge, behindBy)) {
+          const raw = scalePush(aidaBehindPush + opponentPushNudge, behindBy)
+          if (Math.random() < raw * chainDecay) {
             actions.push({ type: "decision", message: "Aida takes a calculated risk to catch up." })
             continue
           } else {
@@ -517,13 +534,18 @@ export class GameService {
           actions.push({ type: "decision", message: `Aida stacks at ${highStack}+.` })
           break
         } else if (midMin <= ts && ts <= midMax) {
-          if (Math.random() < scalePush(midPush + opponentPushNudge, behindBy)) {
+          const raw = scalePush(midPush + opponentPushNudge, behindBy)
+          if (Math.random() < raw * chainDecay) {
             actions.push({ type: "decision", message: "Aida pushes with a balanced risk." })
             continue
           } else {
             break
           }
         } else {
+          if (successfulDrawsThisTurn >= CHAIN_THRESHOLD && Math.random() >= chainDecay) {
+            actions.push({ type: "decision", message: "Aida banks—chain fatigue." })
+            break
+          }
           continue
         }
       }
@@ -533,14 +555,27 @@ export class GameService {
         const stackAt = riskCfg.stackAt || 30
         const stackBias = riskCfg.stackBias || 0.70
 
+        // If stacking now would put Lana ahead, always bank (play safe—we've caught up)
+        const wouldBeAhead = currentState.opponentScore + ts > currentState.playerScore
+        if (wouldBeAhead) {
+          actions.push({ type: "decision", message: "Lana banks—she's caught up and plays it safe." })
+          break
+        }
+
         if (ts >= stackAt) {
-          if (Math.random() < scalePush(stackBias - 0.20, -currentBehindBy)) {
+          const stackProb = scalePush(stackBias - 0.20, -currentBehindBy)
+          const continueProb = (1 - stackProb) * chainDecay
+          if (Math.random() < continueProb) {
+            continue
+          } else {
             actions.push({ type: "decision", message: `Lana stacks at ${stackAt}.` })
             break
-          } else {
-            continue
           }
         } else {
+          if (successfulDrawsThisTurn >= CHAIN_THRESHOLD && Math.random() >= chainDecay) {
+            actions.push({ type: "decision", message: "Lana banks—chain fatigue." })
+            break
+          }
           continue
         }
       }
@@ -552,6 +587,13 @@ export class GameService {
         const stackAt = riskCfg.stackAt || 50
         const basePush = riskCfg.basePush || 0.75
 
+        // If stacking now would put En-J1n 21+ sats beyond the player, bank (he pushes for a cushion)
+        const wouldBeAheadBy21 = currentState.opponentScore + ts > currentState.playerScore + 21
+        if (wouldBeAheadBy21) {
+          actions.push({ type: "decision", message: "En-J1n banks—21 sats clear and plays it safe." })
+          break
+        }
+
         if (behindBy > enj1nBehindGap) {
           actions.push({ type: "decision", message: "En-J1n stacks aggressively to catch up." })
           break
@@ -559,7 +601,8 @@ export class GameService {
           actions.push({ type: "decision", message: `En-J1n stacks at ${stackAt}.` })
           break
         } else {
-          if (Math.random() < scalePush(basePush + opponentPushNudge, behindBy)) {
+          const raw = scalePush(basePush + opponentPushNudge, behindBy)
+          if (Math.random() < raw * chainDecay) {
             actions.push({ type: "decision", message: "En-J1n keeps pressing the attack." })
             continue
           } else {
@@ -574,8 +617,19 @@ export class GameService {
         const stackAt = riskCfg.stackAt || 50
         const behindGap = riskCfg.behindGap || 20
 
+        // If stacking now would put Nifty ahead, always bank (play safe—we've caught up)
+        const wouldBeAhead = currentState.opponentScore + ts > currentState.playerScore
+        if (wouldBeAhead) {
+          actions.push({ type: "decision", message: "Nifty banks—caught up and plays it safe." })
+          break
+        }
+
         if (ts >= stackAt) {
           if (behindBy >= behindGap) {
+            if (successfulDrawsThisTurn >= CHAIN_THRESHOLD && Math.random() >= chainDecay) {
+              actions.push({ type: "decision", message: "Nifty banks—chain fatigue." })
+              break
+            }
             actions.push({ type: "decision", message: "Nifty is behind—stays ultra aggressive over 50 sats." })
             continue
           } else {
@@ -583,6 +637,10 @@ export class GameService {
             break
           }
         } else {
+          if (successfulDrawsThisTurn >= CHAIN_THRESHOLD && Math.random() >= chainDecay) {
+            actions.push({ type: "decision", message: "Nifty banks—chain fatigue." })
+            break
+          }
           continue
         }
       } else if (currentTurnScore >= targetTurnScore) {
