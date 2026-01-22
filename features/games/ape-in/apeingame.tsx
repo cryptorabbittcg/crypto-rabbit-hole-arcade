@@ -48,17 +48,21 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
   playerAddress,
   profileUsername,
   profileAvatarUrl,
-  mode = 'sandy', // Default to Sandy (tutorial)
+  mode, // Optional: if provided, will auto-select that mode (otherwise shows menu)
   onGameStart,
   onGameEnd,
   onClose,
 }, ref) => {
-  console.log('🎯 ApeInGame component rendered', { mode, playerAddress, profileUsername })
+  // Only log mode if explicitly provided (not the default)
+  if (mode) {
+    console.log('🎯 ApeInGame component rendered with mode:', mode, { playerAddress, profileUsername })
+  } else {
+    console.log('🎯 ApeInGame component rendered - showing mode selection menu', { playerAddress, profileUsername })
+  }
   
   const [isLoading, setIsLoading] = useState(true)
-  // Don't initialize selectedMode from mode prop - let user select from menu
-  // Only use mode prop if explicitly provided (not default 'sandy')
-  const [selectedMode, setSelectedMode] = useState<GameMode | undefined>(undefined)
+  // Initialize selectedMode from mode prop if provided, otherwise undefined (shows menu)
+  const [selectedMode, setSelectedMode] = useState<GameMode | undefined>(mode)
   const [playerName, setPlayerName] = useState('')
   const [gameId, setGameId] = useState('')
   const [showIntro, setShowIntro] = useState(false) // Don't auto-show intro
