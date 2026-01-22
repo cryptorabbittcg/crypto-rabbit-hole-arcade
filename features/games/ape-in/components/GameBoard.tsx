@@ -1124,20 +1124,27 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
                 onClick={!isPlayerTurn || !currentCard || currentCard.type === 'Special' || isRolling || isBotPlaying ? undefined : handleRollDice}
                 disabled={!isPlayerTurn || !currentCard || currentCard.type === 'Special' || isRolling || isBotPlaying}
               />
-              
-              {/* Floating Success Message - Positioned beneath dice */}
+            </div>
+            
+            {/* Floating Success Message - Fixed positioning for consistent display across all screen sizes */}
+            <AnimatePresence>
               {floatingMessage && (
                 <motion.div
                   initial={{ y: 20, opacity: 0, scale: 0.9 }}
                   animate={{ y: 0, opacity: 1, scale: 1 }}
                   exit={{ y: -20, opacity: 0 }}
-                  className={`absolute top-full mt-4 left-1/2 transform -translate-x-1/2 z-50 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl shadow-2xl border-2 font-bold text-center min-w-[200px] max-w-[400px] mx-4 ${
+                  className={`fixed left-1/2 transform -translate-x-1/2 z-[100] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl shadow-2xl border-2 font-bold text-center pointer-events-none ${
                     floatingMessage.isRekt 
                       ? 'bg-gradient-to-r from-red-500 to-red-600 border-red-300' 
                       : floatingMessage.isDiceSuccess
                       ? 'bg-gradient-to-r from-green-500 to-emerald-500 border-green-300'
                       : 'bg-gradient-to-r from-slate-700 to-slate-800 border-slate-500'
                   }`}
+                  style={{
+                    top: 'clamp(40%, 50vh, 60%)', // Responsive vertical position
+                    width: 'min(calc(100vw - 2rem), 400px)', // Responsive width with max constraint
+                    minWidth: '200px',
+                  }}
                 >
                   {floatingMessage.isRekt ? (
                     <div className="space-y-1">
@@ -1157,7 +1164,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
                   )}
                 </motion.div>
               )}
-            </div>
+            </AnimatePresence>
 
             {/* Action Buttons */}
             <div className="flex flex-col gap-1.5 sm:gap-2 w-full sm:w-auto sm:min-w-[160px]">
