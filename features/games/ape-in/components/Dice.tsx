@@ -10,10 +10,32 @@ interface DiceProps {
 }
 
 // Preload the ApeCoin image for dice value 1 to prevent loading delays
-const preloadApeCoinImage = () => {
-  const img = new Image()
-  img.src = '/images/assets/cryptoku-tokens/ApeInDiceToken.png'
+// Use a Promise to ensure the image is fully loaded before use
+let imagePreloadPromise: Promise<void> | null = null
+
+const preloadApeCoinImage = (): Promise<void> => {
+  if (imagePreloadPromise) {
+    return imagePreloadPromise // Return existing promise if already preloading
+  }
+  
+  imagePreloadPromise = new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      console.log('✅ ApeInDiceToken.png preloaded successfully')
+      resolve()
+    }
+    img.onerror = () => {
+      console.warn('⚠️ Failed to preload ApeInDiceToken.png')
+      reject(new Error('Failed to preload image'))
+    }
+    img.src = '/images/assets/cryptoku-tokens/ApeInDiceToken.png'
+  })
+  
+  return imagePreloadPromise
 }
+
+// Preload immediately when module loads (before component mounts)
+preloadApeCoinImage()
 
 const diceDots: Record<number, number[][]> = {
   1: [[1, 1]],
@@ -26,10 +48,13 @@ const diceDots: Record<number, number[][]> = {
 
 export default function Dice({ value, isRolling, onRollComplete, onClick, disabled = false }: DiceProps) {
   const [displayValue, setDisplayValue] = useState(value || 1)
+  const [imageLoaded, setImageLoaded] = useState(false)
 
-  // Preload the ApeCoin image on component mount to prevent delays when showing value 1
+  // Ensure image is preloaded on component mount
   useEffect(() => {
     preloadApeCoinImage()
+      .then(() => setImageLoaded(true))
+      .catch(() => setImageLoaded(true)) // Still allow rendering even if preload fails
   }, [])
 
   useEffect(() => {
@@ -93,7 +118,6 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
               alt="ApeCoin"
               className="w-12 h-12 object-contain"
               loading="eager"
-              decoding="async"
             />
           </div>
         ) : (

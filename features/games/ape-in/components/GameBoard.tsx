@@ -31,6 +31,14 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
   const { address, profile } = useArcade()
   const [playerProfile, setPlayerProfile] = useState<{pfp?: string, avatar?: string} | null>(null)
   const [gameStartTime, setGameStartTime] = useState(() => Date.now()) // Track game start for duration
+  
+  // Preload the ApeCoin dice image immediately when GameBoard mounts (before any dice rolls)
+  useEffect(() => {
+    const img = new Image()
+    img.src = '/images/assets/cryptoku-tokens/ApeInDiceToken.png'
+    console.log('🎲 Preloading ApeInDiceToken.png for dice value 1')
+  }, [])
+  
   const [resultSubmissionState, setResultSubmissionState] = useState<{
     isSubmitting: boolean
     submitted: boolean
