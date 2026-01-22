@@ -9,6 +9,12 @@ interface DiceProps {
   disabled?: boolean
 }
 
+// Preload the ApeCoin image for dice value 1 to prevent loading delays
+const preloadApeCoinImage = () => {
+  const img = new Image()
+  img.src = '/images/assets/cryptoku-tokens/ApeInDiceToken.png'
+}
+
 const diceDots: Record<number, number[][]> = {
   1: [[1, 1]],
   2: [[0, 0], [2, 2]],
@@ -20,6 +26,11 @@ const diceDots: Record<number, number[][]> = {
 
 export default function Dice({ value, isRolling, onRollComplete, onClick, disabled = false }: DiceProps) {
   const [displayValue, setDisplayValue] = useState(value || 1)
+
+  // Preload the ApeCoin image on component mount to prevent delays when showing value 1
+  useEffect(() => {
+    preloadApeCoinImage()
+  }, [])
 
   useEffect(() => {
     if (isRolling) {
@@ -78,9 +89,11 @@ export default function Dice({ value, isRolling, onRollComplete, onClick, disabl
         {displayValue === 1 ? (
           <div className="relative z-10 w-full h-full flex items-center justify-center">
             <img
-              src="/images/assets/cryptoku-tokens/ApeCoin.png"
+              src="/images/assets/cryptoku-tokens/ApeInDiceToken.png"
               alt="ApeCoin"
               className="w-12 h-12 object-contain"
+              loading="eager"
+              decoding="async"
             />
           </div>
         ) : (
