@@ -4,6 +4,10 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { CURRENT_SEASON } from "@/lib/season"
 
 export async function POST(request: NextRequest) {
+  // Diagnostic: Log runtime and env vars
+  console.log("[ApeInSubmit] runtime", process.env.NEXT_RUNTIME, "node?", typeof process !== "undefined")
+  console.log("[ApeInSubmit] has service key", !!process.env.SUPABASE_SERVICE_ROLE_KEY)
+  
   try {
     const body = await request.json()
     const {
@@ -27,18 +31,22 @@ export async function POST(request: NextRequest) {
       runId,
     })
 
+    // Normalize mode and result server-side to prevent casing mismatches
+    const normalizedMode = String(mode).toLowerCase()
+    const normalizedResult = String(result).toLowerCase()
+
     // Validation
-    if (!playerAddress || !mode || score === undefined || durationSeconds === undefined || !result || !runId) {
+    if (!playerAddress || !normalizedMode || score === undefined || durationSeconds === undefined || !normalizedResult || !runId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
     const validModes = ['aida', 'lana', 'nifty', 'enj1n', 'pvp', 'multiplayer']
-    if (!validModes.includes(mode)) {
+    if (!validModes.includes(normalizedMode)) {
       return NextResponse.json({ error: "Invalid mode" }, { status: 400 })
     }
 
     const validResults = ['won', 'lost', 'draw', 'completed']
-    if (!validResults.includes(result)) {
+    if (!validResults.includes(normalizedResult)) {
       return NextResponse.json({ error: "Invalid result" }, { status: 400 })
     }
 
@@ -69,6 +77,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Log profile info for diagnostics
+    console.log('[ApeInSubmit] profile', { 
+      id: profile.id, 
+      wallet: normalizedAddress 
+    })
+
     // Calculate points (MVP: points = score)
     const pointsEarned = score
 
@@ -76,6 +90,17 @@ export async function POST(request: NextRequest) {
     let adminClient
     try {
       adminClient = createAdminClient()
+      // Log Supabase URL hostname for diagnostics
+      console.log('[ApeInSubmit] supabase url', process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1] || 'not-set')
+      
+      // Diagnostic: Prove the API can read the leaderboard row (confirms same DB/env)
+      const { data: diagData, error: diagError } = await adminClient
+        .from('leaderboard')
+        .select('user_id, season, ape_in_high_score, updated_at')
+        .eq('user_id', profile.id)
+        .maybeSingle()
+      
+      console.log('[ApeInSubmit] diag leaderboard readback', { diagData, diagError })
     } catch (error) {
       console.error('[ApeInSubmit] Error creating admin client:', error)
       return NextResponse.json(
@@ -94,9 +119,9 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: profile.id,
         game_type: 'ape_in',
-        game_mode: mode,
+        game_mode: normalizedMode,
         score: score,
-        result: result,
+        result: normalizedResult,
         duration: durationSeconds,
         run_id: runId,
         started_at: startedAt,
@@ -161,7 +186,7 @@ export async function POST(request: NextRequest) {
         p_tickets_change: 0,
         p_points_change: pointsEarned,
         p_transaction_type: 'game_reward',
-        p_description: `Reward from ape_in ${mode}`,
+        p_description: `Reward from ape_in ${normalizedMode}`,
       })
 
       if (balanceError) {
@@ -173,49 +198,43 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update leaderboard.ape_in_high_score atomically using UPSERT with GREATEST logic
-    // Only update for completed/won results
-    // This ensures a leaderboard row ALWAYS exists after a ranked Ape In game
+    // Update leaderboard via RPC (match Cryptoku pattern - SECURITY DEFINER bypasses RLS)
+    // Only update for completed/won results (using normalized result to prevent casing issues)
     let highScoreUpdated = false
-    if (result === 'won' || result === 'completed') {
-      // Fetch current high score (if exists) - use maybeSingle to handle missing row gracefully
-      const { data: existingLeaderboard } = await adminClient
-        .from('leaderboard')
-        .select('ape_in_high_score')
-        .eq('user_id', profile.id)
-        .maybeSingle()
-      
-      // Calculate new high score: max of current (or 0) and this score
-      const currentHighScore = existingLeaderboard?.ape_in_high_score || 0
-      const newHighScore = Math.max(currentHighScore, score)
-      
-      // Atomic UPSERT: creates row if missing, updates if exists
-      // Always upsert to ensure row exists, even if score didn't increase
-      const { data: upserted, error: upsertError } = await adminClient
-        .from('leaderboard')
-        .upsert({
-          user_id: profile.id,
-          season: CURRENT_SEASON,
-          ape_in_high_score: newHighScore,
-        }, {
-          onConflict: 'user_id',
-        })
-        .select('user_id, ape_in_high_score')
-        .single()
-      
-      if (!upsertError && upserted) {
-        highScoreUpdated = score > currentHighScore
-        console.log('[ApeInSubmit] Leaderboard upserted', {
+    if (normalizedResult === 'won' || normalizedResult === 'completed') {
+      console.log('[ApeInSubmit] Calling add_apein_leaderboard_entry RPC', {
+        userId: profile.id,
+        score,
+        season: CURRENT_SEASON,
+      })
+
+      const { data: rpcData, error: rpcError } = await adminClient.rpc(
+        'add_apein_leaderboard_entry',
+        {
+          p_user_id: profile.id,
+          p_score: score,
+          p_season: CURRENT_SEASON,
+        }
+      )
+
+      console.log('[ApeInSubmit] rpc add_apein_leaderboard_entry', { rpcData, rpcError })
+
+      if (!rpcError && rpcData && rpcData.length > 0) {
+        // rpcData[0].ape_in_high_score is now the correct max value
+        const updatedHighScore = rpcData[0].ape_in_high_score
+        highScoreUpdated = updatedHighScore >= score // Score was updated (may have been same or higher)
+        console.log('[ApeInSubmit] Leaderboard updated via RPC', {
           userId: profile.id,
-          currentHighScore,
-          newScore: newHighScore,
-          scoreIncreased: highScoreUpdated,
-          upsertedData: upserted,
+          score,
+          updatedHighScore,
+          highScoreUpdated,
         })
-      } else {
-        console.error('[ApeInSubmit] Error upserting leaderboard:', {
-          code: upsertError?.code,
-          message: upsertError?.message,
+      } else if (rpcError) {
+        console.error('[ApeInSubmit] leaderboard RPC failed:', {
+          code: rpcError.code,
+          message: rpcError.message,
+          details: (rpcError as any).details,
+          hint: (rpcError as any).hint,
         })
       }
     }
