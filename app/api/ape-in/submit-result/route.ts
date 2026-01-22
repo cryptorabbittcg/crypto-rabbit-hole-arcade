@@ -173,50 +173,50 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update leaderboard.ape_in_high_score if this score is higher
+    // Update leaderboard.ape_in_high_score atomically using UPSERT with GREATEST logic
     // Only update for completed/won results
+    // This ensures a leaderboard row ALWAYS exists after a ranked Ape In game
     let highScoreUpdated = false
     if (result === 'won' || result === 'completed') {
-      const { data: leaderboardData, error: leaderboardFetchError } = await adminClient
+      // Fetch current high score (if exists) - use maybeSingle to handle missing row gracefully
+      const { data: existingLeaderboard } = await adminClient
         .from('leaderboard')
         .select('ape_in_high_score')
         .eq('user_id', profile.id)
+        .maybeSingle()
+      
+      // Calculate new high score: max of current (or 0) and this score
+      const currentHighScore = existingLeaderboard?.ape_in_high_score || 0
+      const newHighScore = Math.max(currentHighScore, score)
+      
+      // Atomic UPSERT: creates row if missing, updates if exists
+      // Always upsert to ensure row exists, even if score didn't increase
+      const { data: upserted, error: upsertError } = await adminClient
+        .from('leaderboard')
+        .upsert({
+          user_id: profile.id,
+          season: CURRENT_SEASON,
+          ape_in_high_score: newHighScore,
+        }, {
+          onConflict: 'user_id',
+        })
+        .select('user_id, ape_in_high_score')
         .single()
-
-      if (!leaderboardFetchError && leaderboardData) {
-        const currentHighScore = leaderboardData.ape_in_high_score || 0
-        if (score > currentHighScore) {
-          const { error: leaderboardUpdateError } = await adminClient
-            .from('leaderboard')
-            .update({ ape_in_high_score: score })
-            .eq('user_id', profile.id)
-
-          if (!leaderboardUpdateError) {
-            highScoreUpdated = true
-          } else {
-            console.error('[ApeInSubmit] Error updating leaderboard high score:', {
-              code: leaderboardUpdateError.code,
-              message: leaderboardUpdateError.message,
-            })
-          }
-        }
-      } else if (!leaderboardData || (leaderboardFetchError && ((leaderboardFetchError as any).code === 'PGRST116' || ((leaderboardFetchError as any).message && (((leaderboardFetchError as any).message.includes('0 rows') || (leaderboardFetchError as any).message.includes('No rows'))))))) {
-        // Leaderboard entry doesn't exist - create it
-        const { error: createError } = await adminClient
-          .from('leaderboard')
-          .insert({
-            user_id: profile.id,
-            ape_in_high_score: score,
-          })
-
-        if (!createError) {
-          highScoreUpdated = true
-        } else {
-          console.error('[ApeInSubmit] Error creating leaderboard entry:', {
-            code: createError.code,
-            message: createError.message,
-          })
-        }
+      
+      if (!upsertError && upserted) {
+        highScoreUpdated = score > currentHighScore
+        console.log('[ApeInSubmit] Leaderboard upserted', {
+          userId: profile.id,
+          currentHighScore,
+          newScore: newHighScore,
+          scoreIncreased: highScoreUpdated,
+          upsertedData: upserted,
+        })
+      } else {
+        console.error('[ApeInSubmit] Error upserting leaderboard:', {
+          code: upsertError?.code,
+          message: upsertError?.message,
+        })
       }
     }
 
