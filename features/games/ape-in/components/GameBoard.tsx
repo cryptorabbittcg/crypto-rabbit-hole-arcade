@@ -91,7 +91,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
 
   const [isDrawing, setIsDrawing] = useState(false)
   const [isRolling, setIsRolling] = useState(false)
-  const [floatingMessage, setFloatingMessage] = useState<{text: string, sats?: number, isRekt?: boolean} | null>(null)
+  const [floatingMessage, setFloatingMessage] = useState<{text: string, sats?: number, isRekt?: boolean, isDiceSuccess?: boolean} | null>(null)
   const [botTurnData, setBotTurnData] = useState<{card: any, roll: number | null, turnSats: number, isRolling?: boolean} | null>(null)
   const [showEnlargedAvatar, setShowEnlargedAvatar] = useState(false)
   const [isBotPlaying, setIsBotPlaying] = useState(false)
@@ -260,7 +260,8 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
             // Show the dodge message from backend
             setFloatingMessage({
               text: result.message || "Your sats are safe! Continue your turn.",
-              sats: result.turnScore
+              sats: result.turnScore,
+              isDiceSuccess: true // This is a successful dice roll
             })
           } else {
             // Show floating success message with sats gained (KEEP CARD VISIBLE)
@@ -268,7 +269,8 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
             console.log('Sats gained:', satsGained, 'Current card value:', currentCard.value, 'Ape In active:', apeInActive) // Debug
             setFloatingMessage({
               text: `+${satsGained} sats`,
-              sats: result.turnScore
+              sats: result.turnScore,
+              isDiceSuccess: true // This is a successful dice roll
             })
           }
           
@@ -282,8 +284,8 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
           }, 2000)
         } else {
           // Player busted - show message then replay bot turn
-          // Check if this is a roll of 1 (Rekt!)
-          const isRekt = result.value === 1
+          // Any failed roll should show Rekt! (not just value === 1)
+          const isRekt = !result.success
           setFloatingMessage({
             text: result.message || 'Busted! Turn ended.',
             isRekt: isRekt
@@ -295,17 +297,22 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
             setFloatingMessage(null)
             
             // Replay bot's turn if actions are provided
+            // IMPORTANT: Don't refresh game state before bot turn - it might update opponent score prematurely
             if (result.botActions && result.botActions.length > 0) {
               await replayBotTurn(result.botActions)
             } else {
-              await refreshGameState()
+              // Only refresh if no bot turn (shouldn't happen, but safety check)
+              await refreshGameState(true) // Preserve opponent score
             }
           }, 1500)
         }
       }, 1000)
     } catch (error) {
       console.error('Failed to roll dice:', error)
-      setFloatingMessage({text: 'Failed to roll dice. Please try again.'})
+      setFloatingMessage({
+        text: 'Failed to roll dice. Please try again.',
+        isRekt: true // Show error as failure, not success
+      })
       setIsRolling(false)
     }
   }
@@ -317,7 +324,10 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
     setIsBotPlaying(true)
     let previousTurnScore = 0
     // Store opponent's score at start of turn - preserve it during turn, only update at end
+    // IMPORTANT: Capture score BEFORE any potential backend refresh updates it
     const opponentScoreAtTurnStart = opponentScore
+    // Explicitly set the score to the start value to prevent any premature updates
+    updateScore(playerScore, opponentScoreAtTurnStart)
     let botTurnEnded = false // Track if bot's turn has ended (stacked, busted, or bearish penalty)
     
     // Step 1: Announce bot's turn
@@ -382,7 +392,11 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
           if (isSuccess) {
             previousTurnScore = currentTurnScore
             setBotTurnData(prev => prev ? {...prev, turnSats: currentTurnScore} : null)
-            setFloatingMessage({text: `+${satsGained} sats`, sats: currentTurnScore})
+            setFloatingMessage({
+              text: `+${satsGained} sats`,
+              sats: currentTurnScore,
+              isDiceSuccess: true // Bot's successful dice roll
+            })
             await new Promise(resolve => setTimeout(resolve, 1500))
           } else {
             // Bot busted - keep opponentScore at start value (no update)
@@ -420,10 +434,15 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
     setFloatingMessage(null)
     
     // Refresh game state to sync everything
-    // If bot stacked, opponentScore was already updated via updateScore() above
-    // If bot busted, opponentScore should remain at opponentScoreAtTurnStart (preserved)
-    // Preserve opponentScore during refresh to prevent premature updates from backend
-    await refreshGameState(true) // Preserve opponentScore - we've already updated it manually if needed
+    // IMPORTANT: After bot turn, ensure opponent score matches what we set manually
+    // Don't let backend refresh overwrite our manually set score
+    await refreshGameState(true) // Preserve opponentScore during refresh
+    // Force the score to the correct value after refresh (in case backend tried to update it)
+    if (botTurnEnded) {
+      // Bot ended turn - use the score we calculated
+      const finalScore = botActions.find(a => a.type === 'stack')?.finalScore ?? opponentScoreAtTurnStart
+      updateScore(playerScore, finalScore)
+    }
   }
 
   const handleStackSats = async () => {
@@ -1112,10 +1131,12 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
                   initial={{ y: 20, opacity: 0, scale: 0.9 }}
                   animate={{ y: 0, opacity: 1, scale: 1 }}
                   exit={{ y: -20, opacity: 0 }}
-                  className={`absolute top-full mt-4 left-1/2 transform -translate-x-1/2 z-50 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl shadow-2xl border-2 font-bold text-center max-w-[90vw] mx-4 ${
+                  className={`absolute top-full mt-4 left-1/2 transform -translate-x-1/2 z-50 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl shadow-2xl border-2 font-bold text-center min-w-[200px] max-w-[400px] mx-4 ${
                     floatingMessage.isRekt 
                       ? 'bg-gradient-to-r from-red-500 to-red-600 border-red-300' 
-                      : 'bg-gradient-to-r from-green-500 to-emerald-500 border-green-300'
+                      : floatingMessage.isDiceSuccess
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-500 border-green-300'
+                      : 'bg-gradient-to-r from-slate-700 to-slate-800 border-slate-500'
                   }`}
                 >
                   {floatingMessage.isRekt ? (
@@ -1123,7 +1144,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
                       <div className="text-xs sm:text-sm font-bold">Rekt!</div>
                       <div className="text-xs sm:text-sm">{floatingMessage.text}</div>
                     </div>
-                  ) : (
+                  ) : floatingMessage.isDiceSuccess ? (
                     <div className="space-y-1">
                       <div className="text-xs sm:text-sm font-bold">Great roll!</div>
                       <div className="text-xs sm:text-sm">{floatingMessage.text}</div>
@@ -1131,6 +1152,8 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
                         <div className="text-xs">Turn Sats: {floatingMessage.sats}</div>
                       )}
                     </div>
+                  ) : (
+                    <div className="text-xs sm:text-sm">{floatingMessage.text}</div>
                   )}
                 </motion.div>
               )}
