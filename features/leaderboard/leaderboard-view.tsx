@@ -399,7 +399,7 @@ export default function LeaderboardView() {
             </div>
           ) : (
             apeInSingleplayerLeaderboard.map((entry) => (
-              <ApeInLeaderboardCard key={entry.rank} entry={entry} formatAddress={formatAddress} address={address} />
+              <ApeInLeaderboardCard key={`${entry.user_id}-${entry.mode}-${entry.last_played ?? ""}`} entry={entry} formatAddress={formatAddress} address={address} />
             ))
           )}
         </TabsContent>
@@ -419,7 +419,7 @@ export default function LeaderboardView() {
             </div>
           ) : (
             apeInPvpLeaderboard.map((entry) => (
-              <ApeInLeaderboardCard key={entry.rank} entry={entry} formatAddress={formatAddress} address={address} />
+              <ApeInLeaderboardCard key={`${entry.user_id}-${entry.mode}-${entry.last_played ?? ""}`} entry={entry} formatAddress={formatAddress} address={address} />
             ))
           )}
         </TabsContent>
@@ -439,7 +439,7 @@ export default function LeaderboardView() {
             </div>
           ) : (
             apeInMultiplayerLeaderboard.map((entry) => (
-              <ApeInLeaderboardCard key={entry.rank} entry={entry} formatAddress={formatAddress} address={address} />
+              <ApeInLeaderboardCard key={`${entry.user_id}-${entry.mode}-${entry.last_played ?? ""}`} entry={entry} formatAddress={formatAddress} address={address} />
             ))
           )}
         </TabsContent>
@@ -471,7 +471,10 @@ function ApeInLeaderboardCard({
 
   const formattedAddress = formatAddress(entry.wallet_address)
   const displayName = entry.username || formattedAddress
-  const isCurrentUser = address && entry.wallet_address.toLowerCase() === address.toLowerCase()
+  const isCurrentUser =
+    !!address &&
+    !!entry.wallet_address &&
+    entry.wallet_address.toLowerCase() === address.toLowerCase()
   
   // Format last played date
   const formatLastPlayed = (dateString: string | null): string => {
@@ -505,7 +508,7 @@ function ApeInLeaderboardCard({
           </div>
 
           <Avatar className="w-12 h-12 border-2 border-purple-500/30">
-            <AvatarImage src="/placeholder.svg" />
+            <AvatarImage src={entry.avatar_url || "/placeholder.svg"} />
             <AvatarFallback>{formattedAddress.slice(2, 4).toUpperCase()}</AvatarFallback>
           </Avatar>
 
@@ -514,8 +517,12 @@ function ApeInLeaderboardCard({
               {isCurrentUser ? "YOU" : displayName.toUpperCase()}
             </div>
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <span>{entry.games_played} games</span>
-              <span>•</span>
+              {(entry.games_played ?? 0) > 0 && (
+                <>
+                  <span>{entry.games_played} games</span>
+                  <span>•</span>
+                </>
+              )}
               <span>{formatLastPlayed(entry.last_played)}</span>
               {entry.mode && entry.mode !== "all" && entry.mode !== "best" && (
                 <>

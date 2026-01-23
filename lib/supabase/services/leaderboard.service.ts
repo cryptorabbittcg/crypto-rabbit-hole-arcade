@@ -225,10 +225,13 @@ export class LeaderboardService {
    */
   async getApeInLeaderboard(mode: string, limit = 100): Promise<ApeInLeaderboardEntry[]> {
     try {
+      const pMode = String(mode || "aida").toLowerCase()
       const { data, error } = await this.supabase.rpc("get_ape_in_leaderboard", {
-        p_mode: mode,
+        p_mode: pMode,
         p_limit: limit,
       })
+
+      console.log("[ApeInLeaderboard] raw rpc response", data, error)
 
       if (error) {
         // Check if it's a network error or missing function/table
@@ -258,15 +261,16 @@ export class LeaderboardService {
 
       if (!data) return []
 
-      return data.map((entry: any) => ({
-        rank: entry.rank || 0,
+      // RPC get_ape_in_leaderboard returns: user_id, wallet_address, username, avatar_url, score, ended_at (no games_played)
+      return data.map((entry: any, index: number) => ({
+        rank: index + 1,
         user_id: entry.user_id,
-        wallet_address: entry.wallet_address || "",
-        username: entry.username || null,
-        mode: entry.mode || mode,
-        best_score: entry.best_score || 0,
-        games_played: entry.games_played || 0,
-        last_played: entry.last_played || null,
+        wallet_address: entry.wallet_address ?? "",
+        username: entry.username ?? null,
+        avatar_url: entry.avatar_url ?? null,
+        best_score: entry.score ?? 0,
+        last_played: entry.ended_at ?? null,
+        mode: pMode,
       }))
     } catch (err) {
       console.error("[v0] Error fetching Ape In leaderboard:", err)
@@ -280,9 +284,10 @@ export type ApeInLeaderboardEntry = {
   user_id: string
   wallet_address: string
   username: string | null
+  avatar_url?: string | null
   mode: string
   best_score: number
-  games_played: number
+  games_played?: number
   last_played: string | null
 }
 
