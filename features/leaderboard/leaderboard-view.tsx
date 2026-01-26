@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Trophy, TrendingUp, Zap, Medal } from "@/components/icons"
 import { useArcade } from "@/components/providers"
+import { useLeaderboard } from "@/components/leaderboard-provider"
 import { LeaderboardService, type ApeInLeaderboardEntry } from "@/lib/supabase/services/leaderboard.service"
 import { ApeInLeaderboardList } from "@/components/leaderboards/ApeInLeaderboardList"
 
@@ -22,6 +23,8 @@ type LeaderboardEntry = {
 type CryptokuLeaderboardEntry = {
   rank: number
   address: string
+  username?: string | null
+  avatar_url?: string | null
   score: number
   timeSeconds: number
   hintsUsed: number
@@ -44,24 +47,33 @@ const GLOBAL_LEADERBOARD: LeaderboardEntry[] = [
 
 export default function LeaderboardView() {
   const { points, address, profile } = useArcade()
+  const {
+    apeInLeaderboards,
+    loadingApeIn,
+    apeInError,
+    cryptokuLeaderboards,
+    loadingCryptoku,
+    cryptokuError,
+  } = useLeaderboard()
+  
   const [overallLeaderboard, setOverallLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loadingOverall, setLoadingOverall] = useState(true)
   const [userRank, setUserRank] = useState<number | null>(null)
   const [userPoints, setUserPoints] = useState<number>(points || 0)
   
-  // Cryptoku leaderboard state
-  const [cryptokuLeaderboard, setCryptokuLeaderboard] = useState<CryptokuLeaderboardEntry[]>([])
+  // Cryptoku leaderboard state (mode selection)
   const [cryptokuMode, setCryptokuMode] = useState<"DEGEN" | "APE">("DEGEN")
-  const [loadingCryptoku, setLoadingCryptoku] = useState(false)
-  const [cryptokuError, setCryptokuError] = useState<string | null>(null)
-  const [cryptokuDataLoaded, setCryptokuDataLoaded] = useState(false)
+  // Use provider data for Cryptoku
+  const cryptokuLeaderboard = cryptokuMode === "DEGEN" ? cryptokuLeaderboards.degen : cryptokuLeaderboards.ape
 
-  // Ape In leaderboard state
+  // Ape In leaderboard state (mode selection)
   const [apeInSingleplayerMode, setApeInSingleplayerMode] = useState<"aida" | "lana" | "nifty" | "enj1n">("aida")
-  const [apeInSingleplayerLeaderboard, setApeInSingleplayerLeaderboard] = useState<ApeInLeaderboardEntry[]>([])
-  const [loadingApeInSingleplayer, setLoadingApeInSingleplayer] = useState(false)
-  const [apeInSingleplayerError, setApeInSingleplayerError] = useState<string | null>(null)
-  const [apeInSingleplayerDataLoaded, setApeInSingleplayerDataLoaded] = useState(false)
+  // Use provider data for Ape In
+  const apeInSingleplayerLeaderboard = 
+    apeInSingleplayerMode === "aida" ? apeInLeaderboards.aida :
+    apeInSingleplayerMode === "lana" ? apeInLeaderboards.lana :
+    apeInSingleplayerMode === "nifty" ? apeInLeaderboards.nifty :
+    apeInLeaderboards.enj1n
 
   const [apeInPvpLeaderboard, setApeInPvpLeaderboard] = useState<ApeInLeaderboardEntry[]>([])
   const [loadingApeInPvp, setLoadingApeInPvp] = useState(false)
@@ -137,64 +149,17 @@ export default function LeaderboardView() {
     return `${address.slice(0, 6)}...${address.slice(-4)}`
   }
 
-  // Fetch Cryptoku leaderboard
-  const fetchCryptokuLeaderboard = async (mode: "DEGEN" | "APE") => {
-    setLoadingCryptoku(true)
-    setCryptokuError(null)
-    try {
-      const response = await fetch(`/api/cryptoku/leaderboard?mode=${mode}&limit=100`)
-      if (!response.ok) {
-        throw new Error("Failed to fetch Cryptoku leaderboard")
-      }
-      const data = await response.json()
-      
-      // Map API response to CryptokuLeaderboardEntry format
-      const entries: CryptokuLeaderboardEntry[] = data.entries.map((entry: any) => ({
-        rank: entry.rank,
-        address: entry.address || "0x0000...0000",
-        score: entry.score,
-        timeSeconds: entry.timeSeconds,
-        hintsUsed: entry.hintsUsed || 0,
-        errors: entry.errors || 0,
-        mode: entry.mode as "DEGEN" | "APE"
-      }))
-      
-      setCryptokuLeaderboard(entries)
-      setCryptokuDataLoaded(true)
-    } catch (error) {
-      console.error("[LeaderboardView] Error fetching Cryptoku leaderboard:", error)
-      setCryptokuError("Failed to load leaderboard. Please try again.")
-      setCryptokuLeaderboard([])
-    } finally {
-      setLoadingCryptoku(false)
-    }
-  }
-
-  // Handle Cryptoku mode change
+  // Handle Cryptoku mode change (no fetch needed, data comes from provider)
   const handleCryptokuModeChange = (mode: "DEGEN" | "APE") => {
     setCryptokuMode(mode)
-    fetchCryptokuLeaderboard(mode)
   }
 
-  // Fetch Ape In leaderboard (singleplayer)
-  const fetchApeInSingleplayerLeaderboard = async (mode: "aida" | "lana" | "nifty" | "enj1n") => {
-    setLoadingApeInSingleplayer(true)
-    setApeInSingleplayerError(null)
-    try {
-      const leaderboardService = new LeaderboardService()
-      const entries = await leaderboardService.getApeInLeaderboard(mode, 100)
-      setApeInSingleplayerLeaderboard(entries)
-      setApeInSingleplayerDataLoaded(true)
-    } catch (error) {
-      console.error("[LeaderboardView] Error fetching Ape In singleplayer leaderboard:", error)
-      setApeInSingleplayerError("Failed to load leaderboard. Please try again.")
-      setApeInSingleplayerLeaderboard([])
-    } finally {
-      setLoadingApeInSingleplayer(false)
-    }
+  // Handle Ape In singleplayer mode change (no fetch needed, data comes from provider)
+  const handleApeInSingleplayerModeChange = (mode: "aida" | "lana" | "nifty" | "enj1n") => {
+    setApeInSingleplayerMode(mode)
   }
 
-  // Fetch Ape In PvP leaderboard
+  // Fetch Ape In PvP leaderboard (still needs direct fetch as provider doesn't include PvP)
   const fetchApeInPvpLeaderboard = async () => {
     setLoadingApeInPvp(true)
     setApeInPvpError(null)
@@ -230,19 +195,9 @@ export default function LeaderboardView() {
     }
   }
 
-  // Handle Ape In singleplayer mode change
-  const handleApeInSingleplayerModeChange = (mode: "aida" | "lana" | "nifty" | "enj1n") => {
-    setApeInSingleplayerMode(mode)
-    fetchApeInSingleplayerLeaderboard(mode)
-  }
-
-  // Handle tab change to fetch data when tabs become active
+  // Handle tab change (no fetch needed for cryptoku/ape-in, data comes from provider)
   const handleTabChange = (value: string) => {
-    if (value === "cryptoku" && !cryptokuDataLoaded) {
-      fetchCryptokuLeaderboard(cryptokuMode)
-    } else if (value === "ape-in" && !apeInSingleplayerDataLoaded) {
-      fetchApeInSingleplayerLeaderboard(apeInSingleplayerMode)
-    } else if (value === "ape-in-pvp" && !apeInPvpDataLoaded) {
+    if (value === "ape-in-pvp" && !apeInPvpDataLoaded) {
       fetchApeInPvpLeaderboard()
     } else if (value === "ape-in-multiplayer" && !apeInMultiplayerDataLoaded) {
       fetchApeInMultiplayerLeaderboard()
@@ -337,13 +292,13 @@ export default function LeaderboardView() {
             <div className="text-center py-8 text-muted-foreground">Loading leaderboard...</div>
           ) : cryptokuError ? (
             <div className="text-center py-8 text-muted-foreground">{cryptokuError}</div>
-          ) : cryptokuLeaderboard.length === 0 ? (
+          ) : !cryptokuLeaderboard || cryptokuLeaderboard.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               No Cryptoku scores yet. Be the first to play!
             </div>
           ) : (
             cryptokuLeaderboard.map((entry) => (
-              <CryptokuLeaderboardCard key={entry.rank} entry={entry} formatTime={formatTime} formatAddress={formatAddress} />
+              <CryptokuLeaderboardCard key={entry.rank} entry={entry} formatTime={formatTime} formatAddress={formatAddress} currentUserAddress={address} />
             ))
           )}
         </TabsContent>
@@ -359,7 +314,7 @@ export default function LeaderboardView() {
                 variant={apeInSingleplayerMode === "aida" ? "default" : "outline"}
                 size="sm"
                 onClick={() => handleApeInSingleplayerModeChange("aida")}
-                disabled={loadingApeInSingleplayer}
+                disabled={loadingApeIn}
               >
                 Aida
               </Button>
@@ -367,7 +322,7 @@ export default function LeaderboardView() {
                 variant={apeInSingleplayerMode === "lana" ? "default" : "outline"}
                 size="sm"
                 onClick={() => handleApeInSingleplayerModeChange("lana")}
-                disabled={loadingApeInSingleplayer}
+                disabled={loadingApeIn}
               >
                 Lana
               </Button>
@@ -375,7 +330,7 @@ export default function LeaderboardView() {
                 variant={apeInSingleplayerMode === "nifty" ? "default" : "outline"}
                 size="sm"
                 onClick={() => handleApeInSingleplayerModeChange("nifty")}
-                disabled={loadingApeInSingleplayer}
+                disabled={loadingApeIn}
               >
                 Nifty
               </Button>
@@ -383,18 +338,18 @@ export default function LeaderboardView() {
                 variant={apeInSingleplayerMode === "enj1n" ? "default" : "outline"}
                 size="sm"
                 onClick={() => handleApeInSingleplayerModeChange("enj1n")}
-                disabled={loadingApeInSingleplayer}
+                disabled={loadingApeIn}
               >
                 En-J1n
               </Button>
             </div>
           </div>
           
-          {loadingApeInSingleplayer ? (
+          {loadingApeIn ? (
             <div className="text-center py-8 text-muted-foreground">Loading leaderboard...</div>
-          ) : apeInSingleplayerError ? (
-            <div className="text-center py-8 text-muted-foreground">{apeInSingleplayerError}</div>
-          ) : apeInSingleplayerLeaderboard.length === 0 ? (
+          ) : apeInError ? (
+            <div className="text-center py-8 text-muted-foreground">{apeInError}</div>
+          ) : !apeInSingleplayerLeaderboard || apeInSingleplayerLeaderboard.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               No Ape In {apeInSingleplayerMode} scores yet. Be the first to play!
             </div>
@@ -504,11 +459,13 @@ function LeaderboardCard({ entry }: { entry: LeaderboardEntry }) {
 function CryptokuLeaderboardCard({ 
   entry, 
   formatTime, 
-  formatAddress 
+  formatAddress,
+  currentUserAddress
 }: { 
   entry: CryptokuLeaderboardEntry
   formatTime: (seconds: number) => string
   formatAddress: (address: string) => string
+  currentUserAddress?: string | null
 }) {
   const rankColors = {
     1: "bg-pink-500/20 text-pink-400 border-pink-500/30 shadow-[0_0_20px_hsl(var(--neon-pink)/0.3)]",
@@ -523,12 +480,17 @@ function CryptokuLeaderboardCard({
   }
 
   const formattedAddress = formatAddress(entry.address)
+  const displayName = entry.username || formattedAddress
+  // Defensive check: guard toLowerCase() calls
+  const normalizedCurrentAddress = currentUserAddress ? currentUserAddress.toLowerCase() : ""
+  const normalizedEntryAddress = entry.address ? entry.address.toLowerCase() : ""
+  const isCurrentUser = !!currentUserAddress && !!entry.address && normalizedEntryAddress === normalizedCurrentAddress
 
   return (
     <Card
       className={`p-6 bg-black/50 backdrop-blur-xl border-2 ${
         entry.rank <= 3 ? rankColors[entry.rank as 1 | 2 | 3] : "border-purple-500/20"
-      } hover:border-pink-500/50 transition-all`}
+      } hover:border-pink-500/50 transition-all ${isCurrentUser ? "ring-2 ring-pink-500/50" : ""}`}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -541,12 +503,14 @@ function CryptokuLeaderboardCard({
           </div>
 
           <Avatar className="w-12 h-12 border-2 border-purple-500/30">
-            <AvatarImage src="/placeholder.svg" />
+            <AvatarImage src={entry.avatar_url || "/placeholder.svg"} />
             <AvatarFallback>{formattedAddress.slice(2, 4).toUpperCase()}</AvatarFallback>
           </Avatar>
 
           <div>
-            <div className="font-medium font-mono text-lg">{formattedAddress}</div>
+            <div className="font-medium font-mono text-lg">
+              {isCurrentUser ? "YOU" : displayName.toUpperCase()}
+            </div>
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <span>{formatTime(entry.timeSeconds)}</span>
               {entry.hintsUsed > 0 && <span>• {entry.hintsUsed} hints</span>}

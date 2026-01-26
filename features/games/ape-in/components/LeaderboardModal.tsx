@@ -1,10 +1,11 @@
 "use client"
 
 import { motion } from 'framer-motion'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { GameMode } from '../types/game'
 import { LeaderboardService, type ApeInLeaderboardEntry } from '@/lib/supabase/services/leaderboard.service'
 import { ApeInLeaderboardList } from '@/components/leaderboards/ApeInLeaderboardList'
+import { useLeaderboard } from '@/components/leaderboard-provider'
 
 interface LeaderboardModalProps {
   onClose: () => void
@@ -30,11 +31,54 @@ export default function LeaderboardModal({ onClose, currentUserAddress }: Leader
     timestamp: new Date().toISOString(),
   })
 
+  // Try to use provider data (with fallback to direct fetch)
+  let providerData: ReturnType<typeof useLeaderboard> | null = null
+  try {
+    providerData = useLeaderboard()
+  } catch (error) {
+    // Provider not available, will use fallback
+    console.log('[ApeInModal] LeaderboardProvider not available, using fallback')
+  }
+
   const [leaderboardMode, setLeaderboardMode] = useState<GameMode | 'all'>('aida')
   const [leaderboardEntries, setLeaderboardEntries] = useState<ApeInLeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Fetch leaderboard via get_ape_in_leaderboard RPC (LeaderboardService)
+  // Use provider data if available, otherwise fetch directly (fallback)
+  const getLeaderboardData = useMemo(() => {
+    if (providerData && !providerData.loadingApeIn) {
+      // Use provider data
+      if (leaderboardMode === 'all') {
+        // Merge all modes from provider
+        const merged = [
+          ...providerData.apeInLeaderboards.aida,
+          ...providerData.apeInLeaderboards.lana,
+          ...providerData.apeInLeaderboards.enj1n,
+          ...providerData.apeInLeaderboards.nifty,
+        ]
+          .sort((a, b) => {
+            const scoreDiff = (b.best_score ?? 0) - (a.best_score ?? 0)
+            if (scoreDiff !== 0) return scoreDiff
+            return new Date(b.last_played ?? 0).getTime() - new Date(a.last_played ?? 0).getTime()
+          })
+          .slice(0, 50)
+          .map((e, i) => ({ ...e, rank: i + 1 }))
+        return { entries: merged, loading: false }
+      } else if (leaderboardMode === 'aida') {
+        return { entries: providerData.apeInLeaderboards.aida, loading: false }
+      } else if (leaderboardMode === 'lana') {
+        return { entries: providerData.apeInLeaderboards.lana, loading: false }
+      } else if (leaderboardMode === 'enj1n') {
+        return { entries: providerData.apeInLeaderboards.enj1n, loading: false }
+      } else if (leaderboardMode === 'nifty') {
+        return { entries: providerData.apeInLeaderboards.nifty, loading: false }
+      }
+    }
+    // Fallback: return null to trigger direct fetch
+    return null
+  }, [providerData, leaderboardMode])
+
+  // Fetch leaderboard via get_ape_in_leaderboard RPC (fallback if provider not available)
   const fetchLeaderboard = async (mode: GameMode | 'all' = 'aida') => {
     setLoading(true)
     try {
@@ -45,7 +89,7 @@ export default function LeaderboardModal({ onClose, currentUserAddress }: Leader
       }
       const leaderboardService = new LeaderboardService()
 
-      // "All" = client-side merge of aida, lana, enj1n, nifty (avoids p_mode="best" which SQL may not support)
+      // "All" = client-side merge of aida, lana, enj1n, nifty
       if (mode === 'all') {
         const lists = await Promise.all(ALL_MODES.map((m) => leaderboardService.getApeInLeaderboard(m, 50)))
         const merged = lists
@@ -57,13 +101,13 @@ export default function LeaderboardModal({ onClose, currentUserAddress }: Leader
           })
           .slice(0, 50)
           .map((e, i) => ({ ...e, rank: i + 1 }))
-        console.log('[ApeInModal] all merged', merged.length)
+        console.log('[ApeInModal] all merged (fallback)', merged.length)
         setLeaderboardEntries(merged)
         return
       }
 
       const entries = await leaderboardService.getApeInLeaderboard(mode, 50)
-      console.log('[ApeInModal] mode', mode, 'rows', entries.length, 'entries:', entries)
+      console.log('[ApeInModal] mode', mode, 'rows', entries.length, 'entries:', entries, '(fallback)')
       
       // Defensive check: ensure entries is an array
       if (Array.isArray(entries) && entries.length > 0) {
@@ -80,11 +124,20 @@ export default function LeaderboardModal({ onClose, currentUserAddress }: Leader
     }
   }
 
+  // Update entries when provider data or mode changes
   useEffect(() => {
-    if (leaderboardMode) {
-      fetchLeaderboard(leaderboardMode)
+    const providerResult = getLeaderboardData
+    if (providerResult) {
+      // Use provider data
+      setLeaderboardEntries(providerResult.entries)
+      setLoading(providerResult.loading)
+    } else {
+      // Fallback to direct fetch
+      if (leaderboardMode) {
+        fetchLeaderboard(leaderboardMode)
+      }
     }
-  }, [leaderboardMode])
+  }, [getLeaderboardData, leaderboardMode])
 
   const isComingSoon = leaderboardMode === 'pvp' || leaderboardMode === 'multiplayer'
 

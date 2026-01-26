@@ -6,6 +6,7 @@ import { Inter } from "next/font/google"
 // import { Orbitron } from "next/font/google"
 import Providers from "./providers"
 import { Providers as ArcadeProviders } from "@/components/providers"
+import { LeaderboardProvider } from "@/components/leaderboard-provider"
 import { ProfileSyncWrapper } from "@/components/profile-sync-wrapper"
 import { ErrorBoundary } from "@/components/error-boundary"
 import Sidebar from "@/components/sidebar"
@@ -44,7 +45,8 @@ export default function RootLayout({
         <ErrorBoundary>
           <Providers>
             <ArcadeProviders>
-              <ProfileSyncWrapper>
+              <LeaderboardProvider>
+                <ProfileSyncWrapper>
                 <div className="flex min-h-screen">
                   <Sidebar />
                   <div className="flex-1 flex flex-col md:ml-64 lg:ml-72">
@@ -56,7 +58,8 @@ export default function RootLayout({
                 <ToastToaster />
                 <GlobalAuthDialog />
                 <div className="scanline pointer-events-none fixed inset-0 z-50" />
-              </ProfileSyncWrapper>
+                </ProfileSyncWrapper>
+              </LeaderboardProvider>
             </ArcadeProviders>
           </Providers>
         </ErrorBoundary>

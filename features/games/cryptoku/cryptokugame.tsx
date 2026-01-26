@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { useAccount, useChainId, useSendTransaction, useSwitchChain } from "wagmi"
 import { ensureApeChain } from "@/lib/wallet-chain"
+import { useLeaderboard } from "@/components/leaderboard-provider"
 
 import SplashScreen from "@/features/games/cryptoku/components/SplashScreen"
 import RabbitAvatar, { RABBIT_COLORS } from "@/features/games/cryptoku/components/RabbitAvatar"
@@ -591,6 +592,8 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
     rank: number
     runId: string
     address: string
+    username?: string | null
+    avatar_url?: string | null
     mode: string
     score: number
     timeSeconds: number
@@ -2453,10 +2456,7 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
             <h2 className="text-2xl font-bold mb-4 text-center">Leaderboard</h2>
             <div className="flex gap-2 mb-4 justify-center">
               <button
-                onClick={() => {
-                  setLeaderboardMode("ALL")
-                  fetchLeaderboard("ALL")
-                }}
+                onClick={() => setLeaderboardMode("ALL")}
                 className={`px-3 py-1 rounded text-xs font-bold ${
                   leaderboardMode === "ALL"
                     ? "bg-cyan-500 text-white"
@@ -2466,10 +2466,7 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
                 All
               </button>
               <button
-                onClick={() => {
-                  setLeaderboardMode("DEGEN")
-                  fetchLeaderboard("DEGEN")
-                }}
+                onClick={() => setLeaderboardMode("DEGEN")}
                 className={`px-3 py-1 rounded text-xs font-bold ${
                   leaderboardMode === "DEGEN"
                     ? "bg-cyan-500 text-white"
@@ -2479,10 +2476,7 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
                 Degen
               </button>
               <button
-                onClick={() => {
-                  setLeaderboardMode("APE")
-                  fetchLeaderboard("APE")
-                }}
+                onClick={() => setLeaderboardMode("APE")}
                 className={`px-3 py-1 rounded text-xs font-bold ${
                   leaderboardMode === "APE"
                     ? "bg-cyan-500 text-white"
@@ -2497,18 +2491,29 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
                 <div className="text-center text-slate-400 text-sm py-4">No entries yet</div>
               ) : (
                 <ul className="space-y-2 text-sm">
-                  {leaderboardEntries.map((entry) => (
-                    <li key={entry.runId} className="text-slate-300 flex justify-between items-center">
-                      <span className="font-bold text-cyan-400">#{entry.rank}</span>
-                      <span className="flex-1 ml-2">
-                        {entry.address.slice(0, 6)}...{entry.address.slice(-4)}
-                      </span>
-                      <span className="text-yellow-400 font-bold">{entry.score}</span>
-                      <span className="text-xs text-slate-400 ml-2">
-                        {formatTime(entry.timeSeconds)}
-                      </span>
-                    </li>
-                  ))}
+                  {leaderboardEntries.map((entry) => {
+                    const displayName = entry.username || `${entry.address.slice(0, 6)}...${entry.address.slice(-4)}`
+                    const isCurrentUser = playerAddress && entry.address.toLowerCase() === playerAddress.toLowerCase()
+                    return (
+                      <li key={entry.runId} className="text-slate-300 flex justify-between items-center gap-2">
+                        <span className="font-bold text-cyan-400">#{entry.rank}</span>
+                        {entry.avatar_url && (
+                          <img
+                            src={entry.avatar_url}
+                            alt=""
+                            className="w-6 h-6 rounded-full border border-cyan-400/30"
+                          />
+                        )}
+                        <span className={`flex-1 ml-2 ${isCurrentUser ? "font-bold text-cyan-400" : ""}`}>
+                          {isCurrentUser ? "YOU" : displayName}
+                        </span>
+                        <span className="text-yellow-400 font-bold">{entry.score}</span>
+                        <span className="text-xs text-slate-400 ml-2">
+                          {formatTime(entry.timeSeconds)}
+                        </span>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </div>

@@ -18,6 +18,8 @@ export async function GET(request: NextRequest) {
         rank: index + 1, // Rank based on position in sorted results
         runId: entry.runId,
         address: entry.address,
+        username: entry.username ?? null,
+        avatar_url: entry.avatar_url ?? null,
         mode: entry.mode,
         score: entry.score,
         timeSeconds: entry.timeSeconds,

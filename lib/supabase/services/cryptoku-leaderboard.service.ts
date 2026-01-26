@@ -5,6 +5,8 @@ import { CURRENT_SEASON } from "@/lib/season"
 export interface CryptokuLeaderboardEntry {
   runId: string
   address: string
+  username?: string | null
+  avatar_url?: string | null
   mode: "NOOB" | "DEGEN" | "APE"
   score: number
   timeSeconds: number
@@ -154,9 +156,12 @@ export class CryptokuLeaderboardService {
       }
 
       // Convert database format to API format
+      // RPC now returns: rank, run_id, user_id, wallet_address, username, avatar_url, mode, score, time_seconds, hints_used, errors, created_at
       const entries: CryptokuLeaderboardEntry[] = (data || []).map((row: any) => ({
         runId: row.run_id,
         address: row.wallet_address || "",
+        username: row.username ?? null,
+        avatar_url: row.avatar_url ?? null,
         mode: row.mode as "NOOB" | "DEGEN" | "APE",
         score: row.score,
         timeSeconds: row.time_seconds,
