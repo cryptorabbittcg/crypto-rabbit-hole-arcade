@@ -261,8 +261,9 @@ export class LeaderboardService {
 
       if (!data) return []
 
-      // RPC get_ape_in_leaderboard returns: user_id, wallet_address, username, avatar_url, score, ended_at (no games_played)
-      return data.map((entry: any, index: number) => ({
+      // RPC get_ape_in_leaderboard returns: user_id, wallet_address, username, avatar_url, score, ended_at, mode (no games_played)
+      // Normalize RPC response to consistent frontend shape (best_score/last_played)
+      const normalized = data.map((entry: any, index: number) => ({
         rank: index + 1,
         user_id: entry.user_id,
         wallet_address: entry.wallet_address ?? "",
@@ -270,8 +271,20 @@ export class LeaderboardService {
         avatar_url: entry.avatar_url ?? null,
         best_score: entry.score ?? 0,
         last_played: entry.ended_at ?? null,
-        mode: pMode,
+        // Use entry.mode if available (RPC now returns it), otherwise fallback to pMode
+        mode: entry.mode ?? pMode,
       }))
+
+      // Debug: log normalized sample to verify shape
+      if (normalized.length > 0) {
+        console.log("[ApeInLeaderboard] normalized sample", {
+          keys: Object.keys(normalized[0]),
+          sample: normalized[0],
+          totalRows: normalized.length,
+        })
+      }
+
+      return normalized
     } catch (err) {
       console.error("[v0] Error fetching Ape In leaderboard:", err)
       return []

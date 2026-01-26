@@ -1,6 +1,8 @@
-# Ape In Leaderboard RPC – “Do this now” checklist
+# Ape In Leaderboard RPC – "Do this now" checklist
 
 Use this when the SQL editor returns rows for `get_ape_in_leaderboard` but the browser still gets `[]`.
+
+**Note:** If PostgREST is already returning rows (Network tab shows `rpc/get_ape_in_leaderboard` with `[{...}]`), do **not** run `scripts/get_ape_in_leaderboard_hard_season.sql` — it would overwrite the working function and can break `p_mode: "best"`. The in‑game Ape In leaderboard modal (`LeaderboardModal.tsx`) must call `LeaderboardService.getApeInLeaderboard` and map the RPC shape correctly.
 
 ---
 

@@ -3,20 +3,12 @@
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { GameMode } from '../types/game'
-import { formatTime } from '../utils/playerStats'
+import { LeaderboardService, type ApeInLeaderboardEntry } from '@/lib/supabase/services/leaderboard.service'
+import { ApeInLeaderboardList } from '@/components/leaderboards/ApeInLeaderboardList'
 
 interface LeaderboardModalProps {
   onClose: () => void
-}
-
-interface LeaderboardEntry {
-  rank: number
-  address: string
-  username?: string
-  score: number
-  timeSeconds: number
-  gameMode: GameMode
-  roundsPlayed?: number
+  currentUserAddress?: string | null
 }
 
 const MODE_TABS: Array<{ mode: GameMode | 'all'; label: string }> = [
@@ -29,23 +21,57 @@ const MODE_TABS: Array<{ mode: GameMode | 'all'; label: string }> = [
   { mode: 'multiplayer', label: '👥 Multiplayer (Coming Soon)' },
 ]
 
-export default function LeaderboardModal({ onClose }: LeaderboardModalProps) {
-  const [leaderboardMode, setLeaderboardMode] = useState<GameMode | 'all'>('all')
-  const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([])
+const ALL_MODES: GameMode[] = ['aida', 'lana', 'enj1n', 'nifty']
+
+export default function LeaderboardModal({ onClose, currentUserAddress }: LeaderboardModalProps) {
+  // Unique identifier to confirm this is the correct modal being used
+  console.log("[APEIN MODAL ACTIVE] file: features/games/ape-in/components/LeaderboardModal.tsx", {
+    currentUserAddress,
+    timestamp: new Date().toISOString(),
+  })
+
+  const [leaderboardMode, setLeaderboardMode] = useState<GameMode | 'all'>('aida')
+  const [leaderboardEntries, setLeaderboardEntries] = useState<ApeInLeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Fetch leaderboard from API
-  const fetchLeaderboard = async (mode: GameMode | 'all' = 'all') => {
+  // Fetch leaderboard via get_ape_in_leaderboard RPC (LeaderboardService)
+  const fetchLeaderboard = async (mode: GameMode | 'all' = 'aida') => {
     setLoading(true)
     try {
-      // TODO: Implement API endpoint for Ape In leaderboard
-      // For now, return empty array
-      // const response = await fetch(`/api/ape-in/leaderboard?mode=${mode}&limit=50`)
-      // const data = await response.json()
-      // setLeaderboardEntries(data.entries || [])
+      if (mode === 'pvp' || mode === 'multiplayer') {
+        setLeaderboardEntries([])
+        setLoading(false)
+        return
+      }
+      const leaderboardService = new LeaderboardService()
+
+      // "All" = client-side merge of aida, lana, enj1n, nifty (avoids p_mode="best" which SQL may not support)
+      if (mode === 'all') {
+        const lists = await Promise.all(ALL_MODES.map((m) => leaderboardService.getApeInLeaderboard(m, 50)))
+        const merged = lists
+          .flat()
+          .sort((a, b) => {
+            const scoreDiff = (b.best_score ?? 0) - (a.best_score ?? 0)
+            if (scoreDiff !== 0) return scoreDiff
+            return new Date(b.last_played ?? 0).getTime() - new Date(a.last_played ?? 0).getTime()
+          })
+          .slice(0, 50)
+          .map((e, i) => ({ ...e, rank: i + 1 }))
+        console.log('[ApeInModal] all merged', merged.length)
+        setLeaderboardEntries(merged)
+        return
+      }
+
+      const entries = await leaderboardService.getApeInLeaderboard(mode, 50)
+      console.log('[ApeInModal] mode', mode, 'rows', entries.length, 'entries:', entries)
       
-      // Placeholder: empty leaderboard for now
-      setLeaderboardEntries([])
+      // Defensive check: ensure entries is an array
+      if (Array.isArray(entries) && entries.length > 0) {
+        setLeaderboardEntries(entries)
+      } else {
+        console.warn('[ApeInModal] Received invalid or empty entries:', entries)
+        setLeaderboardEntries([])
+      }
     } catch (error) {
       console.error('Error fetching Ape In leaderboard:', error)
       setLeaderboardEntries([])
@@ -60,7 +86,7 @@ export default function LeaderboardModal({ onClose }: LeaderboardModalProps) {
     }
   }, [leaderboardMode])
 
-  const isComingSoon = leaderboardMode === 'pvp' || leaderboardMode === 'multiplayer' || leaderboardMode === 'tournament'
+  const isComingSoon = leaderboardMode === 'pvp' || leaderboardMode === 'multiplayer'
 
   return (
     <motion.div
@@ -101,7 +127,7 @@ export default function LeaderboardModal({ onClose }: LeaderboardModalProps) {
         <div className="mb-4 flex flex-wrap gap-2 overflow-x-auto pb-2">
           {MODE_TABS.map((tab) => {
             const isActive = leaderboardMode === tab.mode
-            const isDisabled = tab.mode === 'pvp' || tab.mode === 'multiplayer' || tab.mode === 'tournament'
+            const isDisabled = tab.mode === 'pvp' || tab.mode === 'multiplayer'
             
             return (
               <button
@@ -130,7 +156,6 @@ export default function LeaderboardModal({ onClose }: LeaderboardModalProps) {
               <h3 className="text-xl font-bold text-slate-300 mb-2">
                 {leaderboardMode === 'pvp' && 'PvP Leaderboard Coming Soon!'}
                 {leaderboardMode === 'multiplayer' && 'Multiplayer Leaderboard Coming Soon!'}
-                {leaderboardMode === 'tournament' && 'Tournament Leaderboard Coming Soon!'}
               </h3>
               <p className="text-slate-400">Check back soon for leaderboards in this game mode!</p>
             </div>
@@ -145,37 +170,7 @@ export default function LeaderboardModal({ onClose }: LeaderboardModalProps) {
               <p className="text-slate-400">No entries yet. Be the first to play and top the leaderboard!</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {leaderboardEntries.map((entry) => (
-                <div
-                  key={entry.rank}
-                  className="bg-slate-800/50 rounded-lg p-3 flex items-center justify-between hover:bg-slate-800/70 transition-colors border border-slate-600/50"
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className={`text-lg font-bold ${
-                      entry.rank === 1 ? 'text-yellow-400' :
-                      entry.rank === 2 ? 'text-slate-300' :
-                      entry.rank === 3 ? 'text-orange-400' :
-                      'text-cyan-400'
-                    }`}>
-                      #{entry.rank}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-white truncate">
-                        {entry.username || `${entry.address.slice(0, 6)}...${entry.address.slice(-4)}`}
-                      </div>
-                      <div className="text-xs text-slate-400">
-                        {formatTime(entry.timeSeconds)} • {entry.gameMode}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold text-yellow-400">{entry.score}</div>
-                    <div className="text-xs text-slate-400">sats</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ApeInLeaderboardList entries={leaderboardEntries} currentUserAddress={currentUserAddress} />
           )}
         </div>
 

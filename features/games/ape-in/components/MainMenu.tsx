@@ -893,7 +893,7 @@ export default function MainMenu({ onSelectMode, playerAddress, onClose }: MainM
 
       {/* Leaderboard Modal */}
       {showLeaderboard && (
-        <LeaderboardModal onClose={() => setShowLeaderboard(false)} />
+        <LeaderboardModal onClose={() => setShowLeaderboard(false)} currentUserAddress={identity.address} />
       )}
     </div>
   )
