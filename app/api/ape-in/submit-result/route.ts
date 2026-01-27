@@ -198,11 +198,43 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update leaderboard via RPC (match Cryptoku pattern - SECURITY DEFINER bypasses RLS)
+    // Update leaderboard via RPC (SECURITY DEFINER bypasses RLS)
     // Only update for completed/won results (using normalized result to prevent casing issues)
     let highScoreUpdated = false
     if (normalizedResult === 'won' || normalizedResult === 'completed') {
-      console.log('[ApeInSubmit] Calling add_apein_leaderboard_entry RPC', {
+      // 1) Mode-specific leaderboard (writes to public.ape_in_leaderboard)
+      // This populates the per-mode leaderboard that get_ape_in_leaderboard reads from
+      console.log('[ApeInSubmit] Calling add_apein_leaderboard_entry (mode) RPC', {
+        userId: profile.id,
+        mode: normalizedMode,
+        score,
+        season: CURRENT_SEASON,
+      })
+
+      const { data: modeData, error: modeError } = await adminClient.rpc(
+        'add_apein_leaderboard_entry',
+        {
+          p_user_id: profile.id,
+          p_mode: normalizedMode,
+          p_season: CURRENT_SEASON,
+          p_score: score,
+        }
+      )
+
+      console.log('[ApeInSubmit] rpc add_apein_leaderboard_entry (mode)', { modeData, modeError })
+
+      if (modeError) {
+        console.error('[ApeInSubmit] mode leaderboard RPC failed:', {
+          code: modeError.code,
+          message: modeError.message,
+          details: (modeError as any).details,
+          hint: (modeError as any).hint,
+        })
+      }
+
+      // 2) Backward-compatible global high score (updates public.leaderboard.ape_in_high_score)
+      // This maintains the global high score field for any existing UI/stat dependencies
+      console.log('[ApeInSubmit] Calling add_apein_leaderboard_entry (global) RPC', {
         userId: profile.id,
         score,
         season: CURRENT_SEASON,
@@ -217,20 +249,20 @@ export async function POST(request: NextRequest) {
         }
       )
 
-      console.log('[ApeInSubmit] rpc add_apein_leaderboard_entry', { rpcData, rpcError })
+      console.log('[ApeInSubmit] rpc add_apein_leaderboard_entry (global)', { rpcData, rpcError })
 
       if (!rpcError && rpcData && rpcData.length > 0) {
         // rpcData[0].ape_in_high_score is now the correct max value
         const updatedHighScore = rpcData[0].ape_in_high_score
         highScoreUpdated = updatedHighScore >= score // Score was updated (may have been same or higher)
-        console.log('[ApeInSubmit] Leaderboard updated via RPC', {
+        console.log('[ApeInSubmit] Global high score updated via RPC', {
           userId: profile.id,
           score,
           updatedHighScore,
           highScoreUpdated,
         })
       } else if (rpcError) {
-        console.error('[ApeInSubmit] leaderboard RPC failed:', {
+        console.error('[ApeInSubmit] global leaderboard RPC failed:', {
           code: rpcError.code,
           message: rpcError.message,
           details: (rpcError as any).details,
