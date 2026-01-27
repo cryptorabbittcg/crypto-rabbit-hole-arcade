@@ -10,6 +10,7 @@ import { useArcade } from '@/components/providers'
 import { BOT_CONFIGS } from '../utils/botConfig'
 import StatsModal from './StatsModal'
 import LeaderboardModal from './LeaderboardModal'
+import PvPMatchModal from '../pvp/components/PvPMatchModal'
 import { X } from 'lucide-react'
 
 const PENDING_PLAY_PURCHASE_KEY = "ape-in:pendingPlayPurchase"
@@ -155,6 +156,7 @@ export default function MainMenu({ onSelectMode, playerAddress, onClose }: MainM
   const [paymentLoading, setPaymentLoading] = useState<string | null>(null)
   const [showStatsModal, setShowStatsModal] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [showPvPMatchModal, setShowPvPMatchModal] = useState(false)
   
   // Play balance state (server-authoritative)
   const [freePlaysByMode, setFreePlaysByMode] = useState<Record<string, number>>({})
@@ -566,6 +568,14 @@ export default function MainMenu({ onSelectMode, playerAddress, onClose }: MainM
     setPaymentLoading(mode)
     
     try {
+      // PvP mode: Open match modal instead of starting game
+      if (mode === 'pvp') {
+        console.log('✅ Opening PvP match modal')
+        setShowPvPMatchModal(true)
+        setPaymentLoading(null)
+        return
+      }
+
       // URGENT: Sandy (tutorial) should always launch, no checks
       if (mode === 'sandy') {
         console.log('✅ Launching Sandy tutorial (always allowed, no checks)')
@@ -895,6 +905,14 @@ export default function MainMenu({ onSelectMode, playerAddress, onClose }: MainM
       {showLeaderboard && (
         <LeaderboardModal onClose={() => setShowLeaderboard(false)} currentUserAddress={identity.address} />
       )}
+
+      {/* PvP Match Modal */}
+      {showPvPMatchModal && (
+        <PvPMatchModal
+          onClose={() => setShowPvPMatchModal(false)}
+          playerAddress={identity.address}
+        />
+      )}
     </div>
   )
 }
@@ -921,7 +939,9 @@ function CompactGameCard({
   freePlaysByMode: Record<string, number>
   purchasedPlaysRemaining: number
 }) {
-  const disabled = ['pvp', 'multiplayer', 'tournament'].includes(gameMode.mode)
+  // Phase 1: Enable PvP button (remove from disabled list)
+  // multiplayer and tournament remain disabled
+  const disabled = ['multiplayer', 'tournament'].includes(gameMode.mode)
   const [imageFormat, setImageFormat] = useState<'gif' | 'png'>('gif')
   const isBotMode = ['sandy', 'aida', 'lana', 'enj1n', 'nifty'].includes(gameMode.mode)
   
@@ -990,7 +1010,8 @@ function CompactGameCard({
             <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80 rounded-xl pointer-events-none z-0" />
           )}
           
-          {disabled && (
+          {/* Phase 1: Only show "Coming Soon" for multiplayer/tournament, not PvP */}
+          {disabled && gameMode.mode !== 'pvp' && (
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm rounded-xl flex items-center justify-center z-20">
               <span className="text-xs font-bold text-slate-400 px-2 py-1 bg-slate-800/80 rounded">Coming Soon</span>
             </div>
