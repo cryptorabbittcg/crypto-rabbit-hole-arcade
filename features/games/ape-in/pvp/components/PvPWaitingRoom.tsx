@@ -68,7 +68,8 @@ export default function PvPWaitingRoom({
     // Don't re-poll if opponent already found
     if (opponentFoundRef.current) return
     
-    if (!playerAddress) return
+    // Guard: must have matchId and playerAddress before polling
+    if (!matchId || !playerAddress) return
 
     // Abort any in-flight request
     if (abortControllerRef.current) {
@@ -157,7 +158,8 @@ export default function PvPWaitingRoom({
 
   // Start polling on mount
   useEffect(() => {
-    if (!isPolling || !playerAddress) return
+    // Guard: must have matchId, playerAddress, and be polling
+    if (!isPolling || !matchId || !playerAddress) return
 
     // Initial poll
     pollMatchStatus()
@@ -276,7 +278,7 @@ export default function PvPWaitingRoom({
           )}
 
           {/* Match Info */}
-          {matchStatus && (
+          {matchStatus && matchId && (
             <div className="bg-slate-700/50 rounded-lg p-4 text-left">
               <div className="text-xs text-slate-400 space-y-1">
                 <div>Match ID: {matchId.slice(0, 8)}...</div>
