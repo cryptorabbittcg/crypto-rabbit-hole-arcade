@@ -31,6 +31,7 @@ export default function PvPWaitingRoom({
   const [matchStatus, setMatchStatus] = useState<MatchStatus | null>(null)
   const [isPolling, setIsPolling] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [pollErrors, setPollErrors] = useState(0)
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isMountedRef = useRef(true)
@@ -58,6 +59,8 @@ export default function PvPWaitingRoom({
     if (!matchId) return
     // Reset opponent found state for new match
     opponentFoundRef.current = false
+    // Reset error count for new match
+    setPollErrors(0)
     storeActivePvPMatch(matchId, matchId)
     // Optional: clear on unmount if modal closes mid-search
     // return () => clearActivePvPMatch()
@@ -94,6 +97,9 @@ export default function PvPWaitingRoom({
         
         if (!isMountedRef.current) return
         
+        // Increment error count for consecutive errors
+        setPollErrors((prev) => prev + 1)
+        
         if (response.status === 403) {
           setError('Access denied: not a match participant')
           setIsPolling(false)
@@ -104,6 +110,7 @@ export default function PvPWaitingRoom({
           setIsPolling(false)
           return
         }
+        // For other HTTP errors (400, 500, etc.), increment error count and throw
         throw new Error(`HTTP ${response.status}`)
       }
 
@@ -117,6 +124,8 @@ export default function PvPWaitingRoom({
       // Prevent state updates after unmount
       if (!isMountedRef.current) return
       
+      // Reset error count on successful poll
+      setPollErrors(0)
       // Clear any previous error state on successful poll (UX polish)
       setError(null)
       setMatchStatus(data)
@@ -152,9 +161,29 @@ export default function PvPWaitingRoom({
       // Prevent state updates after unmount
       if (!isMountedRef.current) return
       
+      // Increment error count for consecutive errors
+      setPollErrors((prev) => prev + 1)
       setError(error.message || 'Failed to check match status')
     }
   }, [matchId, playerAddress])
+
+  // Stop polling after 2 consecutive errors
+  useEffect(() => {
+    if (pollErrors >= 2 && isPolling) {
+      setIsPolling(false)
+      setError('Match status polling failed. Please try again or cancel and start a new match.')
+      
+      // Clear timers
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
+    }
+  }, [pollErrors, isPolling])
 
   // Start polling on mount
   useEffect(() => {

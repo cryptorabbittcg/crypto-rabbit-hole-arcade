@@ -12,10 +12,12 @@ function isUuid(v: string): boolean {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { matchId: string } }
+  { params }: { params: Promise<{ matchId: string }> | { matchId: string } }
 ) {
   try {
-    const matchId = params?.matchId
+    // Handle params as either Promise (Next.js 15+) or direct object (Next.js 14)
+    const resolvedParams = params instanceof Promise ? await params : params
+    const matchId = resolvedParams?.matchId
     const playerAddress = request.nextUrl.searchParams.get("playerAddress")
 
     if (!matchId) {
