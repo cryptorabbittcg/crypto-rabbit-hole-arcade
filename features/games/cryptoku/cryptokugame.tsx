@@ -795,8 +795,8 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
       
       const timeInSeconds = getCurrentGameTimeSeconds()
       
-      // Forfeit the session
-      forfeitGameSession(currentSession.id, errors, hintsUsedInGame)
+      // Forfeit the session (wallet-scoped local stats)
+      forfeitGameSession(currentSession.id, errors, hintsUsedInGame, playerAddress)
 
       // Submit forfeit to API (won't be logged to leaderboard)
       fetch("/api/cryptoku/submit-result", {
@@ -875,7 +875,7 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
     (diffKey: Difficulty) => {
       // If there is an in-progress session, treat this as a forfeit
       if (currentSession && currentSession.status === "in-progress" && gameHasStarted && playerAddress) {
-        forfeitGameSession(currentSession.id, errors, hintsUsedInGame)
+        forfeitGameSession(currentSession.id, errors, hintsUsedInGame, playerAddress)
 
         // Stop the timer immediately when forfeiting
         stopActiveTimer()
@@ -986,7 +986,7 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
     setActiveElapsedMs(0)
     setLastResumeAtMs(Date.now())
 
-    const session = startGameSession(currentDifficulty)
+    const session = startGameSession(currentDifficulty, playerAddress)
     setCurrentSession(session)
 
     setGameHasStarted(true)
@@ -1596,6 +1596,7 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
             hintsUsedInGame,
             0, // Score now calculated server-side
             verificationResult.proofId,
+            playerAddress,
           )
           setCurrentSession(null)
         }
@@ -2531,7 +2532,8 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
 
       {/* Player stats modal */}
       {showStatsModal && (() => {
-        const stats = getPlayerStats()
+        // Wallet-scoped stats (prevents showing another wallet's stats after switching wallets)
+        const stats = getPlayerStats(playerAddress)
         const completionRate =
           stats.totalGames > 0 ? Math.round((stats.completions / stats.totalGames) * 100) : 0
         const forfeitRate =

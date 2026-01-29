@@ -85,7 +85,6 @@ export class CryptokuLeaderboardService {
         p_errors: entry.errors,
         p_completed: entry.completed,
         p_forfeited: entry.forfeited,
-        p_season: entry.season ?? CURRENT_SEASON,
       }
       
       console.error("[CryptokuLeaderboardService] CALLING RPC:", rpcName, "WITH PARAMS:", JSON.stringify(rpcParams, null, 2))
@@ -147,7 +146,6 @@ export class CryptokuLeaderboardService {
       const { data, error } = await this.supabase.rpc("get_cryptoku_leaderboard", {
         p_mode: mode,
         p_limit: limit,
-        p_season: CURRENT_SEASON,
       })
 
       if (error) {

@@ -33,16 +33,30 @@ export interface PlayerStats {
   lastPlayed?: Date
 }
 
-const STATS_STORAGE_KEY = "cryptoku-player-stats"
-const SESSIONS_STORAGE_KEY = "cryptoku-game-sessions"
+const STATS_STORAGE_KEY_PREFIX = "cryptoku-player-stats"
+const SESSIONS_STORAGE_KEY_PREFIX = "cryptoku-game-sessions"
 
-export function getPlayerStats(): PlayerStats {
+function normalizeWalletKey(walletAddress?: string | null): string {
+  const w = (walletAddress || "").trim().toLowerCase()
+  // Keep separate stats per wallet; fall back to a stable "guest" bucket
+  return w || "guest"
+}
+
+function statsStorageKey(walletAddress?: string | null): string {
+  return `${STATS_STORAGE_KEY_PREFIX}:${normalizeWalletKey(walletAddress)}`
+}
+
+function sessionsStorageKey(walletAddress?: string | null): string {
+  return `${SESSIONS_STORAGE_KEY_PREFIX}:${normalizeWalletKey(walletAddress)}`
+}
+
+export function getPlayerStats(walletAddress?: string | null): PlayerStats {
   if (typeof window === "undefined") {
     return getDefaultStats()
   }
 
   try {
-    const stored = window.localStorage.getItem(STATS_STORAGE_KEY)
+    const stored = window.localStorage.getItem(statsStorageKey(walletAddress))
     if (stored) {
       const stats = JSON.parse(stored) as PlayerStats
       if (stats.lastPlayed) {
@@ -57,21 +71,21 @@ export function getPlayerStats(): PlayerStats {
   return getDefaultStats()
 }
 
-export function savePlayerStats(stats: PlayerStats): void {
+export function savePlayerStats(stats: PlayerStats, walletAddress?: string | null): void {
   if (typeof window === "undefined") return
 
   try {
-    window.localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(stats))
+    window.localStorage.setItem(statsStorageKey(walletAddress), JSON.stringify(stats))
   } catch (error) {
     console.error("Error saving player stats:", error)
   }
 }
 
-export function getGameSessions(): GameSession[] {
+export function getGameSessions(walletAddress?: string | null): GameSession[] {
   if (typeof window === "undefined") return []
 
   try {
-    const stored = window.localStorage.getItem(SESSIONS_STORAGE_KEY)
+    const stored = window.localStorage.getItem(sessionsStorageKey(walletAddress))
     if (stored) {
       const sessions = JSON.parse(stored) as GameSession[]
       return sessions.map((session) => ({
@@ -87,17 +101,17 @@ export function getGameSessions(): GameSession[] {
   return []
 }
 
-export function saveGameSessions(sessions: GameSession[]): void {
+export function saveGameSessions(sessions: GameSession[], walletAddress?: string | null): void {
   if (typeof window === "undefined") return
 
   try {
-    window.localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions))
+    window.localStorage.setItem(sessionsStorageKey(walletAddress), JSON.stringify(sessions))
   } catch (error) {
     console.error("Error saving game sessions:", error)
   }
 }
 
-export function startGameSession(difficulty: Difficulty): GameSession {
+export function startGameSession(difficulty: Difficulty, walletAddress?: string | null): GameSession {
   const session: GameSession = {
     id: `session-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
     difficulty,
@@ -107,9 +121,9 @@ export function startGameSession(difficulty: Difficulty): GameSession {
     hintsUsed: 0,
   }
 
-  const sessions = getGameSessions()
+  const sessions = getGameSessions(walletAddress)
   sessions.push(session)
-  saveGameSessions(sessions)
+  saveGameSessions(sessions, walletAddress)
 
   return session
 }
@@ -121,8 +135,9 @@ export function completeGameSession(
   hintsUsed: number,
   score: number,
   verificationProofId?: string,
+  walletAddress?: string | null,
 ): void {
-  const sessions = getGameSessions()
+  const sessions = getGameSessions(walletAddress)
   const session = sessions.find((s) => s.id === sessionId)
 
   if (!session) return
@@ -135,12 +150,12 @@ export function completeGameSession(
   session.score = score
   session.verificationProofId = verificationProofId
 
-  saveGameSessions(sessions)
-  updateStatsOnCompletion(session)
+  saveGameSessions(sessions, walletAddress)
+  updateStatsOnCompletion(session, walletAddress)
 }
 
-export function forfeitGameSession(sessionId: string, errors: number, hintsUsed: number): void {
-  const sessions = getGameSessions()
+export function forfeitGameSession(sessionId: string, errors: number, hintsUsed: number, walletAddress?: string | null): void {
+  const sessions = getGameSessions(walletAddress)
   const session = sessions.find((s) => s.id === sessionId)
 
   if (!session) return
@@ -150,12 +165,12 @@ export function forfeitGameSession(sessionId: string, errors: number, hintsUsed:
   session.errors = errors
   session.hintsUsed = hintsUsed
 
-  saveGameSessions(sessions)
-  updateStatsOnForfeit(session)
+  saveGameSessions(sessions, walletAddress)
+  updateStatsOnForfeit(session, walletAddress)
 }
 
-function updateStatsOnCompletion(session: GameSession): void {
-  const stats = getPlayerStats()
+function updateStatsOnCompletion(session: GameSession, walletAddress?: string | null): void {
+  const stats = getPlayerStats(walletAddress)
 
   stats.totalGames++
   stats.completions++
@@ -183,11 +198,11 @@ function updateStatsOnCompletion(session: GameSession): void {
     stats.bestStreak = stats.currentStreak
   }
 
-  savePlayerStats(stats)
+  savePlayerStats(stats, walletAddress)
 }
 
-function updateStatsOnForfeit(session: GameSession): void {
-  const stats = getPlayerStats()
+function updateStatsOnForfeit(session: GameSession, walletAddress?: string | null): void {
+  const stats = getPlayerStats(walletAddress)
 
   stats.totalGames++
   stats.forfeits++
@@ -200,11 +215,11 @@ function updateStatsOnForfeit(session: GameSession): void {
   diffStats.played++
   diffStats.forfeited++
 
-  savePlayerStats(stats)
+  savePlayerStats(stats, walletAddress)
 }
 
-export function getActiveSession(): GameSession | null {
-  const sessions = getGameSessions()
+export function getActiveSession(walletAddress?: string | null): GameSession | null {
+  const sessions = getGameSessions(walletAddress)
   return sessions.find((s) => s.status === "in-progress") ?? null
 }
 
@@ -239,8 +254,11 @@ export function getForfeitRate(stats: PlayerStats): number {
 
 export function resetPlayerStats(): void {
   if (typeof window === "undefined") return
-  window.localStorage.removeItem(STATS_STORAGE_KEY)
-  window.localStorage.removeItem(SESSIONS_STORAGE_KEY)
+  // Backward compatible: remove the legacy global keys too (older builds)
+  window.localStorage.removeItem(STATS_STORAGE_KEY_PREFIX)
+  window.localStorage.removeItem(SESSIONS_STORAGE_KEY_PREFIX)
+  // NOTE: per-wallet keys are now used; if you need to clear a specific wallet,
+  // you can remove `cryptoku-player-stats:<wallet>` and `cryptoku-game-sessions:<wallet>` directly.
 }
 
 export function formatTime(seconds: number): string {
