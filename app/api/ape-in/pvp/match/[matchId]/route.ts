@@ -48,7 +48,7 @@ export async function GET(
 
     const { data: match, error: matchError } = await adminClient
       .from("ape_in_pvp_matches")
-      .select("id, player1_id, player2_id, match_status, match_type, match_code, started_at, last_action_at, player1_roll, player2_roll, first_turn_player, rolled_at, roll_seed")
+      .select("id, player1_id, player2_id, match_status, match_type, match_code, started_at, last_action_at, winner_id, forfeited_by, ended_at, game_state, player1_roll, player2_roll, first_turn_player, rolled_at, roll_seed")
       .eq("id", matchId)
       .maybeSingle()
 
@@ -66,6 +66,7 @@ export async function GET(
     }
 
     return NextResponse.json({
+      requester_user_id: profile.id,
       match_status: match.match_status,
       match_type: match.match_type,
       match_code: match.match_code,
@@ -73,6 +74,10 @@ export async function GET(
       player2_id: match.player2_id,
       started_at: match.started_at,
       last_action_at: match.last_action_at,
+      winner_id: match.winner_id,
+      forfeited_by: match.forfeited_by,
+      ended_at: match.ended_at,
+      game_state: match.game_state,
       // Phase 2: roll fields (null until rolls are generated)
       player1_roll: match.player1_roll,
       player2_roll: match.player2_roll,

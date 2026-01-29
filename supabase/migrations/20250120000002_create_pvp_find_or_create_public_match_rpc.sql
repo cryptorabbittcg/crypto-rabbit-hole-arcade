@@ -135,6 +135,7 @@ BEGIN
     RETURN v_match_id;
   ELSE
     -- Create new waiting match as player1
+    -- Create new waiting match as player1
     v_initial_state := jsonb_build_object(
       'state_version', 1,
       'turn_number', 0,

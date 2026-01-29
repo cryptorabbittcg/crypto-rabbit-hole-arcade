@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import PvPWaitingRoom from './PvPWaitingRoom'
 import PvPFirstRollReveal from './PvPFirstRollReveal'
+import PvPGameBoard from './PvPGameBoard'
 
 interface PvPMatchModalProps {
   onClose: () => void
@@ -23,6 +24,7 @@ export default function PvPMatchModal({ onClose, playerAddress }: PvPMatchModalP
   const [matchId, setMatchId] = useState<string | null>(null)
   const [isCreator, setIsCreator] = useState<boolean>(false)
   const [rollData, setRollData] = useState<MatchReadyData | null>(null) // Phase 2.5: Store roll data for reveal screen
+  const [hasStarted, setHasStarted] = useState<boolean>(false) // Phase 3: Start Game -> gameplay loop
 
   const handleFindPublicMatch = async () => {
     if (!playerAddress) {
@@ -62,6 +64,24 @@ export default function PvPMatchModal({ onClose, playerAddress }: PvPMatchModalP
     alert('Private matches coming soon!')
   }
 
+  // Phase 3: Once started, mount gameplay board
+  if (matchId && hasStarted) {
+    return (
+      <PvPGameBoard
+        matchId={matchId}
+        playerAddress={playerAddress}
+        onClose={() => {
+          setMatchId(null)
+          setMatchType(null)
+          setIsCreator(false)
+          setRollData(null)
+          setHasStarted(false)
+          onClose()
+        }}
+      />
+    )
+  }
+
   // Phase 2.5: If rolls are ready, show First Roll Reveal screen
   if (matchId && matchType && rollData && rollData.player1_roll !== null && rollData.player2_roll !== null && rollData.first_turn_player !== null) {
     return (
@@ -76,19 +96,11 @@ export default function PvPMatchModal({ onClose, playerAddress }: PvPMatchModalP
           setMatchType(null)
           setIsCreator(false)
           setRollData(null)
+          setHasStarted(false)
           onClose()
         }}
         onStart={() => {
-          // Phase 2.5: Transition to gameplay screen
-          // TODO: Implement actual gameplay screen transition
-          console.log('[PvPMatchModal] Start game (placeholder)', { 
-            matchId, 
-            firstTurnPlayer: rollData.first_turn_player,
-            player1Roll: rollData.player1_roll,
-            player2Roll: rollData.player2_roll,
-          })
-          // Phase 2.5: Don't close yet - keep reveal screen visible for testing
-          // Phase 3: Will route into PvP gameplay screen
+          setHasStarted(true)
         }}
       />
     )
@@ -107,6 +119,7 @@ export default function PvPMatchModal({ onClose, playerAddress }: PvPMatchModalP
           setMatchType(null)
           setIsCreator(false)
           setRollData(null)
+          setHasStarted(false)
           onClose()
         }}
         onReady={(matchData) => {

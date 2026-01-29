@@ -110,12 +110,14 @@ export const BOT_CONFIGS: Record<GameMode, BotConfig> = {
   pvp: {
     name: 'PvP',
     difficulty: 'Variable',
-    winningScore: 200,
-    maxRounds: 12,
+    // PvP gameplay parity with Sandy: first to 150 wins; unlimited rounds (tracked for stats/UI)
+    winningScore: 150,
+    maxRounds: 10,
     description: 'Face off against another player in real-time!',
     personality: 'Competitive',
     price: 0.10,
-    hasDailyFree: false
+    hasDailyFree: false,
+    noRoundLimit: true
   },
   multiplayer: {
     name: 'Multiplayer',
