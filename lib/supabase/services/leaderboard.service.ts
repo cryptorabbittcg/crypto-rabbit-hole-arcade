@@ -5,6 +5,7 @@ export type LeaderboardScore = {
   user_id: string
   username: string | null
   wallet_address: string
+  avatar_url?: string | null
   score: number
   game_type: string | null
   total_wins?: number
@@ -208,6 +209,7 @@ export class LeaderboardService {
         user_id: entry.user_id,
         username: entry.username,
         wallet_address: entry.wallet_address || "",
+        avatar_url: entry.avatar_url ?? null,
         score: entry.total_points || 0,
         game_type: null,
         total_wins: entry.total_wins || 0,
@@ -230,8 +232,6 @@ export class LeaderboardService {
         p_mode: pMode,
         p_limit: limit,
       })
-
-      console.log("[ApeInLeaderboard] raw rpc response", data, error)
 
       if (error) {
         // Check if it's a network error or missing function/table
@@ -274,15 +274,6 @@ export class LeaderboardService {
         // Use entry.mode if available (RPC now returns it), otherwise fallback to pMode
         mode: entry.mode ?? pMode,
       }))
-
-      // Debug: log normalized sample to verify shape
-      if (normalized.length > 0) {
-        console.log("[ApeInLeaderboard] normalized sample", {
-          keys: Object.keys(normalized[0]),
-          sample: normalized[0],
-          totalRows: normalized.length,
-        })
-      }
 
       return normalized
     } catch (err) {

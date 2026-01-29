@@ -13,11 +13,10 @@ import { ApeInLeaderboardList } from "@/components/leaderboards/ApeInLeaderboard
 
 type LeaderboardEntry = {
   rank: number
-  address: string
   points: number
-  wins: number
-  streak: number
-  avatar?: string
+  wallet_address: string
+  username?: string | null
+  avatar_url?: string | null
 }
 
 type CryptokuLeaderboardEntry = {
@@ -31,19 +30,6 @@ type CryptokuLeaderboardEntry = {
   errors: number
   mode: "DEGEN" | "APE"
 }
-
-const GLOBAL_LEADERBOARD: LeaderboardEntry[] = [
-  { rank: 1, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
-  { rank: 2, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
-  { rank: 3, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
-  { rank: 4, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
-  { rank: 5, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
-  { rank: 6, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
-  { rank: 7, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
-  { rank: 8, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
-  { rank: 9, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
-  { rank: 10, address: "0x0000...0000", points: 0, wins: 0, streak: 0 },
-]
 
 export default function LeaderboardView() {
   const { points, address, profile } = useArcade()
@@ -96,13 +82,10 @@ export default function LeaderboardView() {
         // Map RPC result to LeaderboardEntry format
         const entries: LeaderboardEntry[] = scores.map((entry) => ({
           rank: entry.rank,
-          address: entry.wallet_address 
-            ? `${entry.wallet_address.slice(0, 6)}...${entry.wallet_address.slice(-4)}`
-            : "0x0000...0000",
           points: entry.score, // score field contains total_points
-          wins: entry.total_wins || 0, // Use wins from RPC response
-          streak: entry.win_streak || 0, // Use streak from RPC response
-          avatar: undefined, // Can be added later if needed
+          wallet_address: entry.wallet_address || "",
+          username: entry.username ?? null,
+          avatar_url: (entry as any).avatar_url ?? null,
         }))
         
         setOverallLeaderboard(entries)
@@ -411,6 +394,14 @@ function LeaderboardCard({ entry }: { entry: LeaderboardEntry }) {
     3: <Medal className="w-5 h-5" />,
   }
 
+  const formattedWallet = entry.wallet_address
+    ? `${entry.wallet_address.slice(0, 6)}...${entry.wallet_address.slice(-4)}`
+    : "0x0000...0000"
+
+  const displayName = (entry.username && entry.username.trim().length > 0)
+    ? entry.username
+    : formattedWallet
+
   return (
     <Card
       className={`p-6 bg-black/50 backdrop-blur-xl border-2 ${
@@ -428,22 +419,14 @@ function LeaderboardCard({ entry }: { entry: LeaderboardEntry }) {
           </div>
 
           <Avatar className="w-12 h-12 border-2 border-purple-500/30">
-            <AvatarImage src={entry.avatar || "/placeholder.svg"} />
-            <AvatarFallback>{entry.address.slice(2, 4).toUpperCase()}</AvatarFallback>
+            <AvatarImage src={entry.avatar_url || "/placeholder.svg"} />
+            <AvatarFallback>{displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
 
           <div>
-            <div className="font-medium font-mono text-lg">{entry.address}</div>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" />
-                {entry.wins} wins
-              </span>
-              <span className="flex items-center gap-1">
-                <Zap className="w-3 h-3" />
-                {entry.streak} streak
-              </span>
-            </div>
+            <div className="font-medium font-mono text-lg">{displayName}</div>
+            {/* Overall tab: wins/streak are not authoritative across all games yet; avoid misleading zeros */}
+            <div className="text-sm text-muted-foreground font-mono">{formattedWallet}</div>
           </div>
         </div>
 
