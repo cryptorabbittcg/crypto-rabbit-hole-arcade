@@ -85,6 +85,9 @@ export class CryptokuLeaderboardService {
         p_errors: entry.errors,
         p_completed: entry.completed,
         p_forfeited: entry.forfeited,
+        // IMPORTANT: Always pass season to hit the season-aware overload (DB has multiple signatures)
+        // and to avoid silently defaulting to season 0.
+        p_season: entry.season ?? CURRENT_SEASON,
       }
       
       console.error("[CryptokuLeaderboardService] CALLING RPC:", rpcName, "WITH PARAMS:", JSON.stringify(rpcParams, null, 2))
@@ -143,15 +146,24 @@ export class CryptokuLeaderboardService {
         return { entries: [], total: 0 }
       }
 
+      const season = CURRENT_SEASON
       const { data, error } = await this.supabase.rpc("get_cryptoku_leaderboard", {
         p_mode: mode,
         p_limit: limit,
+        // IMPORTANT: required for correct filtering; DB defaults to season 0 if omitted
+        p_season: season,
       })
 
       if (error) {
         console.error("[CryptokuLeaderboardService] Error getting leaderboard:", error)
         return { entries: [], total: 0 }
       }
+
+      console.log("[CryptokuLeaderboardService] Leaderboard fetched", {
+        mode,
+        season,
+        returned: Array.isArray(data) ? data.length : 0,
+      })
 
       // Convert database format to API format
       // RPC now returns: rank, run_id, user_id, wallet_address, username, avatar_url, mode, score, time_seconds, hints_used, errors, created_at
