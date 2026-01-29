@@ -2533,7 +2533,17 @@ export const CryptokuGame = forwardRef<CryptokuGameHandle, CryptokuGameProps>(({
       {/* Player stats modal */}
       {showStatsModal && (() => {
         // Wallet-scoped stats (prevents showing another wallet's stats after switching wallets)
-        const stats = getPlayerStats(playerAddress)
+        const walletLower = playerAddress?.toLowerCase() ?? null
+        const stats = getPlayerStats(walletLower)
+        // Temporary debug log (remove after verification)
+        if (process.env.NEXT_PUBLIC_DEBUG_STATS === "true") {
+          // eslint-disable-next-line no-console
+          console.log("[Cryptoku][MyStats] render", {
+            wallet: walletLower,
+            statsKey: walletLower ? `cryptoku-player-stats:${walletLower}` : "cryptoku-player-stats:guest",
+            sessionsKey: walletLower ? `cryptoku-game-sessions:${walletLower}` : "cryptoku-game-sessions:guest",
+          })
+        }
         const completionRate =
           stats.totalGames > 0 ? Math.round((stats.completions / stats.totalGames) * 100) : 0
         const forfeitRate =

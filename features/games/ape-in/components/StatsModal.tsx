@@ -8,6 +8,7 @@ import { BOT_CONFIGS } from '../utils/botConfig'
 
 interface StatsModalProps {
   onClose: () => void
+  playerAddress: string | null
 }
 
 const MODE_TABS: Array<{ mode: GameMode | 'all'; label: string }> = [
@@ -21,9 +22,20 @@ const MODE_TABS: Array<{ mode: GameMode | 'all'; label: string }> = [
   { mode: 'multiplayer', label: '👥 Multiplayer (Coming Soon)' },
 ]
 
-export default function StatsModal({ onClose }: StatsModalProps) {
+export default function StatsModal({ onClose, playerAddress }: StatsModalProps) {
   const [activeTab, setActiveTab] = useState<GameMode | 'all'>('all')
-  const stats = getPlayerStats()
+  const walletLower = playerAddress?.toLowerCase() ?? null
+  const stats = getPlayerStats(walletLower)
+
+  // Temporary debug log (remove after verification)
+  if (process.env.NEXT_PUBLIC_DEBUG_STATS === 'true') {
+    // eslint-disable-next-line no-console
+    console.log('[ApeIn][MyStats] render', {
+      wallet: walletLower,
+      statsKey: walletLower ? `ape-in-player-stats:${walletLower}` : 'ape-in-player-stats:guest',
+      sessionsKey: walletLower ? `ape-in-game-sessions:${walletLower}` : 'ape-in-game-sessions:guest',
+    })
+  }
 
   // Get stats for active tab
   const getActiveTabStats = () => {

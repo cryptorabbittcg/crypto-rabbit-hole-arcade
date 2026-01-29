@@ -41,16 +41,29 @@ export interface ApeInPlayerStats {
   lastPlayed?: Date
 }
 
-const STATS_STORAGE_KEY = "ape-in-player-stats"
-const SESSIONS_STORAGE_KEY = "ape-in-game-sessions"
+const STATS_STORAGE_KEY_PREFIX = "ape-in-player-stats"
+const SESSIONS_STORAGE_KEY_PREFIX = "ape-in-game-sessions"
 
-export function getPlayerStats(): ApeInPlayerStats {
+function normalizeWalletKey(walletAddress?: string | null): string {
+  const w = (walletAddress || "").trim().toLowerCase()
+  return w || "guest"
+}
+
+function statsStorageKey(walletAddress?: string | null): string {
+  return `${STATS_STORAGE_KEY_PREFIX}:${normalizeWalletKey(walletAddress)}`
+}
+
+function sessionsStorageKey(walletAddress?: string | null): string {
+  return `${SESSIONS_STORAGE_KEY_PREFIX}:${normalizeWalletKey(walletAddress)}`
+}
+
+export function getPlayerStats(walletAddress?: string | null): ApeInPlayerStats {
   if (typeof window === "undefined") {
     return getDefaultStats()
   }
 
   try {
-    const stored = window.localStorage.getItem(STATS_STORAGE_KEY)
+    const stored = window.localStorage.getItem(statsStorageKey(walletAddress))
     if (stored) {
       const stats = JSON.parse(stored) as ApeInPlayerStats
       if (stats.lastPlayed) {
@@ -65,21 +78,21 @@ export function getPlayerStats(): ApeInPlayerStats {
   return getDefaultStats()
 }
 
-export function savePlayerStats(stats: ApeInPlayerStats): void {
+export function savePlayerStats(stats: ApeInPlayerStats, walletAddress?: string | null): void {
   if (typeof window === "undefined") return
 
   try {
-    window.localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(stats))
+    window.localStorage.setItem(statsStorageKey(walletAddress), JSON.stringify(stats))
   } catch (error) {
     console.error("Error saving Ape In player stats:", error)
   }
 }
 
-export function getGameSessions(): ApeInGameSession[] {
+export function getGameSessions(walletAddress?: string | null): ApeInGameSession[] {
   if (typeof window === "undefined") return []
 
   try {
-    const stored = window.localStorage.getItem(SESSIONS_STORAGE_KEY)
+    const stored = window.localStorage.getItem(sessionsStorageKey(walletAddress))
     if (stored) {
       const sessions = JSON.parse(stored) as ApeInGameSession[]
       return sessions.map((session) => ({
@@ -95,17 +108,17 @@ export function getGameSessions(): ApeInGameSession[] {
   return []
 }
 
-export function saveGameSessions(sessions: ApeInGameSession[]): void {
+export function saveGameSessions(sessions: ApeInGameSession[], walletAddress?: string | null): void {
   if (typeof window === "undefined") return
 
   try {
-    window.localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions))
+    window.localStorage.setItem(sessionsStorageKey(walletAddress), JSON.stringify(sessions))
   } catch (error) {
     console.error("Error saving Ape In game sessions:", error)
   }
 }
 
-export function startGameSession(gameMode: GameMode): ApeInGameSession {
+export function startGameSession(gameMode: GameMode, walletAddress?: string | null): ApeInGameSession {
   const session: ApeInGameSession = {
     id: `session-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
     gameMode,
@@ -115,9 +128,9 @@ export function startGameSession(gameMode: GameMode): ApeInGameSession {
     opponentScore: 0,
   }
 
-  const sessions = getGameSessions()
+  const sessions = getGameSessions(walletAddress)
   sessions.push(session)
-  saveGameSessions(sessions)
+  saveGameSessions(sessions, walletAddress)
 
   return session
 }
@@ -131,8 +144,9 @@ export function completeGameSession(
   timeInSeconds: number,
   playerName?: string,
   verificationProofId?: string,
+  walletAddress?: string | null,
 ): void {
-  const sessions = getGameSessions()
+  const sessions = getGameSessions(walletAddress)
   const session = sessions.find((s) => s.id === sessionId)
 
   if (!session) return
@@ -146,12 +160,12 @@ export function completeGameSession(
   session.timeInSeconds = timeInSeconds
   session.verificationProofId = verificationProofId
 
-  saveGameSessions(sessions)
-  updateStatsOnCompletion(session, playerName)
+  saveGameSessions(sessions, walletAddress)
+  updateStatsOnCompletion(session, playerName, walletAddress)
 }
 
-export function forfeitGameSession(sessionId: string): void {
-  const sessions = getGameSessions()
+export function forfeitGameSession(sessionId: string, walletAddress?: string | null): void {
+  const sessions = getGameSessions(walletAddress)
   const session = sessions.find((s) => s.id === sessionId)
 
   if (!session) return
@@ -159,12 +173,12 @@ export function forfeitGameSession(sessionId: string): void {
   session.status = "forfeited"
   session.endTime = new Date()
 
-  saveGameSessions(sessions)
-  updateStatsOnForfeit(session)
+  saveGameSessions(sessions, walletAddress)
+  updateStatsOnForfeit(session, walletAddress)
 }
 
-function updateStatsOnCompletion(session: ApeInGameSession, playerName?: string): void {
-  const stats = getPlayerStats()
+function updateStatsOnCompletion(session: ApeInGameSession, playerName?: string, walletAddress?: string | null): void {
+  const stats = getPlayerStats(walletAddress)
   // Determine if player won: winner should be playerName (not opponentName, not gameMode name)
   const isWin = playerName 
     ? session.winner === playerName || (session.winner !== 'Opponent' && session.winner !== session.gameMode)
@@ -215,11 +229,11 @@ function updateStatsOnCompletion(session: ApeInGameSession, playerName?: string)
     }
   }
 
-  savePlayerStats(stats)
+  savePlayerStats(stats, walletAddress)
 }
 
-function updateStatsOnForfeit(session: ApeInGameSession): void {
-  const stats = getPlayerStats()
+function updateStatsOnForfeit(session: ApeInGameSession, walletAddress?: string | null): void {
+  const stats = getPlayerStats(walletAddress)
 
   stats.totalGames++
   stats.forfeits++
@@ -238,12 +252,19 @@ function updateStatsOnForfeit(session: ApeInGameSession): void {
     stats.averageScore = Math.floor(stats.totalPlayerScore / stats.totalGames)
   }
 
-  savePlayerStats(stats)
+  savePlayerStats(stats, walletAddress)
 }
 
-export function getActiveSession(): ApeInGameSession | null {
-  const sessions = getGameSessions()
+export function getActiveSession(walletAddress?: string | null): ApeInGameSession | null {
+  const sessions = getGameSessions(walletAddress)
   return sessions.find((s) => s.status === "in-progress") || null
+}
+
+export function resetPlayerStats(): void {
+  if (typeof window === "undefined") return
+  // Backward compatible: remove legacy global keys (older builds)
+  window.localStorage.removeItem(STATS_STORAGE_KEY_PREFIX)
+  window.localStorage.removeItem(SESSIONS_STORAGE_KEY_PREFIX)
 }
 
 function getDefaultStats(): ApeInPlayerStats {

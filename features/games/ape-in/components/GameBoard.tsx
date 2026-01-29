@@ -162,7 +162,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
       setGameStartTime(Date.now())
       
       // Check if there's already an active session (shouldn't happen, but be safe)
-      const activeSession = getActiveSession()
+      const activeSession = getActiveSession(address)
       if (activeSession && activeSession.gameMode === gameMode) {
         // Reuse existing session
         setCurrentSessionId(activeSession.id)
@@ -170,7 +170,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
         console.log('📊 Reusing existing stats session:', activeSession.id)
       } else {
         // Start new session
-        const session = startGameSession(gameMode)
+        const session = startGameSession(gameMode, address)
         setCurrentSessionId(session.id)
         sessionStartedRef.current = true
         console.log('📊 Started stats session:', session.id, 'for mode:', gameMode)
@@ -555,7 +555,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
       // Forfeit stats session if we have one
       if (currentSessionId) {
         try {
-          forfeitGameSession(currentSessionId)
+          forfeitGameSession(currentSessionId, address)
           console.log('📊 Forfeited stats session:', currentSessionId)
         } catch (error) {
           console.error('❌ Error forfeiting stats session:', error)
@@ -705,7 +705,8 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
             roundCount,
             gameDuration,
             playerName,
-            verificationProofId || undefined
+            verificationProofId || undefined,
+            address,
           )
           console.log('📊 Completed stats session:', currentSessionId, {
             winner: winner || 'Draw',

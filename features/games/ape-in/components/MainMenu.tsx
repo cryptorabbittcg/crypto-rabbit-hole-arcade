@@ -898,7 +898,7 @@ export default function MainMenu({ onSelectMode, playerAddress, onClose }: MainM
 
       {/* Stats Modal */}
       {showStatsModal && (
-        <StatsModal onClose={() => setShowStatsModal(false)} />
+        <StatsModal onClose={() => setShowStatsModal(false)} playerAddress={playerAddress} />
       )}
 
       {/* Leaderboard Modal */}
