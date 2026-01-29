@@ -110,6 +110,7 @@ export class PvPService {
   }
 
   async subscribeToMatch(matchId: string, callback: (match: PvPMatch) => void) {
+    type RealtimePayload<T> = { new: T | null; old: T | null }
     return this.supabase
       .channel(`match:${matchId}`)
       .on(
@@ -120,8 +121,8 @@ export class PvPService {
           table: "pvp_matches",
           filter: `id=eq.${matchId}`,
         },
-        (payload) => {
-          callback(payload.new as PvPMatch)
+        (payload: RealtimePayload<PvPMatch>) => {
+          if (payload.new) callback(payload.new)
         },
       )
       .subscribe()

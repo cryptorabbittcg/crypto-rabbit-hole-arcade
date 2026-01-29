@@ -12,6 +12,9 @@ export async function ensureApeChain(): Promise<void> {
   if (typeof window === "undefined" || !window.ethereum) {
     throw new Error("MetaMask not detected")
   }
+  if (!window.ethereum.request) {
+    throw new Error("MetaMask request API not available")
+  }
 
   const chainId = `0x${apeChainMainnet.id.toString(16)}` // Convert to hex (0x8173 for 33139)
 

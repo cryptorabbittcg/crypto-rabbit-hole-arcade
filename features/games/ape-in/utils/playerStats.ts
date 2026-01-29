@@ -35,6 +35,7 @@ export interface ApeInPlayerStats {
     nifty: { played: number; wins: number; losses: number; forfeited: number }
     pvp: { played: number; wins: number; losses: number; forfeited: number }
     multiplayer: { played: number; wins: number; losses: number; forfeited: number }
+    tournament: { played: number; wins: number; losses: number; forfeited: number }
   }
   currentStreak: number
   bestStreak: number
@@ -287,6 +288,7 @@ function getDefaultStats(): ApeInPlayerStats {
       nifty: { played: 0, wins: 0, losses: 0, forfeited: 0 },
       pvp: { played: 0, wins: 0, losses: 0, forfeited: 0 },
       multiplayer: { played: 0, wins: 0, losses: 0, forfeited: 0 },
+      tournament: { played: 0, wins: 0, losses: 0, forfeited: 0 },
     },
     currentStreak: 0,
     bestStreak: 0,

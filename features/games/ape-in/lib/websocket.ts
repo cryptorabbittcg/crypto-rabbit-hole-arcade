@@ -19,32 +19,6 @@ class WebSocketService {
     // When implementing WebSocket, use Next.js API route or Vercel/Upstash Redis
     console.log('⚠️ WebSocket not yet implemented - PvP/multiplayer will use polling')
     return
-    
-    // TODO: Implement WebSocket when PvP/multiplayer is ready
-    // Will use Next.js API route or Redis pub/sub, not external backend
-
-    this.ws.onopen = () => {
-      console.log('WebSocket connected')
-      this.reconnectAttempts = 0
-    }
-
-    this.ws.onmessage = (event) => {
-      try {
-        const message: WebSocketMessage = JSON.parse(event.data)
-        this.notifyListeners(message.type, message.data)
-      } catch (error) {
-        console.error('Failed to parse WebSocket message:', error)
-      }
-    }
-
-    this.ws.onerror = (error) => {
-      console.error('WebSocket error:', error)
-    }
-
-    this.ws.onclose = () => {
-      console.log('WebSocket disconnected')
-      this.attemptReconnect(gameId)
-    }
   }
 
   private attemptReconnect(gameId: string) {

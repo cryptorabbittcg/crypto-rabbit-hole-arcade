@@ -12,7 +12,7 @@ import { BOT_CONFIGS } from "@/features/games/ape-in/utils/botConfig"
  * Card definitions
  * Maps card types and values to card names
  */
-const CARD_DEFINITIONS: Record<string, { name: string; type: CardType; value: number }[]> = {
+const CARD_DEFINITIONS: Record<string, { name: string; type: CardType; value: number; penalty?: string }[]> = {
   // Cipher cards (1pt)
   cipher_1pt: [
     { name: 'Abbie', type: 'Cipher', value: 1 },

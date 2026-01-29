@@ -5,26 +5,34 @@ import { motion } from "framer-motion"
 
 type PvPPhase =
   | "WAITING_FOR_OPPONENT"
-  | "FIRST_ROLL_REVEAL"
   | "DRAW"
   | "ROLL"
   | "DECISION"
   | "GAME_END"
+
+type PvPCard = {
+  name: string
+  type: "Cipher" | "Oracle" | "Historacle" | "Bearish" | "Special" | string
+  value: number
+  image_url?: string
+  penalty?: "Reset" | "Half" | "Minus10" | string
+}
 
 interface PvPGameStateV1 {
   state_version: 1
   turn_number: number
   phase: PvPPhase
   round_number: number
-  seat_map: { seat1: string; seat2: string } // user_ids
-  current_turn_seat: "seat1" | "seat2"
+  seat_map: { seat1: string | null; seat2: string | null } // user_ids
+  current_turn_seat: "seat1" | "seat2" | null
   scores: {
     seat1_total: number
     seat2_total: number
     seat1_turn: number
     seat2_turn: number
   }
-  last_draw?: { card_id: string; label: string; created_at: string } | null
+  pending_card?: PvPCard | null
+  last_draw?: { card_id: string; card: PvPCard; created_at: string } | null
   last_roll?: { value: number; created_at: string } | null
   last_action:
     | {
@@ -57,6 +65,7 @@ export default function PvPGameBoard({
   const [error, setError] = useState<string | null>(null)
   const [isActing, setIsActing] = useState(false)
   const lastTurnNumberRef = useRef<number>(-1)
+  const matchStatusRef = useRef<string | null>(null)
 
   const gameState: PvPGameStateV1 | null = useMemo(() => {
     const gs = data?.game_state
@@ -74,10 +83,41 @@ export default function PvPGameBoard({
   const isMyTurn = !!(gameState && mySeat && gameState.current_turn_seat === mySeat)
 
   const applyIfFresh = useCallback((next: MatchStateResponse) => {
-    const nextTurn = (next.game_state?.turn_number ?? -1) as number
-    if (nextTurn <= lastTurnNumberRef.current) return
-    lastTurnNumberRef.current = nextTurn
-    setData(next)
+    setData((prev) => {
+      // Always accept updates if match_status changes (endgame, forfeits, etc.)
+      const prevStatus = prev?.match_status
+      const nextStatus = next?.match_status
+      if (prevStatus && nextStatus && prevStatus !== nextStatus) {
+        const nt = next.game_state?.turn_number
+        if (typeof nt === "number" && !Number.isNaN(nt)) {
+          lastTurnNumberRef.current = nt
+        }
+        return next
+      }
+
+      // Accept updates if phase changes (helps avoid "stuck" UI when turn_number doesn't advance as expected)
+      const prevPhase = prev?.game_state?.phase
+      const nextPhase = next?.game_state?.phase
+      if (prevPhase && nextPhase && prevPhase !== nextPhase) {
+        const nt = next.game_state?.turn_number
+        if (typeof nt === "number" && !Number.isNaN(nt)) {
+          lastTurnNumberRef.current = Math.max(lastTurnNumberRef.current, nt)
+        }
+        return next
+      }
+
+      const nextTurn = next.game_state?.turn_number
+
+      // If turn_number is missing/null (waiting/init edge), still accept the update
+      if (typeof nextTurn !== "number" || Number.isNaN(nextTurn)) {
+        return next
+      }
+
+      // Normal monotonic freshness gate
+      if (nextTurn <= lastTurnNumberRef.current) return prev ?? next
+      lastTurnNumberRef.current = nextTurn
+      return next
+    })
   }, [])
 
   const fetchState = useCallback(async () => {
@@ -88,8 +128,15 @@ export default function PvPGameBoard({
       throw new Error(j.error || "Failed to fetch match state")
     }
     const j = (await res.json()) as MatchStateResponse
+    if (!j?.requester_user_id) {
+      throw new Error("Profile not found for wallet")
+    }
     applyIfFresh(j)
   }, [applyIfFresh, matchId, playerAddress])
+
+  useEffect(() => {
+    matchStatusRef.current = data?.match_status ?? null
+  }, [data?.match_status])
 
   useEffect(() => {
     let mounted = true
@@ -107,6 +154,11 @@ export default function PvPGameBoard({
 
     run()
     const t = setInterval(() => {
+      // stop polling if match ended
+      if (matchStatusRef.current && matchStatusRef.current !== "in_progress") {
+        clearInterval(t)
+        return
+      }
       run()
     }, 1200)
     return () => {
@@ -147,9 +199,21 @@ export default function PvPGameBoard({
   )
 
   const canDraw = !!(gameState && isMyTurn && (gameState.phase === "DRAW" || gameState.phase === "DECISION"))
-  const canRoll = !!(gameState && isMyTurn && gameState.phase === "ROLL")
+  const canRoll = !!(gameState && isMyTurn && gameState.phase === "ROLL" && !!gameState.pending_card)
   const canStack = !!(gameState && isMyTurn && gameState.phase === "DECISION")
   const canForfeit = !!(gameState && data?.match_status === "in_progress")
+
+  const lastText = useMemo(() => {
+    const last = gameState?.last_draw?.card as PvPCard | undefined
+    if (!last) return "Draw: —"
+    if (last.type === "Bearish") {
+      return `Draw: ${last.name} · ${last.type}${last.penalty ? ` (${last.penalty})` : ""}`
+    }
+    if (last.type === "Special") {
+      return `Draw: ${last.name} · ${last.type}`
+    }
+    return `Draw: ${last.name} · ${last.type} (+${last.value})`
+  }, [gameState?.last_draw?.card])
 
   return (
     <motion.div
@@ -195,12 +259,18 @@ export default function PvPGameBoard({
               <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
                 <div className="text-slate-400 text-xs mb-1">Turn</div>
                 <div className="text-white font-mono">
-                  {gameState.current_turn_seat} {isMyTurn ? "(you)" : ""}
+                  {gameState.current_turn_seat ?? "—"} {isMyTurn ? "(you)" : ""}
                 </div>
                 <div className="text-slate-400 text-xs mt-2">You</div>
                 <div className="text-white font-mono">{mySeat ?? "—"}</div>
               </div>
             </div>
+
+            {gameState.phase === "WAITING_FOR_OPPONENT" && (
+              <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-slate-200">
+                Waiting for opponent to join…
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div className={`rounded-xl border p-4 ${mySeat === "seat1" ? "border-purple-500/50" : "border-slate-800"} bg-slate-900/40`}>
@@ -220,9 +290,18 @@ export default function PvPGameBoard({
             <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
               <div className="text-slate-400 text-xs mb-2">Last</div>
               <div className="text-white text-sm">
-                {gameState.last_draw?.label ? `Draw: ${gameState.last_draw.label}` : "Draw: —"}{" "}
+                {lastText}{" "}
                 {gameState.last_roll?.value ? `· Roll: ${gameState.last_roll.value}` : "· Roll: —"}
               </div>
+              {gameState.last_draw?.card?.image_url && (
+                <div className="mt-3">
+                  <img
+                    src={gameState.last_draw.card.image_url}
+                    alt={gameState.last_draw.card.name}
+                    className="w-full max-h-48 object-contain rounded-lg border border-slate-800 bg-slate-950/30"
+                  />
+                </div>
+              )}
               <div className="text-slate-400 text-xs mt-1 font-mono">
                 {gameState.last_action ? `${gameState.last_action.type} by ${gameState.last_action.by_user_id.slice(0, 8)}…` : "—"}
               </div>
@@ -236,20 +315,28 @@ export default function PvPGameBoard({
               >
                 Draw
               </button>
-              <button
-                disabled={!canRoll || isActing}
-                onClick={() => callAction("roll")}
-                className="px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold"
-              >
-                Roll
-              </button>
-              <button
-                disabled={!canStack || isActing}
-                onClick={() => callAction("stack")}
-                className="px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold"
-              >
-                Stack
-              </button>
+              {gameState?.phase === "ROLL" ? (
+                <button
+                  disabled={!canRoll || isActing}
+                  onClick={() => callAction("roll")}
+                  className="px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold"
+                >
+                  Roll
+                </button>
+              ) : (
+                <div className="hidden md:block" />
+              )}
+              {gameState?.phase === "DECISION" ? (
+                <button
+                  disabled={!canStack || isActing}
+                  onClick={() => callAction("stack")}
+                  className="px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold"
+                >
+                  Stack
+                </button>
+              ) : (
+                <div className="hidden md:block" />
+              )}
               <button
                 disabled={!canForfeit || isActing}
                 onClick={() => callAction("forfeit")}

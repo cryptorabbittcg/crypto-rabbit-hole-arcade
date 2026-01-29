@@ -96,8 +96,10 @@ describe("Payment Invariants", () => {
 
   describe("Wrong Chain Rejection", () => {
     it("should reject transaction from wrong chain (simulated via RPC error)", async () => {
-      const { createPublicClient } = await import("viem")
-      const mockClient = createPublicClient() as any
+      const mockClient: any = {
+        getTransactionReceipt: vi.fn(),
+        getTransaction: vi.fn(),
+      }
       
       // Simulate wrong chain by having RPC fail/return different chain
       mockClient.getTransactionReceipt.mockRejectedValue(
@@ -152,8 +154,10 @@ describe("Payment Invariants", () => {
 
   describe("Wrong Recipient Rejection", () => {
     it("should reject transaction with wrong recipient address", async () => {
-      const { createPublicClient } = await import("viem")
-      const mockClient = createPublicClient() as any
+      const mockClient: any = {
+        getTransactionReceipt: vi.fn(),
+        getTransaction: vi.fn(),
+      }
 
       const WRONG_RECIPIENT = "0xWRONG0000000000000000000000000000000000"
 
@@ -216,8 +220,10 @@ describe("Payment Invariants", () => {
 
   describe("Wrong Value Rejection", () => {
     it("should reject transaction with wrong value (not 1.0 APE)", async () => {
-      const { createPublicClient } = await import("viem")
-      const mockClient = createPublicClient() as any
+      const mockClient: any = {
+        getTransactionReceipt: vi.fn(),
+        getTransaction: vi.fn(),
+      }
 
       const WRONG_VALUE = BigInt("500000000000000000") // 0.5 APE
 
@@ -375,9 +381,11 @@ describe("Payment Invariants", () => {
 
   describe("Valid Transaction Acceptance", () => {
     it("should accept valid transaction and grant hints", async () => {
-      const { createPublicClient } = await import("viem")
       const { CryptokuHintsService } = await import("@/lib/supabase/services/cryptoku-hints.service")
-      const mockClient = createPublicClient() as any
+      const mockClient: any = {
+        getTransactionReceipt: vi.fn(),
+        getTransaction: vi.fn(),
+      }
 
       mockClient.getTransactionReceipt.mockResolvedValue({
         status: "success",

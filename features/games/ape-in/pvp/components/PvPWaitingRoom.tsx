@@ -318,9 +318,11 @@ export default function PvPWaitingRoom({
     onCancel()
   }
 
+  const ms = matchStatus
+  const hasRolls = !!(ms && ms.player1_roll !== null && ms.player2_roll !== null)
+
   // Phase 2: Opponent found when rolls are ready (rolled_at exists)
-  const isOpponentFound = matchStatus?.rolled_at !== null || 
-    (matchStatus?.player1_roll !== null && matchStatus?.player2_roll !== null)
+  const isOpponentFound = ms?.rolled_at !== null || hasRolls
 
   return (
     <motion.div
@@ -359,17 +361,17 @@ export default function PvPWaitingRoom({
               <p className="text-lg text-slate-300">
                 Opponent found! First rolls generated.
               </p>
-              {matchStatus?.player1_roll !== null && matchStatus?.player2_roll !== null && (
+              {hasRolls && (
                 <div className="mt-4 space-y-2">
                   <p className="text-sm text-slate-400">
-                    Player 1 rolled: <span className="text-white font-bold">{matchStatus.player1_roll}</span>
+                    Player 1 rolled: <span className="text-white font-bold">{ms!.player1_roll}</span>
                   </p>
                   <p className="text-sm text-slate-400">
-                    Player 2 rolled: <span className="text-white font-bold">{matchStatus.player2_roll}</span>
+                    Player 2 rolled: <span className="text-white font-bold">{ms!.player2_roll}</span>
                   </p>
-                  {matchStatus.first_turn_player && (
+                  {ms!.first_turn_player && (
                     <p className="text-sm text-purple-400 font-semibold mt-2">
-                      Player {matchStatus.first_turn_player} goes first!
+                      Player {ms!.first_turn_player} goes first!
                     </p>
                   )}
                 </div>

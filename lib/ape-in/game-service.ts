@@ -419,7 +419,7 @@ export class GameService {
 
       // Decide dice profile (conditional aggressive switch if behind or low rounds)
       const behindByNow = gameState.playerScore - gameState.opponentScore
-      let diceProfile = aiType
+      let diceProfile: string = aiType
       if (diceModes.length > 1) {
         // switch to aggressive when notably behind or low rounds
         const behindGap = riskCfg.behindGap || 999

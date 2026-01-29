@@ -814,35 +814,16 @@ const displayAvatar = player.avatar_url || '/default-avatar.png'
 
 **G) PvP-Only Tuning (CRITICAL - Do NOT Modify Existing Files)**
 
-**REQUIRED**: Copy/rename existing logic into PVP folder
+**IMPORTANT**: PvP gameplay rules are now enforced server-side via Supabase RPCs (Phase 3 Sandy-parity).
+Do **not** maintain separate TS "PvP deck" files (this prevents rule drift and avoids reintroducing the old mini-deck).
 
-**New Files** (isolated PVP logic):
-- `features/games/ape-in/pvp/logic/pvp_card_logic.ts` (copied from `lib/ape-in/game-logic-cards.ts`)
-- `features/games/ape-in/pvp/logic/pvp_dice_logic.ts` (copied from `lib/ape-in/game-logic-dice.ts`)
+**PvP-only changes** (Sandy-parity constraints):
+- **Bear -10**: 1 → 6 copies
+- **Bearish weight**: 2 → 3 (slightly higher bearish group draw chance)
+- **Bearish caps**: Reset max=1, Half max=1, Minus10 max=6
 
-**Changes in PVP-Only Files**:
-- **Bear -10 Sats**: Set to 6 total copies (PvP-specific)
-- **Bearish Weight**: Increase from 2 to 3 (PvP-specific)
-- **Bearish Distribution**: Ensure all 3 types available in PVP
-
-**Updated Weights** (PvP-only):
-```typescript
-// features/games/ape-in/pvp/logic/pvp_card_logic.ts
-const PVP_CARD_WEIGHTS = {
-  "Cipher_1pt": 6,
-  "Cipher_2pt": 8,
-  "Cipher_3pt": 9,
-  "Cipher_5pt": 15,
-  "Cipher_8pt": 15,
-  "Oracle": 10,
-  "Historacle": 4,
-  "Bearish": 3, // Increased from 2 (PvP-only)
-  "Special": 15,
-}
-
-// PVP mode: 6 copies of Bear -10 (PvP-only)
-const bearMinus10Count = 6  // Always 6 for PvP
-```
+**Implementation location**:
+- Supabase migration: `supabase/migrations/20260130120000_ape_in_pvp_phase3_sandy_parity_actions.sql`
 
 **Existing Files Remain Untouched**:
 - `lib/ape-in/game-logic-cards.ts` - NO CHANGES
@@ -1432,12 +1413,8 @@ rematch?: {
 - [ ] Test full game flow
 
 ### Phase 4: Card System
-- [ ] Copy existing card logic to `pvp/logic/pvp_card_logic.ts` (NO changes to original)
-- [ ] Copy existing dice logic to `pvp/logic/pvp_dice_logic.ts` (NO changes to original)
-- [ ] Update bearish card weights in PVP-only file (2 → 3)
-- [ ] Increase Bear -10 to 6 copies in PVP-only file
-- [ ] Test card distribution
-- [ ] Verify game balance
+- [ ] Confirm PvP rules are Sandy-parity in Supabase RPCs (deck + dice + bearish + Ape In)
+- [ ] Confirm Bear -10 copies = 6 and bearish_weight = 3 in PvP config
 - [ ] Verify existing bot modes still work (no regressions)
 
 ### Phase 5: API

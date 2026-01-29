@@ -147,7 +147,6 @@ export default function Card({ card, isRevealing = false, onClick, hideClickToDr
               alt={card.name}
               className="w-full h-full object-contain"
               onError={(e) => {
-                console.log('❌ Card image failed to load:', card.image_url)
                 // As a safe fallback, show cardback if provided URL fails
                 (e.currentTarget as HTMLImageElement).src = getCardbackPath()
               }}

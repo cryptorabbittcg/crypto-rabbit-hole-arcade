@@ -43,14 +43,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate mode
-    if (!VALID_MODES.includes(mode as GameMode)) {
+    if (!VALID_MODES.includes(mode as (typeof VALID_MODES)[number])) {
       return NextResponse.json(
         { error: `Invalid mode: ${mode}` },
         { status: 400 }
       )
     }
 
-    const gameMode = mode as GameMode
+    const gameMode = mode as (typeof VALID_MODES)[number]
     const isSandy = gameMode === "sandy"
 
     // Sandy mode can be created without wallet address

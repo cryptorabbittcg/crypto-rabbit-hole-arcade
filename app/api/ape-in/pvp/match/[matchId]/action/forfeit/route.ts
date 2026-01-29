@@ -12,11 +12,10 @@ function isUuid(v: string): boolean {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ matchId: string }> | { matchId: string } }
+  { params }: { params: Promise<{ matchId: string }> }
 ) {
   try {
-    const resolvedParams = params instanceof Promise ? await params : params
-    const matchId = resolvedParams?.matchId
+    const { matchId } = await params
 
     if (!matchId || !isUuid(matchId)) {
       return NextResponse.json({ error: "Invalid matchId" }, { status: 400 })

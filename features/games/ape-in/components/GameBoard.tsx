@@ -31,6 +31,9 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
   const { address, profile } = useArcade()
   const [playerProfile, setPlayerProfile] = useState<{pfp?: string, avatar?: string} | null>(null)
   const [gameStartTime, setGameStartTime] = useState(() => Date.now()) // Track game start for duration
+
+  // Used for UI text only (do not affect gameplay). Keep this consistent with handleZkVerifyValidation().
+  const hasApiKey = Boolean(process.env.NEXT_PUBLIC_ZKVERIFY_API_KEY)
   
   // Preload the ApeCoin dice image immediately when GameBoard mounts (before any dice rolls)
   useEffect(() => {
@@ -669,7 +672,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
       submitLockRef.current = false // Reset submission lock for new run
       
       // Reset stats session tracking when starting a new game
-      if (gameStatus === 'waiting' || gameStatus === 'idle') {
+      if (gameStatus === 'waiting') {
         setCurrentSessionId(null)
         sessionStartedRef.current = false
       }

@@ -8,12 +8,10 @@ function isValidAddress(address: string): boolean {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ matchId: string }> | { matchId: string } }
+  { params }: { params: Promise<{ matchId: string }> }
 ) {
   try {
-    // Handle params as either Promise (Next.js 15+) or direct object (Next.js 14)
-    const resolvedParams = params instanceof Promise ? await params : params
-    const matchId = resolvedParams?.matchId
+    const { matchId } = await params
 
     if (!matchId) {
       return NextResponse.json({ error: "matchId is required" }, { status: 400 })
