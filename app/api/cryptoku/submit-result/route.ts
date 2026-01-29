@@ -84,6 +84,13 @@ export async function POST(request: NextRequest) {
       normalized: normalizedAddress.substring(0, 10) + "...",
     })
 
+    // Create admin client EARLY (we must resolve identity server-side via wallet -> profiles.id)
+    const adminClient = createAdminClient()
+    if (!adminClient) {
+      console.error("[CryptokuSubmit] Step 1: Failed to create admin client")
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+    }
+
     // Early returns for unranked modes
     if (mode === "NOOB") {
       console.log("[CryptokuSubmit] NOOB mode - unranked, returning early")
@@ -113,7 +120,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 1 (continued): Resolve user_id from profiles (create if needed)
-    const profileService = new ProfileService()
+    // CRITICAL: Always resolve via admin client using wallet_address (never auth.uid(), never cached identity)
+    const profileService = new ProfileService(adminClient)
     let profile = await profileService.getProfileByWallet(normalizedAddress)
     
     if (!profile) {
@@ -155,16 +163,6 @@ export async function POST(request: NextRequest) {
       cleanStreak: playerStats.cleanStreak,
     })
 
-    // Create admin client
-    const adminClient = createAdminClient()
-    if (!adminClient) {
-      console.error("[CryptokuSubmit] Step 1: Failed to create admin client")
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500 }
-      )
-    }
-
     // Step 2: Duplicate check BEFORE any insert
     console.log("[CryptokuSubmit] Step 2: Checking for duplicate run_id", { runId })
     const { data: existingEntry, error: checkError } = await adminClient
@@ -204,12 +202,15 @@ export async function POST(request: NextRequest) {
     console.log("[CryptokuSubmit] Step 3A: Inserting leaderboard entry", {
       runId,
       address: normalizedAddress.substring(0, 10) + "...",
+      resolvedUserId: profile.id,
       mode,
       score,
     })
 
     const leaderboardService = new CryptokuLeaderboardService(adminClient)
-    const leaderboardResult = await leaderboardService.addEntry({
+    // CRITICAL: Pass resolved profile.id (wallet -> profiles.id) explicitly.
+    // Do NOT re-resolve identity inside the leaderboard service using a potentially non-admin client.
+    const leaderboardResult = await leaderboardService.addEntryByUserId(profile.id, {
       runId,
       address: normalizedAddress,
       mode,
