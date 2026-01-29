@@ -9,7 +9,9 @@ interface PvPWaitingRoomProps {
   matchId: string
   matchType: 'public' | 'private'
   playerAddress: string | null
+  isCreator: boolean // Phase 2: true if this client created the match (player1), false if joined (player2)
   onCancel: () => void
+  onReady?: (matchData: MatchStatus) => void // Phase 2.5: Called when rolls are ready
 }
 
 interface MatchStatus {
@@ -20,23 +22,33 @@ interface MatchStatus {
   player2_id: string | null
   started_at: string | null
   last_action_at: string | null
+  // Phase 2: roll fields
+  player1_roll: number | null
+  player2_roll: number | null
+  first_turn_player: number | null
+  rolled_at: string | null
+  roll_seed: string | null
 }
 
 export default function PvPWaitingRoom({
   matchId,
   matchType,
   playerAddress,
+  isCreator,
   onCancel,
+  onReady,
 }: PvPWaitingRoomProps) {
   const [matchStatus, setMatchStatus] = useState<MatchStatus | null>(null)
   const [isPolling, setIsPolling] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [pollErrors, setPollErrors] = useState(0)
+  const [isJoining, setIsJoining] = useState(false)
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isMountedRef = useRef(true)
   const opponentFoundRef = useRef(false)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const joinAttemptedRef = useRef(false) // Track if we've attempted to join (prevent duplicate joins)
 
   // Track mount state to prevent updates after unmount
   useEffect(() => {
@@ -61,6 +73,8 @@ export default function PvPWaitingRoom({
     opponentFoundRef.current = false
     // Reset error count for new match
     setPollErrors(0)
+    // Reset join attempt flag for new match
+    joinAttemptedRef.current = false
     storeActivePvPMatch(matchId, matchId)
     // Optional: clear on unmount if modal closes mid-search
     // return () => clearActivePvPMatch()
@@ -130,8 +144,64 @@ export default function PvPWaitingRoom({
       setError(null)
       setMatchStatus(data)
 
-      // Check if opponent found (match status changed from 'waiting')
-      if (data.match_status === 'rolling_for_first') {
+      // Phase 2.5: Create nextData to track the latest match state (may be updated by /join)
+      let nextData: MatchStatus = data
+
+      // Phase 2: Auto-join logic for player2 ONLY (never player1)
+      // Only attempt join if:
+      // - We're NOT the creator (isCreator === false means we're player2 candidate)
+      // - Match is waiting
+      // - player2_id is null
+      // - We haven't attempted join yet
+      if (
+        !isCreator &&
+        data.match_status === 'waiting' &&
+        data.player2_id === null &&
+        !joinAttemptedRef.current &&
+        !isJoining &&
+        playerAddress
+      ) {
+        // Attempt to join as player2 (this will fail if we're player1, which is fine)
+        joinAttemptedRef.current = true
+        setIsJoining(true)
+        
+        try {
+          const joinResponse = await fetch(`/api/ape-in/pvp/match/${matchId}/join`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playerAddress }),
+          })
+          
+          if (joinResponse.ok) {
+            const joinData = await joinResponse.json()
+            // Phase 2.5: Merge join data into nextData (ensures roll-ready check uses latest state)
+            nextData = { ...data, ...joinData }
+            // Update match status with join data (includes rolls if generated)
+            setMatchStatus(nextData)
+            // If rolls were generated, opponent is found
+            if (joinData.rolled_at) {
+              opponentFoundRef.current = true
+            }
+          } else if (joinResponse.status === 403) {
+            // "Cannot join own match" - we're player1, that's fine
+            // Do NOT reset joinAttemptedRef - permanently disable join attempts for this client
+            joinAttemptedRef.current = true
+          } else {
+            // Other error, log but continue polling
+            console.error('[PvPWaitingRoom] Join failed:', await joinResponse.text())
+            joinAttemptedRef.current = false // Reset so we can retry if needed
+          }
+        } catch (joinError) {
+          console.error('[PvPWaitingRoom] Join error:', joinError)
+          joinAttemptedRef.current = false // Reset so we can retry if needed
+        } finally {
+          setIsJoining(false)
+        }
+      }
+
+      // Phase 2: Check if rolls are ready (rolled_at exists means rolls were generated)
+      // Phase 2.5: Use nextData (may include joinData) instead of stale data
+      if (nextData.rolled_at !== null || (nextData.player1_roll !== null && nextData.player2_roll !== null)) {
         opponentFoundRef.current = true
         setIsPolling(false)
         
@@ -145,11 +215,12 @@ export default function PvPWaitingRoom({
           timeoutRef.current = null
         }
         
-        // Show "Opponent found" message
-        // Phase 2: Will transition to first-player roll screen
+        // Phase 2.5: Call onReady callback to transition to First Roll Reveal
+        onReady?.(nextData)
+        
         return
       } else if (data.match_status === 'in_progress' || data.match_status === 'completed' || data.match_status === 'forfeited' || data.match_status === 'abandoned') {
-        // Match ended or in progress (shouldn't happen in Phase 1, but handle gracefully)
+        // Match ended or in progress
         setIsPolling(false)
         clearActivePvPMatch()
       }
@@ -165,7 +236,7 @@ export default function PvPWaitingRoom({
       setPollErrors((prev) => prev + 1)
       setError(error.message || 'Failed to check match status')
     }
-  }, [matchId, playerAddress])
+  }, [matchId, playerAddress, isCreator, isJoining, onReady])
 
   // Stop polling after 2 consecutive errors
   useEffect(() => {
@@ -247,7 +318,9 @@ export default function PvPWaitingRoom({
     onCancel()
   }
 
-  const isOpponentFound = matchStatus?.match_status === 'rolling_for_first'
+  // Phase 2: Opponent found when rolls are ready (rolled_at exists)
+  const isOpponentFound = matchStatus?.rolled_at !== null || 
+    (matchStatus?.player1_roll !== null && matchStatus?.player2_roll !== null)
 
   return (
     <motion.div
@@ -284,10 +357,25 @@ export default function PvPWaitingRoom({
             <>
               <div className="text-6xl mb-4">🎉</div>
               <p className="text-lg text-slate-300">
-                Opponent found! Preparing match...
+                Opponent found! First rolls generated.
               </p>
-              <p className="text-sm text-slate-400">
-                Phase 2: First-player roll will begin here
+              {matchStatus?.player1_roll !== null && matchStatus?.player2_roll !== null && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-sm text-slate-400">
+                    Player 1 rolled: <span className="text-white font-bold">{matchStatus.player1_roll}</span>
+                  </p>
+                  <p className="text-sm text-slate-400">
+                    Player 2 rolled: <span className="text-white font-bold">{matchStatus.player2_roll}</span>
+                  </p>
+                  {matchStatus.first_turn_player && (
+                    <p className="text-sm text-purple-400 font-semibold mt-2">
+                      Player {matchStatus.first_turn_player} goes first!
+                    </p>
+                  )}
+                </div>
+              )}
+              <p className="text-xs text-slate-500 mt-4">
+                Phase 2: Transitioning to gameplay screen...
               </p>
             </>
           ) : (
@@ -296,7 +384,7 @@ export default function PvPWaitingRoom({
                 <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500"></div>
               </div>
               <p className="text-lg text-slate-300">
-                Searching for opponent...
+                {isJoining ? 'Joining match...' : 'Searching for opponent...'}
               </p>
               {error && (
                 <div className="p-4 bg-red-500/20 border border-red-500/30 rounded-lg">

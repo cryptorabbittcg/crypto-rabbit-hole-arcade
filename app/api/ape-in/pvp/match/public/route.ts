@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     // ✅ Phase 1 guard: if user already has an active public match, return it
     const { data: existing, error: existingError } = await adminClient
       .from("ape_in_pvp_matches")
-      .select("id, match_status, match_type")
+      .select("id, match_status, match_type, player1_id")
       .eq("match_type", "public")
       .in("match_status", ["waiting", "rolling_for_first"])
       .or(`player1_id.eq.${profile.id},player2_id.eq.${profile.id}`)
@@ -49,7 +49,9 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (!existingError && existing?.id) {
-      return NextResponse.json({ matchId: existing.id })
+      // Determine if we're the creator (player1) or joiner (player2)
+      const isCreator = existing.player1_id === profile.id
+      return NextResponse.json({ matchId: existing.id, created: isCreator })
     }
 
     // Call atomic RPC to find or create match
@@ -72,7 +74,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Match creation failed" }, { status: 500 })
     }
 
-    return NextResponse.json({ matchId })
+    // Phase 2: Determine if we're the creator (player1) or joiner (player2)
+    // Query the match to check if we're player1
+    const { data: match, error: matchCheckError } = await adminClient
+      .from("ape_in_pvp_matches")
+      .select("player1_id")
+      .eq("id", matchId)
+      .maybeSingle()
+
+    if (matchCheckError || !match) {
+      console.error("[PvPMatchPublic] Error checking match:", matchCheckError)
+      return NextResponse.json({ error: "Failed to verify match" }, { status: 500 })
+    }
+
+    const isCreator = match.player1_id === profile.id
+
+    return NextResponse.json({ matchId, created: isCreator })
   } catch (error: any) {
     console.error("[PvPMatchPublic] Error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

@@ -4,15 +4,25 @@ import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import PvPWaitingRoom from './PvPWaitingRoom'
+import PvPFirstRollReveal from './PvPFirstRollReveal'
 
 interface PvPMatchModalProps {
   onClose: () => void
   playerAddress: string | null
 }
 
+interface MatchReadyData {
+  match_status: string
+  player1_roll: number | null
+  player2_roll: number | null
+  first_turn_player: number | null
+}
+
 export default function PvPMatchModal({ onClose, playerAddress }: PvPMatchModalProps) {
   const [matchType, setMatchType] = useState<'public' | 'private' | null>(null)
   const [matchId, setMatchId] = useState<string | null>(null)
+  const [isCreator, setIsCreator] = useState<boolean>(false)
+  const [rollData, setRollData] = useState<MatchReadyData | null>(null) // Phase 2.5: Store roll data for reveal screen
 
   const handleFindPublicMatch = async () => {
     if (!playerAddress) {
@@ -35,6 +45,7 @@ export default function PvPMatchModal({ onClose, playerAddress }: PvPMatchModalP
       const data = await response.json()
       setMatchId(data.matchId)
       setMatchType('public')
+      setIsCreator(data.created === true) // true if we created the match (player1), false if we joined (player2)
     } catch (error: any) {
       console.error('[PvPMatchModal] Error finding match:', error)
       alert(error.message || 'Failed to find match. Please try again.')
@@ -51,6 +62,38 @@ export default function PvPMatchModal({ onClose, playerAddress }: PvPMatchModalP
     alert('Private matches coming soon!')
   }
 
+  // Phase 2.5: If rolls are ready, show First Roll Reveal screen
+  if (matchId && matchType && rollData && rollData.player1_roll !== null && rollData.player2_roll !== null && rollData.first_turn_player !== null) {
+    return (
+      <PvPFirstRollReveal
+        matchId={matchId}
+        player1Roll={rollData.player1_roll}
+        player2Roll={rollData.player2_roll}
+        firstTurnPlayer={rollData.first_turn_player}
+        playerAddress={playerAddress}
+        onClose={() => {
+          setMatchId(null)
+          setMatchType(null)
+          setIsCreator(false)
+          setRollData(null)
+          onClose()
+        }}
+        onStart={() => {
+          // Phase 2.5: Transition to gameplay screen
+          // TODO: Implement actual gameplay screen transition
+          console.log('[PvPMatchModal] Start game (placeholder)', { 
+            matchId, 
+            firstTurnPlayer: rollData.first_turn_player,
+            player1Roll: rollData.player1_roll,
+            player2Roll: rollData.player2_roll,
+          })
+          // Phase 2.5: Don't close yet - keep reveal screen visible for testing
+          // Phase 3: Will route into PvP gameplay screen
+        }}
+      />
+    )
+  }
+
   // If match found, show waiting room
   if (matchId && matchType) {
     return (
@@ -58,10 +101,22 @@ export default function PvPMatchModal({ onClose, playerAddress }: PvPMatchModalP
         matchId={matchId}
         matchType={matchType}
         playerAddress={playerAddress}
+        isCreator={isCreator}
         onCancel={() => {
           setMatchId(null)
           setMatchType(null)
+          setIsCreator(false)
+          setRollData(null)
           onClose()
+        }}
+        onReady={(matchData) => {
+          // Phase 2.5: Store roll data and transition to reveal screen
+          setRollData({
+            match_status: matchData.match_status,
+            player1_roll: matchData.player1_roll,
+            player2_roll: matchData.player2_roll,
+            first_turn_player: matchData.first_turn_player,
+          })
         }}
       />
     )

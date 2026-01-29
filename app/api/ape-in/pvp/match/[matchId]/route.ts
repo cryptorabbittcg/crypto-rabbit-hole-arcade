@@ -48,7 +48,7 @@ export async function GET(
 
     const { data: match, error: matchError } = await adminClient
       .from("ape_in_pvp_matches")
-      .select("id, player1_id, player2_id, match_status, match_type, match_code, started_at, last_action_at")
+      .select("id, player1_id, player2_id, match_status, match_type, match_code, started_at, last_action_at, player1_roll, player2_roll, first_turn_player, rolled_at, roll_seed")
       .eq("id", matchId)
       .maybeSingle()
 
@@ -73,6 +73,12 @@ export async function GET(
       player2_id: match.player2_id,
       started_at: match.started_at,
       last_action_at: match.last_action_at,
+      // Phase 2: roll fields (null until rolls are generated)
+      player1_roll: match.player1_roll,
+      player2_roll: match.player2_roll,
+      first_turn_player: match.first_turn_player,
+      rolled_at: match.rolled_at,
+      roll_seed: match.roll_seed,
     })
   } catch (error: any) {
     console.error("[PvPMatchGet] Error:", error)
