@@ -1,4 +1,14 @@
 -- =====================================================
+-- DEPRECATED
+-- =====================================================
+-- This Phase 3 draft is superseded by:
+-- `supabase/migrations/20260130120000_ape_in_pvp_phase3_sandy_parity_actions.sql`
+-- and the namespaced Ape In RPCs:
+-- `supabase/migrations/20260130150000_ape_in_pvp_namespaced_action_rpcs.sql`
+--
+-- Kept for history only. Do not edit.
+--
+-- =====================================================
 -- APE IN PVP MODE - PHASE 3: GAMEPLAY STATE + ACTION RPCs
 -- =====================================================
 -- Implements:

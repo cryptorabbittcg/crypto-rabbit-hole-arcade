@@ -17,6 +17,7 @@ interface MatchReadyData {
   player1_roll: number | null
   player2_roll: number | null
   first_turn_player: number | null
+  player2_id?: string | null
 }
 
 export default function PvPMatchModal({ onClose, playerAddress }: PvPMatchModalProps) {
@@ -123,13 +124,24 @@ export default function PvPMatchModal({ onClose, playerAddress }: PvPMatchModalP
           onClose()
         }}
         onReady={(matchData) => {
-          // Phase 2.5: Store roll data and transition to reveal screen
-          setRollData({
-            match_status: matchData.match_status,
-            player1_roll: matchData.player1_roll,
-            player2_roll: matchData.player2_roll,
-            first_turn_player: matchData.first_turn_player,
-          })
+          // If rolls exist, keep legacy First Roll Reveal flow.
+          // Otherwise, jump straight into gameplay once opponent has joined.
+          const hasRolls =
+            matchData.player1_roll !== null &&
+            matchData.player2_roll !== null &&
+            matchData.first_turn_player !== null
+
+          if (hasRolls) {
+            setRollData({
+              match_status: matchData.match_status,
+              player1_roll: matchData.player1_roll,
+              player2_roll: matchData.player2_roll,
+              first_turn_player: matchData.first_turn_player,
+              player2_id: (matchData as any).player2_id ?? null,
+            })
+          } else {
+            setHasStarted(true)
+          }
         }}
       />
     )

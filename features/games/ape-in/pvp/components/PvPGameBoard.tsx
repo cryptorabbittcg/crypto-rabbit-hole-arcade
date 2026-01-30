@@ -5,6 +5,7 @@ import { motion } from "framer-motion"
 
 type PvPPhase =
   | "WAITING_FOR_OPPONENT"
+  | "TURN_START"
   | "DRAW"
   | "ROLL"
   | "DECISION"
@@ -49,6 +50,7 @@ interface MatchStateResponse {
   match_status: string
   winner_id?: string | null
   forfeited_by?: string | null
+  ended_at?: string | null
   game_state?: PvPGameStateV1 | any
 }
 
@@ -66,6 +68,7 @@ export default function PvPGameBoard({
   const [isActing, setIsActing] = useState(false)
   const lastTurnNumberRef = useRef<number>(-1)
   const matchStatusRef = useRef<string | null>(null)
+  const terminalRef = useRef<boolean>(false)
 
   const gameState: PvPGameStateV1 | null = useMemo(() => {
     const gs = data?.game_state
@@ -139,6 +142,15 @@ export default function PvPGameBoard({
   }, [data?.match_status])
 
   useEffect(() => {
+    // Terminal: ended_at != null OR winner_id != null OR match_status in ('ended','forfeited','completed')
+    terminalRef.current = !!(
+      data?.ended_at ||
+      data?.winner_id ||
+      (data?.match_status && ["ended", "forfeited", "completed"].includes(data.match_status))
+    )
+  }, [data?.ended_at, data?.winner_id, data?.match_status])
+
+  useEffect(() => {
     let mounted = true
     setError(null)
     lastTurnNumberRef.current = -1
@@ -155,7 +167,12 @@ export default function PvPGameBoard({
     run()
     const t = setInterval(() => {
       // stop polling if match ended
-      if (matchStatusRef.current && matchStatusRef.current !== "in_progress") {
+      if (terminalRef.current) {
+        clearInterval(t)
+        return
+      }
+      // stop polling if status is not playable (active/in_progress)
+      if (matchStatusRef.current && !["in_progress", "active"].includes(matchStatusRef.current)) {
         clearInterval(t)
         return
       }
@@ -198,10 +215,10 @@ export default function PvPGameBoard({
     [applyIfFresh, data?.requester_user_id, matchId, playerAddress]
   )
 
-  const canDraw = !!(gameState && isMyTurn && (gameState.phase === "DRAW" || gameState.phase === "DECISION"))
+  const canDraw = !!(gameState && isMyTurn && (gameState.phase === "TURN_START" || gameState.phase === "DRAW" || gameState.phase === "DECISION"))
   const canRoll = !!(gameState && isMyTurn && gameState.phase === "ROLL" && !!gameState.pending_card)
   const canStack = !!(gameState && isMyTurn && gameState.phase === "DECISION")
-  const canForfeit = !!(gameState && data?.match_status === "in_progress")
+  const canForfeit = !!(gameState && ["in_progress", "active"].includes(data?.match_status ?? ""))
 
   const lastText = useMemo(() => {
     const last = gameState?.last_draw?.card as PvPCard | undefined
@@ -269,6 +286,11 @@ export default function PvPGameBoard({
             {gameState.phase === "WAITING_FOR_OPPONENT" && (
               <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-slate-200">
                 Waiting for opponent to join…
+              </div>
+            )}
+            {gameState.phase === "TURN_START" && (
+              <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-slate-200">
+                Match started — draw to begin.
               </div>
             )}
 

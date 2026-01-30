@@ -21,6 +21,8 @@ interface MatchStatus {
   player1_id: string | null
   player2_id: string | null
   started_at: string | null
+  ended_at?: string | null
+  winner_id?: string | null
   last_action_at: string | null
   // Phase 2: roll fields
   player1_roll: number | null
@@ -199,9 +201,8 @@ export default function PvPWaitingRoom({
         }
       }
 
-      // Phase 2: Check if rolls are ready (rolled_at exists means rolls were generated)
-      // Phase 2.5: Use nextData (may include joinData) instead of stale data
-      if (nextData.rolled_at !== null || (nextData.player1_roll !== null && nextData.player2_roll !== null)) {
+      // Waiting room ends when: player2_id != null && match_status in ('active','in_progress')
+      if (nextData.player2_id !== null && ["active", "in_progress"].includes(nextData.match_status)) {
         opponentFoundRef.current = true
         setIsPolling(false)
         
@@ -215,11 +216,11 @@ export default function PvPWaitingRoom({
           timeoutRef.current = null
         }
         
-        // Phase 2.5: Call onReady callback to transition to First Roll Reveal
+        // Call onReady callback to transition out of waiting room
         onReady?.(nextData)
         
         return
-      } else if (data.match_status === 'in_progress' || data.match_status === 'completed' || data.match_status === 'forfeited' || data.match_status === 'abandoned') {
+      } else if (nextData.ended_at !== null || nextData.winner_id !== null || ["ended", "forfeited", "completed", "abandoned"].includes(nextData.match_status)) {
         // Match ended or in progress
         setIsPolling(false)
         clearActivePvPMatch()
@@ -359,7 +360,7 @@ export default function PvPWaitingRoom({
             <>
               <div className="text-6xl mb-4">🎉</div>
               <p className="text-lg text-slate-300">
-                Opponent found! First rolls generated.
+                Opponent found! Match is ready.
               </p>
               {hasRolls && (
                 <div className="mt-4 space-y-2">

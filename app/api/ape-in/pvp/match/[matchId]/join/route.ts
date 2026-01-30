@@ -55,57 +55,39 @@ export async function POST(
       }
     }
 
-    // Call atomic RPC to join match and generate rolls
-    const { data: matchData, error: rpcError } = await adminClient.rpc(
-      "join_public_match_and_roll",
-      {
-        p_match_id: matchId,
-        p_user_id: profile.id,
-        p_wallet_address: normalizedAddress,
-        p_username: profile.username || `Player${normalizedAddress.slice(2, 8)}`,
-        p_avatar_url: profile.avatar_url || null,
-      }
-    )
+    console.log("[ApeInPvPMatchJoin] calling ape_in_pvp_join_match_v1", { matchId })
+    const { data: match, error: rpcError } = await adminClient.rpc("ape_in_pvp_join_match_v1", {
+      p_match_id: matchId,
+      p_user_id: profile.id,
+    })
 
     if (rpcError) {
-      console.error("[PvPMatchJoin] RPC error:", rpcError)
-      
-      // Handle specific error cases
-      if (rpcError.message?.includes("Match not found")) {
-        return NextResponse.json({ error: "Match not found or not public" }, { status: 404 })
+      console.error("[ApeInPvPMatchJoin] RPC error:", rpcError)
+      if (rpcError.message?.includes("match_not_found")) {
+        return NextResponse.json({ error: "Match not found" }, { status: 404 })
       }
-      if (rpcError.message?.includes("Cannot join own match")) {
-        return NextResponse.json({ error: "Cannot join own match" }, { status: 403 })
+      if (rpcError.message?.includes("match_full")) {
+        return NextResponse.json({ error: "Match is full" }, { status: 409 })
       }
-      
-      return NextResponse.json({ error: "Failed to join match" }, { status: 500 })
+      return NextResponse.json({ error: rpcError.message || "Failed to join match" }, { status: 400 })
     }
 
-    if (!matchData || matchData.length === 0) {
-      return NextResponse.json({ error: "Join failed: no match data returned" }, { status: 500 })
+    // Guardrail: never return a silent 200 with null fields.
+    if (!match?.id) {
+      return NextResponse.json({ error: "Join failed: match not returned" }, { status: 500 })
     }
-
-    // RPC returns array, take first row
-    const match = matchData[0]
 
     return NextResponse.json({
       id: match.id,
+      match_status: match.match_status,
       player1_id: match.player1_id,
       player2_id: match.player2_id,
-      player1_address: match.player1_address,
-      player2_address: match.player2_address,
-      player1_name: match.player1_name,
-      player2_name: match.player2_name,
-      player1_avatar_url: match.player1_avatar_url,
-      player2_avatar_url: match.player2_avatar_url,
-      match_status: match.match_status,
-      player1_roll: match.player1_roll,
-      player2_roll: match.player2_roll,
-      first_turn_player: match.first_turn_player,
-      rolled_at: match.rolled_at,
-      roll_seed: match.roll_seed,
-      created_at: match.created_at,
       started_at: match.started_at,
+      ended_at: match.ended_at,
+      winner_id: match.winner_id,
+      forfeited_by: match.forfeited_by,
+      last_action_at: match.last_action_at,
+      game_state: match.game_state,
     })
   } catch (error: any) {
     console.error("[PvPMatchJoin] Error:", error)

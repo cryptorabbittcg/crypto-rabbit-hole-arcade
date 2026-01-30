@@ -34,7 +34,8 @@ export async function POST(
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
 
-    const { data, error } = await adminClient.rpc("pvp_action_draw", {
+    console.log("[ApeInPvPActionDraw] calling ape_in_pvp_action_draw", { matchId })
+    const { data, error } = await adminClient.rpc("ape_in_pvp_action_draw", {
       p_match_id: matchId,
       p_actor_user_id: profile.id,
     })
