@@ -45,9 +45,10 @@ export async function GET(
     }
 
     const { data: match, error: matchError } = await adminClient
-      .from("ape_in_pvp_matches")
-      .select("id, player1_id, player2_id, match_status, match_type, match_code, started_at, last_action_at, winner_id, forfeited_by, ended_at, game_state, player1_roll, player2_roll, first_turn_player, rolled_at, roll_seed")
+      .from("pvp_matches")
+      .select("id, game_code, player1_id, player2_id, match_status, started_at, last_action_at, winner_id, forfeited_by, ended_at, game_state")
       .eq("id", matchId)
+      .eq("game_code", "ape_in")
       .maybeSingle()
 
     if (matchError || !match) {
@@ -66,8 +67,9 @@ export async function GET(
     return NextResponse.json({
       requester_user_id: profile.id,
       match_status: match.match_status,
-      match_type: match.match_type,
-      match_code: match.match_code,
+      // For UI compatibility only (Option A removes match_type/match_code from storage)
+      match_type: "public",
+      match_code: null,
       player1_id: match.player1_id,
       player2_id: match.player2_id,
       started_at: match.started_at,
@@ -76,12 +78,12 @@ export async function GET(
       forfeited_by: match.forfeited_by,
       ended_at: match.ended_at,
       game_state: match.game_state,
-      // Phase 2: roll fields (null until rolls are generated)
-      player1_roll: match.player1_roll,
-      player2_roll: match.player2_roll,
-      first_turn_player: match.first_turn_player,
-      rolled_at: match.rolled_at,
-      roll_seed: match.roll_seed,
+      // Legacy roll fields removed under Option A
+      player1_roll: null,
+      player2_roll: null,
+      first_turn_player: null,
+      rolled_at: null,
+      roll_seed: null,
     })
   } catch (error: any) {
     console.error("[PvPMatchGet] Error:", error)

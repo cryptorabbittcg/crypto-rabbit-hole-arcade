@@ -37,12 +37,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ✅ Phase 1 guard: if user already has an active public match, return it
+    /**
+     * Phase 1: Guard
+     * If user already has an active Ape In PvP match, return it
+     */
     const { data: existing, error: existingError } = await adminClient
-      .from("ape_in_pvp_matches")
-      .select("id, match_status, match_type, player1_id")
-      .eq("match_type", "public")
-      .in("match_status", ["waiting", "rolling_for_first"])
+      .from("pvp_matches")
+      .select("id, match_status, player1_id, player2_id")
+      .eq("game_code", "ape_in")
+      .in("match_status", ["waiting", "active", "in_progress"])
       .or(`player1_id.eq.${profile.id},player2_id.eq.${profile.id}`)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -54,19 +57,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ matchId: existing.id, created: isCreator })
     }
 
-    // Call atomic RPC to find or create match
-    const { data: matchId, error: rpcError } = await adminClient.rpc(
-      "pvp_find_or_create_public_match",
-      {
-        p_user_id: profile.id,
-        p_wallet_address: normalizedAddress,
-        p_username: profile.username || `Player${normalizedAddress.slice(2, 8)}`,
-        p_avatar_url: profile.avatar_url || null,
-      }
-    )
+    /**
+     * Phase 2: Find or create public match
+     */
+    const { data: matchId, error: rpcError } = await adminClient.rpc("pvp_find_or_create_public_match", {
+      p_game_code: "ape_in",
+      p_user_id: profile.id,
+    })
 
     if (rpcError) {
-      console.error("[PvPMatchPublic] RPC error:", rpcError)
+      console.error("[ApeInPvPPublic] RPC error:", rpcError)
       return NextResponse.json({ error: "Failed to create or find match" }, { status: 500 })
     }
 
@@ -74,16 +74,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Match creation failed" }, { status: 500 })
     }
 
-    // Phase 2: Determine if we're the creator (player1) or joiner (player2)
-    // Query the match to check if we're player1
+    /**
+     * Phase 3: Determine role (creator vs joiner)
+     */
     const { data: match, error: matchCheckError } = await adminClient
-      .from("ape_in_pvp_matches")
+      .from("pvp_matches")
       .select("player1_id")
       .eq("id", matchId)
       .maybeSingle()
 
     if (matchCheckError || !match) {
-      console.error("[PvPMatchPublic] Error checking match:", matchCheckError)
+      console.error("[ApeInPvPPublic] Error checking match:", matchCheckError)
       return NextResponse.json({ error: "Failed to verify match" }, { status: 500 })
     }
 
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ matchId, created: isCreator })
   } catch (error: any) {
-    console.error("[PvPMatchPublic] Error:", error)
+    console.error("[ApeInPvPPublic] Error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

@@ -55,9 +55,10 @@ export async function POST(
       }
     }
 
-    console.log("[ApeInPvPMatchJoin] calling ape_in_pvp_join_match_v1", { matchId })
-    const { data: match, error: rpcError } = await adminClient.rpc("ape_in_pvp_join_match_v1", {
+    console.log("[ApeInPvPMatchJoin] calling pvp_join_match_v1", { matchId })
+    const { data: match, error: rpcError } = await adminClient.rpc("pvp_join_match_v1", {
       p_match_id: matchId,
+      p_game_code: "ape_in",
       p_user_id: profile.id,
     })
 
