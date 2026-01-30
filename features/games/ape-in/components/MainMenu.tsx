@@ -1067,12 +1067,22 @@ function CompactGameCard({
             )}
           </div>
           
-          <button
-            className={`w-full px-2 py-1 sm:py-1.5 rounded-lg font-semibold text-[10px] sm:text-xs bg-gradient-to-r ${gameMode.color} mt-auto relative z-10 ${disabled ? 'opacity-50' : 'hover:opacity-90'} shadow-lg`}
-            disabled={disabled}
-          >
-            {disabled ? 'Soon' : 'Play →'}
-          </button>
+          <div className="mt-auto relative z-10">
+            {gameMode.mode === 'pvp' && (
+              <div className="absolute -top-9 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none select-none">
+                <div className="px-2 py-1 rounded-md bg-amber-400 text-slate-900 text-[10px] font-bold shadow-lg border border-amber-200 whitespace-nowrap">
+                  Under construction
+                </div>
+                <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-amber-400" />
+              </div>
+            )}
+            <button
+              className={`w-full px-2 py-1 sm:py-1.5 rounded-lg font-semibold text-[10px] sm:text-xs bg-gradient-to-r ${gameMode.color} ${disabled ? 'opacity-50' : 'hover:opacity-90'} shadow-lg`}
+              disabled={disabled}
+            >
+              {disabled ? 'Soon' : 'Play →'}
+            </button>
+          </div>
         </div>
       </div>
     </motion.div>
