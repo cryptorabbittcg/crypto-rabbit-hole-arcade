@@ -11,7 +11,7 @@ interface PvPWaitingRoomProps {
   playerAddress: string | null
   isCreator: boolean // Phase 2: true if this client created the match (player1), false if joined (player2)
   onCancel: () => void
-  onReady?: (matchData: MatchStatus) => void // Phase 2.5: Called when rolls are ready
+  onReady?: (matchData: MatchStatus) => void // Called when match becomes playable (active/in_progress + player2_id set)
 }
 
 interface MatchStatus {
@@ -180,8 +180,8 @@ export default function PvPWaitingRoom({
             nextData = { ...data, ...joinData }
             // Update match status with join data (includes rolls if generated)
             setMatchStatus(nextData)
-            // If rolls were generated, opponent is found
-            if (joinData.rolled_at) {
+            // If match became playable, opponent is found
+            if (nextData.player2_id !== null && ["active", "in_progress"].includes(nextData.match_status)) {
               opponentFoundRef.current = true
             }
           } else if (joinResponse.status === 403) {
@@ -320,10 +320,8 @@ export default function PvPWaitingRoom({
   }
 
   const ms = matchStatus
-  const hasRolls = !!(ms && ms.player1_roll !== null && ms.player2_roll !== null)
-
-  // Phase 2: Opponent found when rolls are ready (rolled_at exists)
-  const isOpponentFound = ms?.rolled_at !== null || hasRolls
+  const isPlayable = !!(ms && ms.player2_id !== null && ["active", "in_progress"].includes(ms.match_status))
+  const isOpponentFound = isPlayable
 
   return (
     <motion.div
@@ -362,23 +360,8 @@ export default function PvPWaitingRoom({
               <p className="text-lg text-slate-300">
                 Opponent found! Match is ready.
               </p>
-              {hasRolls && (
-                <div className="mt-4 space-y-2">
-                  <p className="text-sm text-slate-400">
-                    Player 1 rolled: <span className="text-white font-bold">{ms!.player1_roll}</span>
-                  </p>
-                  <p className="text-sm text-slate-400">
-                    Player 2 rolled: <span className="text-white font-bold">{ms!.player2_roll}</span>
-                  </p>
-                  {ms!.first_turn_player && (
-                    <p className="text-sm text-purple-400 font-semibold mt-2">
-                      Player {ms!.first_turn_player} goes first!
-                    </p>
-                  )}
-                </div>
-              )}
               <p className="text-xs text-slate-500 mt-4">
-                Phase 2: Transitioning to gameplay screen...
+                Transitioning to gameplay screen...
               </p>
             </>
           ) : (

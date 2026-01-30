@@ -13,6 +13,7 @@ import { calculatePoints } from "./utils/scoring"
 import { useIntroTracking } from "./hooks/useIntroTracking"
 import { gameAPI } from "./lib/api"
 import { BOT_CONFIGS } from "./utils/botConfig"
+import { ApeInBoardFrame } from "./components/ApeInBoardFrame"
 
 export interface ApeInGameProps {
   playerAddress: string | null // Hub identity - required
@@ -649,7 +650,7 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
   }
 
   return (
-    <div className="min-h-[600px] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative">
+    <ApeInBoardFrame>
       {/* Forfeit Confirmation Dialog from Game Modal X button */}
       {showForfeitConfirmFromModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-[200]">
@@ -705,7 +706,7 @@ export const ApeInGame = forwardRef<ApeInGameHandle, ApeInGameProps>(({
         onGameEnd={handleGameEnd}
         onReturnToMenu={handleReturnToMenu}
       />
-    </div>
+    </ApeInBoardFrame>
   )
 })
 

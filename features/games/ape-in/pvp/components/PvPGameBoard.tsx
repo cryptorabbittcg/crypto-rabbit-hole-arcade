@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { motion } from "framer-motion"
+import { ApeInBoardFrame } from "../../components/ApeInBoardFrame"
 
 type PvPPhase =
   | "WAITING_FOR_OPPONENT"
@@ -237,97 +238,89 @@ export default function PvPGameBoard({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 flex items-center justify-center bg-black/60 z-50 p-4"
+      className="fixed inset-0 bg-black/60 z-50"
     >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-700 p-6 md:p-8 rounded-2xl w-full max-w-xl shadow-2xl"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <div className="text-white font-bold text-xl">Ape In PvP</div>
-            <div className="text-slate-400 text-sm font-mono">match: {matchId.slice(0, 8)}…</div>
+      <ApeInBoardFrame className="w-full h-full">
+        <div className="p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="text-white font-bold text-xl">Ape In PvP</div>
+              <div className="text-slate-400 text-sm font-mono">match: {matchId.slice(0, 8)}…</div>
+            </div>
+            <button
+              onClick={onClose}
+              className="px-3 py-2 rounded-lg border border-slate-700 bg-slate-800/40 text-slate-200 hover:bg-slate-700/40"
+            >
+              Close
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="px-3 py-2 rounded-lg border border-slate-700 bg-slate-800/40 text-slate-200 hover:bg-slate-700/40"
-          >
-            Close
-          </button>
-        </div>
 
-        {error && <div className="mb-3 text-red-300 text-sm">{error}</div>}
+          {error && <div className="mb-3 text-red-300 text-sm">{error}</div>}
 
-        {!gameState ? (
-          <div className="text-slate-300">Loading game state…</div>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-                <div className="text-slate-400 text-xs mb-1">Round / Turn</div>
-                <div className="text-white font-mono">
-                  r{gameState.round_number} · t{gameState.turn_number}
+          {!gameState ? (
+            <div className="text-slate-300">Loading game state…</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="game-board">
+                  <div className="text-slate-400 text-xs mb-1">Round / Turn</div>
+                  <div className="text-white font-mono">
+                    r{gameState.round_number} · t{gameState.turn_number}
+                  </div>
+                  <div className="text-slate-400 text-xs mt-2">Phase</div>
+                  <div className="text-white font-mono">{gameState.phase}</div>
                 </div>
-                <div className="text-slate-400 text-xs mt-2">Phase</div>
-                <div className="text-white font-mono">{gameState.phase}</div>
-              </div>
-              <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-                <div className="text-slate-400 text-xs mb-1">Turn</div>
-                <div className="text-white font-mono">
-                  {gameState.current_turn_seat ?? "—"} {isMyTurn ? "(you)" : ""}
-                </div>
-                <div className="text-slate-400 text-xs mt-2">You</div>
-                <div className="text-white font-mono">{mySeat ?? "—"}</div>
-              </div>
-            </div>
-
-            {gameState.phase === "WAITING_FOR_OPPONENT" && (
-              <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-slate-200">
-                Waiting for opponent to join…
-              </div>
-            )}
-            {gameState.phase === "TURN_START" && (
-              <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-slate-200">
-                Match started — draw to begin.
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className={`rounded-xl border p-4 ${mySeat === "seat1" ? "border-purple-500/50" : "border-slate-800"} bg-slate-900/40`}>
-                <div className="text-slate-400 text-xs mb-1">Seat1</div>
-                <div className="text-white font-mono">
-                  total {gameState.scores.seat1_total} · turn {gameState.scores.seat1_turn}
+                <div className="game-board">
+                  <div className="text-slate-400 text-xs mb-1">Turn</div>
+                  <div className="text-white font-mono">
+                    {gameState.current_turn_seat ?? "—"} {isMyTurn ? "(you)" : ""}
+                  </div>
+                  <div className="text-slate-400 text-xs mt-2">You</div>
+                  <div className="text-white font-mono">{mySeat ?? "—"}</div>
                 </div>
               </div>
-              <div className={`rounded-xl border p-4 ${mySeat === "seat2" ? "border-cyan-500/50" : "border-slate-800"} bg-slate-900/40`}>
-                <div className="text-slate-400 text-xs mb-1">Seat2</div>
-                <div className="text-white font-mono">
-                  total {gameState.scores.seat2_total} · turn {gameState.scores.seat2_turn}
-                </div>
-              </div>
-            </div>
 
-            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-              <div className="text-slate-400 text-xs mb-2">Last</div>
-              <div className="text-white text-sm">
-                {lastText}{" "}
-                {gameState.last_roll?.value ? `· Roll: ${gameState.last_roll.value}` : "· Roll: —"}
-              </div>
-              {gameState.last_draw?.card?.image_url && (
-                <div className="mt-3">
-                  <img
-                    src={gameState.last_draw.card.image_url}
-                    alt={gameState.last_draw.card.name}
-                    className="w-full max-h-48 object-contain rounded-lg border border-slate-800 bg-slate-950/30"
-                  />
-                </div>
+              {gameState.phase === "WAITING_FOR_OPPONENT" && (
+                <div className="game-board text-slate-200">Waiting for opponent to join…</div>
               )}
-              <div className="text-slate-400 text-xs mt-1 font-mono">
-                {gameState.last_action ? `${gameState.last_action.type} by ${gameState.last_action.by_user_id.slice(0, 8)}…` : "—"}
+              {gameState.phase === "TURN_START" && (
+                <div className="game-board text-slate-200">Match started — draw to begin.</div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className={`game-board ${mySeat === "seat1" ? "border-purple-500/50" : ""}`}>
+                  <div className="text-slate-400 text-xs mb-1">Seat1</div>
+                  <div className="text-white font-mono">
+                    total {gameState.scores.seat1_total} · turn {gameState.scores.seat1_turn}
+                  </div>
+                </div>
+                <div className={`game-board ${mySeat === "seat2" ? "border-cyan-500/50" : ""}`}>
+                  <div className="text-slate-400 text-xs mb-1">Seat2</div>
+                  <div className="text-white font-mono">
+                    total {gameState.scores.seat2_total} · turn {gameState.scores.seat2_turn}
+                  </div>
+                </div>
               </div>
-            </div>
+
+              <div className="game-board">
+                <div className="text-slate-400 text-xs mb-2">Last</div>
+                <div className="text-white text-sm">
+                  {lastText}{" "}
+                  {gameState.last_roll?.value ? `· Roll: ${gameState.last_roll.value}` : "· Roll: —"}
+                </div>
+                {gameState.last_draw?.card?.image_url && (
+                  <div className="mt-3">
+                    <img
+                      src={gameState.last_draw.card.image_url}
+                      alt={gameState.last_draw.card.name}
+                      className="w-full max-h-48 object-contain rounded-lg border border-slate-800 bg-slate-950/30"
+                    />
+                  </div>
+                )}
+                <div className="text-slate-400 text-xs mt-1 font-mono">
+                  {gameState.last_action ? `${gameState.last_action.type} by ${gameState.last_action.by_user_id.slice(0, 8)}…` : "—"}
+                </div>
+              </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               <button
@@ -368,14 +361,15 @@ export default function PvPGameBoard({
               </button>
             </div>
 
-            {data?.match_status !== "in_progress" && (
-              <div className="text-slate-200">
-                Match ended: <span className="font-mono">{data?.match_status}</span>
-              </div>
-            )}
-          </div>
-        )}
-      </motion.div>
+              {terminalRef.current && (
+                <div className="text-slate-200">
+                  Match ended: <span className="font-mono">{data?.match_status}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </ApeInBoardFrame>
     </motion.div>
   )
 }
