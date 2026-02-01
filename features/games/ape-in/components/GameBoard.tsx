@@ -983,9 +983,9 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
   }
 
   return (
-    <div className="space-y-3 relative">
+    <div className="space-y-3 relative pt-8 sm:pt-0">
       {/* X Button (Exit/Forfeit) - Top Right Corner */}
-      <div className="absolute top-0 right-0 z-50">
+      <div className="absolute top-0 right-0 z-50 hidden sm:block">
         <button
           onClick={handleForfeit}
           className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 text-red-400 hover:text-red-300 transition-all shadow-lg hover:shadow-red-500/30"
@@ -1055,93 +1055,338 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
 
       {/* Compact Score Display */}
       <div className="space-y-3">
-        {/* Goals Display - Top Center */}
-        <div className="game-board text-center py-2 px-4">
-          <div className="flex items-center justify-center gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400">Goal:</span>
-              <span className="font-bold text-yellow-400">{winningScore} sats</span>
+        {/* Mobile HUD */}
+        <div className="sm:hidden space-y-3">
+          {/* Goals Display - Mobile */}
+          <div className="rounded-2xl bg-slate-800/50 backdrop-blur-lg border border-slate-700/50 text-center py-2 px-3">
+            <div className="flex items-center justify-center gap-3 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">Goal:</span>
+                <span className="font-bold text-yellow-400">{winningScore} sats</span>
+              </div>
+              <span className="text-slate-600">•</span>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">Rounds:</span>
+                <span className="font-bold text-purple-400">
+                  {unlimitedRounds ? 'unlimited' : `${roundCount}/${maxRounds}`}
+                </span>
+              </div>
             </div>
-            <span className="text-slate-600">•</span>
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400">Rounds:</span>
-              <span className="font-bold text-purple-400">
-                {unlimitedRounds ? 'unlimited' : `${roundCount}/${maxRounds}`}
+          </div>
+
+          {/* Players Display - Mobile (balanced, avatars on edges, scores inward) */}
+          <div className="rounded-2xl bg-slate-800/50 backdrop-blur-lg border border-slate-700/50 px-3 py-3">
+            <div className="flex items-start justify-between gap-3">
+              {/* Player (left) */}
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="flex flex-col items-center shrink-0">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-2 border-purple-500/50 shadow-lg flex items-center justify-center overflow-hidden">
+                    {playerProfile?.pfp ? (
+                      <img
+                        src={playerProfile.pfp}
+                        alt="Player profile"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-lg">{playerProfile?.avatar || '👤'}</span>
+                    )}
+                  </div>
+                  <div className="mt-1 text-[11px] font-semibold text-slate-300 max-w-[96px] truncate">
+                    {playerName}
+                  </div>
+                </div>
+
+                <div className="pt-1 min-w-0">
+                  <div className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent leading-none">
+                    {pendingPlayerTurnScore !== null && pendingPlayerTurnScore > 0
+                      ? playerScore + pendingPlayerTurnScore
+                      : playerScore}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">
+                    Turn:{' '}
+                    <span className="text-yellow-400 font-semibold">
+                      {pendingPlayerTurnScore !== null ? pendingPlayerTurnScore : playerTurnScore}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bot (right) */}
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="pt-1 text-right min-w-0">
+                  <div className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent leading-none">
+                    {opponentScore}
+                  </div>
+                  {isBotPlaying && botTurnData && (
+                    <div className="text-[11px] text-emerald-400 mt-1 animate-pulse">
+                      Turn: {botTurnData.turnSats}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col items-center shrink-0">
+                  <img
+                    src={`/features/games/ape-in/assets/images/bots/${gameMode}.gif`}
+                    alt={`${gameMode} avatar`}
+                    className="w-16 h-16 object-cover rounded-full border-2 border-purple-500/50 shadow-lg"
+                    onError={(e) => {
+                      console.log(`GIF failed for ${gameMode} GameBoard, trying PNG...`)
+                      e.currentTarget.src = `/features/games/ape-in/assets/images/bots/${gameMode}.png`
+                    }}
+                    onLoad={() => {
+                      console.log(`Successfully loaded GIF GameBoard score portrait for ${gameMode}`)
+                    }}
+                  />
+                  <div className="mt-1 text-[11px] font-semibold text-slate-300 max-w-[96px] truncate">
+                    {opponentName}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop HUD (unchanged) */}
+        <div className="hidden sm:block space-y-3">
+          {/* Goals Display - Top Center */}
+          <div className="game-board text-center py-2 px-4">
+            <div className="flex items-center justify-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">Goal:</span>
+                <span className="font-bold text-yellow-400">{winningScore} sats</span>
+              </div>
+              <span className="text-slate-600">•</span>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">Rounds:</span>
+                <span className="font-bold text-purple-400">
+                  {unlimitedRounds ? 'unlimited' : `${roundCount}/${maxRounds}`}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <div className="game-board text-center py-3">
+            {/* Player Avatar */}
+            <div className="flex justify-center mb-2">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-2 border-purple-500/50 shadow-lg flex items-center justify-center overflow-hidden">
+                {playerProfile?.pfp ? (
+                  <img 
+                    src={playerProfile.pfp} 
+                    alt="Player profile" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-sm sm:text-lg">
+                    {playerProfile?.avatar || '👤'}
+                  </span>
+                )}
+              </div>
+            </div>
+            <h3 className="text-base font-semibold mb-1 text-slate-300">{playerName}</h3>
+            <div className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+              {pendingPlayerTurnScore !== null && pendingPlayerTurnScore > 0 ? playerScore + pendingPlayerTurnScore : playerScore}
+            </div>
+            <div className="text-xs text-slate-400 mt-1">
+              Turn: <span className="text-yellow-400 font-semibold">
+                {pendingPlayerTurnScore !== null ? pendingPlayerTurnScore : playerTurnScore}
               </span>
             </div>
           </div>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-3">
           <div className="game-board text-center py-3">
-          {/* Player Avatar */}
-          <div className="flex justify-center mb-2">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-2 border-purple-500/50 shadow-lg flex items-center justify-center overflow-hidden">
-              {playerProfile?.pfp ? (
-                <img 
-                  src={playerProfile.pfp} 
-                  alt="Player profile" 
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-sm sm:text-lg">
-                  {playerProfile?.avatar || '👤'}
-                </span>
-              )}
+            {/* Play Intro Link */}
+            {onPlayIntro && (
+              <div className="mb-2">
+                <button
+                  onClick={onPlayIntro}
+                  className="text-xs text-purple-400 hover:text-purple-300 transition-colors underline hover:no-underline"
+                >
+                  🎬 Play Intro
+                </button>
+              </div>
+            )}
+            
+            {/* Bot Avatar */}
+            <div className="flex justify-center mb-2">
+              <img 
+                src={`/features/games/ape-in/assets/images/bots/${gameMode}.gif`} 
+                alt={`${gameMode} avatar`} 
+                className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-full border-2 border-purple-500/50 shadow-lg cursor-pointer hover:scale-110 transition-transform duration-200" 
+                onError={(e) => {
+                  console.log(`GIF failed for ${gameMode} GameBoard, trying PNG...`);
+                  e.currentTarget.src = `/features/games/ape-in/assets/images/bots/${gameMode}.png`;
+                }}
+                onLoad={(e) => {
+                  console.log(`Successfully loaded GIF GameBoard score portrait for ${gameMode}`);
+                }}
+                onMouseEnter={() => setShowEnlargedAvatar(true)}
+                onMouseLeave={() => setShowEnlargedAvatar(false)}
+              />
             </div>
-          </div>
-          <h3 className="text-base font-semibold mb-1 text-slate-300">{playerName}</h3>
-          <div className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-            {pendingPlayerTurnScore !== null && pendingPlayerTurnScore > 0 ? playerScore + pendingPlayerTurnScore : playerScore}
-          </div>
-          <div className="text-xs text-slate-400 mt-1">
-            Turn: <span className="text-yellow-400 font-semibold">
-              {pendingPlayerTurnScore !== null ? pendingPlayerTurnScore : playerTurnScore}
-            </span>
+            <h3 className="text-base font-semibold mb-1 text-slate-300">{opponentName}</h3>
+            <div className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">{opponentScore}</div>
+            {isBotPlaying && botTurnData && (
+              <div className="text-xs text-emerald-400 mt-1 animate-pulse">
+                Turn: {botTurnData.turnSats}
+              </div>
+            )}
           </div>
         </div>
-        <div className="game-board text-center py-3">
-          {/* Play Intro Link */}
-          {onPlayIntro && (
-            <div className="mb-2">
-              <button
-                onClick={onPlayIntro}
-                className="text-xs text-purple-400 hover:text-purple-300 transition-colors underline hover:no-underline"
-              >
-                🎬 Play Intro
-              </button>
-            </div>
-          )}
-          
-          {/* Bot Avatar */}
-          <div className="flex justify-center mb-2">
-            <img 
-              src={`/features/games/ape-in/assets/images/bots/${gameMode}.gif`} 
-              alt={`${gameMode} avatar`} 
-              className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-full border-2 border-purple-500/50 shadow-lg cursor-pointer hover:scale-110 transition-transform duration-200" 
-              onError={(e) => {
-                console.log(`GIF failed for ${gameMode} GameBoard, trying PNG...`);
-                e.currentTarget.src = `/features/games/ape-in/assets/images/bots/${gameMode}.png`;
-              }}
-              onLoad={(e) => {
-                console.log(`Successfully loaded GIF GameBoard score portrait for ${gameMode}`);
-              }}
-              onMouseEnter={() => setShowEnlargedAvatar(true)}
-              onMouseLeave={() => setShowEnlargedAvatar(false)}
-            />
-          </div>
-          <h3 className="text-base font-semibold mb-1 text-slate-300">{opponentName}</h3>
-          <div className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">{opponentScore}</div>
-          {isBotPlaying && botTurnData && (
-            <div className="text-xs text-emerald-400 mt-1 animate-pulse">
-              Turn: {botTurnData.turnSats}
-            </div>
-          )}
         </div>
-      </div>
 
       {/* Compact Game Area */}
-      <div className="game-board">
+      {/* Mobile Game Area */}
+      <div className="sm:hidden rounded-2xl bg-slate-800/50 backdrop-blur-lg border border-slate-700/50 p-3">
+        <div className="flex flex-col items-center justify-center gap-3">
+          {/* Card Section - Shows player OR bot card */}
+          <div className="flex flex-col items-center space-y-2 w-full">
+            <div className="transform-gpu">
+              <Card
+                card={isBotPlaying && botTurnData ? botTurnData.card : currentCard}
+                isRevealing={isBotPlaying ? true : isDrawing}
+                onClick={!isPlayerTurn || (!!currentCard && currentCard.type !== 'Special') || isDrawing || isBotPlaying ? undefined : handleDrawCard}
+                hideClickToDraw={isBotPlaying}
+              />
+            </div>
+            {isBotPlaying && (
+              <div className="text-sm text-emerald-400 font-semibold animate-pulse">
+                {opponentName}'s Turn
+              </div>
+            )}
+          </div>
+
+          {/* Dice + Buttons (2 columns) */}
+          <div className="grid grid-cols-[1fr_160px] gap-3 w-full items-start">
+            {/* Dice */}
+            <div className="flex flex-col items-center space-y-2 relative">
+              <div className="h-6 text-sm text-slate-400">
+                {isRolling || (botTurnData?.isRolling ?? false) ? 'Rolling...' : 'Dice'}
+              </div>
+              <Dice 
+                value={isBotPlaying && botTurnData ? botTurnData.roll : lastRoll} 
+                isRolling={(() => {
+                  const shouldRoll = isRolling || (botTurnData?.isRolling ?? false);
+                  if (isBotPlaying) {
+                    console.log('🎲 Dice Debug:', {
+                      isBotPlaying,
+                      isRolling,
+                      botTurnDataIsRolling: botTurnData?.isRolling,
+                      shouldRoll,
+                      botRoll: botTurnData?.roll,
+                      lastRoll
+                    });
+                  }
+                  return shouldRoll;
+                })()}
+                onClick={!isPlayerTurn || !currentCard || currentCard.type === 'Special' || isRolling || isBotPlaying ? undefined : handleRollDice}
+                disabled={!isPlayerTurn || !currentCard || currentCard.type === 'Special' || isRolling || isBotPlaying}
+              />
+            </div>
+
+            {/* Buttons (narrow, stacked) */}
+            <div className="flex flex-col gap-2 w-full">
+              <button
+                onClick={handleDrawCard}
+                disabled={!isPlayerTurn || (!!currentCard && currentCard.type !== 'Special') || isDrawing || isBotPlaying}
+                className={`w-full px-3 py-2 rounded-lg font-semibold text-xs shadow-lg transition-all ${
+                  !isPlayerTurn || (!!currentCard && currentCard.type !== 'Special') || isDrawing || isBotPlaying
+                    ? 'bg-slate-600 opacity-50 cursor-not-allowed'
+                    : apeInActive
+                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 animate-pulse ring-2 ring-green-400'
+                    : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 animate-pulse'
+                }`}
+              >
+                {isDrawing ? '⏳ Drawing...' : apeInActive ? '🚀 Draw' : '🎴 Draw'}
+              </button>
+
+              <button
+                onClick={handleRollDice}
+                disabled={!isPlayerTurn || !currentCard || currentCard.type === 'Special' || isRolling || isBotPlaying}
+                className={`w-full px-3 py-2 rounded-lg font-semibold text-xs shadow-lg transition-all ${
+                  !isPlayerTurn || !currentCard || currentCard.type === 'Special' || isRolling || isBotPlaying
+                    ? 'bg-slate-600 opacity-50 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 animate-pulse'
+                }`}
+              >
+                {isRolling ? '⏳ Rolling...' : '🎲 Roll'}
+              </button>
+
+              <button
+                onClick={handleStackSats}
+                disabled={!isPlayerTurn || playerTurnScore === 0 || currentCard !== null || isBotPlaying}
+                className={`w-full px-3 py-2 rounded-lg font-semibold text-xs shadow-lg transition-all ${
+                  !isPlayerTurn || playerTurnScore === 0 || currentCard !== null || isBotPlaying
+                    ? 'bg-slate-600 opacity-50 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 animate-pulse'
+                }`}
+              >
+                💰 Stack {playerTurnScore > 0 ? `(${playerTurnScore})` : ''}
+              </button>
+
+              <button
+                onClick={handleForfeit}
+                className="w-full px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold text-xs shadow-lg transition-all"
+              >
+                🏳️ Forfeit
+              </button>
+            </div>
+          </div>
+
+          {/* Dice Rules (bottom of play area) */}
+          <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-3 border border-slate-600/50 w-full">
+            <div className="text-center">
+              <div className="text-xs font-semibold text-slate-300 mb-1">🎲 Dice Rules</div>
+              <div className="text-xs text-slate-400 leading-relaxed">
+                <span className="text-green-400 font-medium">2-6 = Safe</span> • Add card value to turn score<br/>
+                <span className="text-red-400 font-medium">1 = Bust!</span> • Lose turn score, end turn
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Floating Success Message - Mobile */}
+        <AnimatePresence>
+          {floatingMessage && (
+            <motion.div
+              initial={{ y: 20, opacity: 0, scale: 0.9 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+              className={`fixed left-1/2 transform -translate-x-1/2 z-[100] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl shadow-2xl border-2 font-bold text-center pointer-events-none ${
+                floatingMessage.isRekt 
+                  ? 'bg-gradient-to-r from-red-500 to-red-600 border-red-300' 
+                  : floatingMessage.isDiceSuccess
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 border-green-300'
+                  : 'bg-gradient-to-r from-slate-700 to-slate-800 border-slate-500'
+              }`}
+              style={{
+                top: 'clamp(40%, 50vh, 60%)',
+                width: 'min(calc(100vw - 2rem), 400px)',
+                minWidth: '200px',
+              }}
+            >
+              {floatingMessage.isRekt ? (
+                <div className="space-y-1">
+                  <div className="text-xs sm:text-sm font-bold">Rekt!</div>
+                  <div className="text-xs sm:text-sm">{floatingMessage.text}</div>
+                </div>
+              ) : floatingMessage.isDiceSuccess ? (
+                <div className="space-y-1">
+                  <div className="text-xs sm:text-sm font-bold">Great roll!</div>
+                  <div className="text-xs sm:text-sm">{floatingMessage.text}</div>
+                  {floatingMessage.sats !== undefined && (
+                    <div className="text-xs">Turn Sats: {floatingMessage.sats}</div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-xs sm:text-sm">{floatingMessage.text}</div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Desktop Game Area (unchanged) */}
+      <div className="hidden sm:block game-board">
         <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-6 py-4">
           {/* Card Section - Shows player OR bot card */}
           <div className="flex flex-col items-center space-y-2 w-full md:w-auto">

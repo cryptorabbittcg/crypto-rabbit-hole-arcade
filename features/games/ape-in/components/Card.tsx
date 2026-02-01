@@ -37,7 +37,7 @@ export default function Card({ card, isRevealing = false, onClick, hideClickToDr
       <motion.div
         whileHover={{ scale: 1.05, rotateZ: 1 }}
         whileTap={{ scale: 0.98 }}
-        className="w-56 h-[19.6rem] md:w-60 md:h-[21rem] rounded-xl shadow-2xl overflow-hidden cursor-pointer relative"
+        className="w-48 h-[16.8rem] sm:w-56 sm:h-[19.6rem] md:w-60 md:h-[21rem] rounded-xl shadow-2xl overflow-hidden cursor-pointer relative"
         onClick={onClick}
       >
         {/* Slate border - thinner for compact look */}
@@ -124,7 +124,7 @@ export default function Card({ card, isRevealing = false, onClick, hideClickToDr
       animate={isRevealing ? { rotateY: 0, scale: 1 } : { scale: 1 }}
       transition={{ duration: 0.7, type: 'spring', stiffness: 100 }}
       whileHover={{ scale: 1.03, y: -5 }}
-      className={`w-56 h-[19.6rem] md:w-60 md:h-[21rem] rounded-xl shadow-2xl overflow-hidden ${
+      className={`w-48 h-[16.8rem] sm:w-56 sm:h-[19.6rem] md:w-60 md:h-[21rem] rounded-xl shadow-2xl overflow-hidden ${
         onClick ? 'cursor-pointer' : ''
       }`}
       onClick={onClick}
