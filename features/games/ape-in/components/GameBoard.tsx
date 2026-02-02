@@ -311,6 +311,8 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
           
           // Clear any pending turn score and set to 0 (player lost their turn sats)
           setPendingPlayerTurnScore(0) // Show 0 turn sats during bot's turn
+          // Immediately block player actions while we transition into bot replay
+          setIsBotPlaying(true)
           
           setFloatingMessage({
             text: result.message || 'Busted! Turn ended.',
@@ -338,15 +340,18 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
                     await replayBotTurn(botTurn.botActions)
                   } else {
                     setPendingPlayerTurnScore(null)
+                    setIsBotPlaying(false)
                     await refreshGameState(true)
                   }
                 } catch (e) {
                   console.error('Failed to execute bot turn:', e)
                   setPendingPlayerTurnScore(null)
+                  setIsBotPlaying(false)
                   await refreshGameState(true)
                 }
               } else {
                 setPendingPlayerTurnScore(null)
+                setIsBotPlaying(false)
                 await refreshGameState(true)
               }
             }

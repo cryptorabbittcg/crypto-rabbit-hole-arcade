@@ -26,10 +26,10 @@ export async function POST(
       return NextResponse.json({ error: "Game is not active" }, { status: 400 })
     }
 
-    // Bot turn should run when it's not the player's turn
-    if (gameState.isPlayerTurn) {
-      return NextResponse.json({ error: "It is still the player's turn" }, { status: 400 })
-    }
+    // NOTE:
+    // The classic Ape In single-player flow is client-driven: the UI blocks input during bot replay,
+    // and the server does not strictly manage `isPlayerTurn`. So we intentionally do NOT gate
+    // bot turns on `isPlayerTurn` here; we just execute and return bot actions.
 
     const botActions = await GameService.executeBotTurn(gameId)
     const finalState = await GameService.getGameData(gameId)
