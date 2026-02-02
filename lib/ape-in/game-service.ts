@@ -393,6 +393,7 @@ export class GameService {
 
     // Track actions for replay
     const actions: BotAction[] = []
+    let botTurnEndedByFailure = false
 
     // AI draws and rolls with adaptive logic
     while (true) {
@@ -446,7 +447,9 @@ export class GameService {
       })
 
       if (!rollResult.success) {
-        // AI busted or hit bearish
+        // AI busted or hit bearish penalty -> turn ends WITHOUT stacking/banking.
+        // Round should still advance because seat2 turn completed.
+        botTurnEndedByFailure = true
         break
       }
 
@@ -648,12 +651,37 @@ export class GameService {
       }
     }
 
-    // Stack sats (skip AI turn to prevent recursion)
+    if (botTurnEndedByFailure) {
+      // Seat2 turn ended by bust/bearish-fail.
+      // Ensure round advances (same semantics as "end of seat2 turn").
+      if (gameState.gameStatus !== 'finished') {
+        if (gameState.roundCount >= 1) {
+          gameState.roundCount += 1
+        } else {
+          gameState.roundCount = 1
+        }
+      }
+
+      // Check max rounds (only for games with round limits)
+      if (!gameState.unlimitedRounds && gameState.roundCount > gameState.maxRounds && gameState.gameStatus !== 'finished') {
+        gameState.gameStatus = 'finished'
+        // Determine winner by score
+        if (gameState.playerScore > gameState.opponentScore) {
+          gameState.winner = gameState.playerName || 'Player'
+        } else if (gameState.opponentScore > gameState.playerScore) {
+          gameState.winner = gameState.opponentName || 'Opponent'
+        } else {
+          gameState.winner = null // Tie
+        }
+      }
+
+      await updateGame(gameId, gameState)
+      return actions
+    }
+
+    // Seat2 chose to bank/stop (stack) -> bank sats and advance round inside stackSats()
     const finalState = await this.stackSats(gameId, gameState.opponentId, true)
-    actions.push({
-      type: "stack",
-      finalScore: finalState.opponentScore
-    })
+    actions.push({ type: "stack", finalScore: finalState.opponentScore })
 
     return actions
   }

@@ -106,7 +106,8 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
   const [botTurnData, setBotTurnData] = useState<{card: any, roll: number | null, turnSats: number, isRolling?: boolean} | null>(null)
   const [showEnlargedAvatar, setShowEnlargedAvatar] = useState(false)
   const [isBotPlaying, setIsBotPlaying] = useState(false)
-  const [pendingPlayerTurnScore, setPendingPlayerTurnScore] = useState<number | null>(null) // Store turn score during bot's turn
+  // NOTE: We keep UI scores server-authoritative now (updated immediately at end of seat1 turn).
+  // Previously we used a pending turn score to delay seat1 total updates until after bot replay.
   const [showRoundPopup, setShowRoundPopup] = useState(false)
   const [currentRound, setCurrentRound] = useState(1)
   const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
@@ -129,18 +130,10 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
       const gameData = await gameAPI.getGameState(gameId)
       if (preserveOpponentScore) {
         // Preserve current opponentScore during bot turn - don't update until turn ends
-        // Also preserve playerScore if there's a pending turn score (will be added after bot turn)
         const currentOpponentScore = opponentScore
-        const currentPlayerScore = pendingPlayerTurnScore !== null ? playerScore : gameData.playerScore
-        setGameState({ ...gameData, opponentScore: currentOpponentScore, playerScore: currentPlayerScore })
+        setGameState({ ...gameData, opponentScore: currentOpponentScore })
       } else {
-        // If pending turn score exists, preserve it (will be cleared after bot turn)
-        if (pendingPlayerTurnScore !== null) {
-          const currentPlayerScore = playerScore
-          setGameState({ ...gameData, playerScore: currentPlayerScore })
-        } else {
-          setGameState(gameData)
-        }
+        setGameState(gameData)
       }
     } catch (error) {
       console.error('Failed to refresh game state:', error)
@@ -309,8 +302,6 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
           // Any failed roll should show Rekt! (not just value === 1)
           const isRekt = !result.success
           
-          // Clear any pending turn score and set to 0 (player lost their turn sats)
-          setPendingPlayerTurnScore(0) // Show 0 turn sats during bot's turn
           // Immediately block player actions while we transition into bot replay
           setIsBotPlaying(true)
           
@@ -335,22 +326,21 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
               const isBotMode = mode !== 'pvp' && mode !== 'multiplayer' && mode !== 'tournament'
               if (isBotMode) {
                 try {
+                  // Refresh immediately so seat1 totals + turn sats=0 reflect at start of seat2 turn
+                  await refreshGameState(true)
                   const botTurn = await gameAPI.executeBotTurn(gameId)
                   if (botTurn.botActions?.length) {
                     await replayBotTurn(botTurn.botActions)
                   } else {
-                    setPendingPlayerTurnScore(null)
                     setIsBotPlaying(false)
                     await refreshGameState(true)
                   }
                 } catch (e) {
                   console.error('Failed to execute bot turn:', e)
-                  setPendingPlayerTurnScore(null)
                   setIsBotPlaying(false)
                   await refreshGameState(true)
                 }
               } else {
-                setPendingPlayerTurnScore(null)
                 setIsBotPlaying(false)
                 await refreshGameState(true)
               }
@@ -377,8 +367,6 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
     // Store opponent's score at start of turn - preserve it during turn, only update at end
     // IMPORTANT: Capture score BEFORE any potential backend refresh updates it
     const opponentScoreAtTurnStart = opponentScore
-    // Capture pending player turn score at start of bot's turn (if player just stacked)
-    const pendingTurnScore = pendingPlayerTurnScore
     // Explicitly set the score to the start value to prevent any premature updates
     updateScore(playerScore, opponentScoreAtTurnStart)
     let botTurnEnded = false // Track if bot's turn has ended (stacked, busted, or bearish penalty)
@@ -483,24 +471,14 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
     setBotTurnData(null)
     setIsBotPlaying(false)
     
-    // Update player's total score now that bot's turn is complete
-    // Add the pending turn score to the current player score (if player stacked before bot's turn)
-    // If pendingTurnScore is 0, player busted and no score should be added
-    let finalPlayerScore = playerScore
-    if (pendingTurnScore !== null && pendingTurnScore > 0) {
-      // Player stacked - add the turn score to total
-      finalPlayerScore = playerScore + pendingTurnScore
-    }
-    // If pendingTurnScore is 0, player busted - don't add anything (finalPlayerScore stays as playerScore)
-    setPendingPlayerTurnScore(null) // Clear pending score (whether it was stacked or busted)
-    
     // Get final opponent score
     const finalOpponentScore = botTurnEnded 
       ? (botActions.find(a => a.type === 'stack')?.finalScore ?? opponentScoreAtTurnStart)
       : opponentScore
     
     // Update both scores
-    updateScore(finalPlayerScore, finalOpponentScore)
+    // Seat1 totals are already updated server-side at end of seat1 turn; don't add anything here.
+    updateScore(useGameStore.getState().playerScore, finalOpponentScore)
     
     setFloatingMessage({text: 'Your turn!'})
     await new Promise(resolve => setTimeout(resolve, 1200))
@@ -514,26 +492,11 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
   const handleStackSats = async () => {
     if (!isPlayerTurn || playerTurnScore === 0 || currentCard !== null) return
 
-    // Store the turn score before it gets reset, so we can display it during bot's turn
-    const turnScoreToBank = playerTurnScore
-
     try {
       setFloatingMessage({text: 'Banking sats...'})
       const result = await gameAPI.stackSats(gameId)
-      
-      // Store the pending turn score to display during bot's turn
-      setPendingPlayerTurnScore(turnScoreToBank)
-      
-      // Update game state but preserve the visual turn score display
-      if (result) {
-        // Don't update playerScore yet - wait until bot's turn ends
-        // Only update other state fields (turn score will be 0, but we'll show pending score)
-        setGameState({
-          ...result,
-          // Keep playerScore from current state until bot turn ends
-          playerScore: playerScore,
-        })
-      }
+      // Apply server-authoritative seat1 totals immediately (turn sats will be 0 in result)
+      if (result) setGameState(result)
       
       // Clear the floating message and start bot turn immediately
       setFloatingMessage(null)
@@ -541,8 +504,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
       // Replay bot's turn if actions are provided (start immediately)
       if (result.botActions && result.botActions.length > 0) {
         console.log('🤖 Starting bot turn after stack:', result.botActions.length, 'actions')
-        // Start bot turn immediately after stacking
-        // replayBotTurn will handle updating playerScore and clearing pendingPlayerTurnScore
+        // Start bot turn immediately after stacking (seat1 totals already updated)
         await replayBotTurn(result.botActions)
         // Final state update after bot turn completes
         await refreshGameState()
@@ -552,13 +514,11 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
         if (result) {
           setGameState(result) // Update with final scores
         }
-        setPendingPlayerTurnScore(null)
         await refreshGameState()
       }
     } catch (error) {
       console.error('Failed to stack sats:', error)
       setFloatingMessage({text: 'Failed to stack sats. Please try again.'})
-      setPendingPlayerTurnScore(null) // Clear on error
     }
   }
 
@@ -1124,14 +1084,12 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
 
                 <div className="pt-1 min-w-0">
                   <div className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent leading-none">
-                    {pendingPlayerTurnScore !== null && pendingPlayerTurnScore > 0
-                      ? playerScore + pendingPlayerTurnScore
-                      : playerScore}
+                    {playerScore}
                   </div>
                   <div className="text-[11px] text-slate-400 mt-1">
                     Turn:{' '}
                     <span className="text-yellow-400 font-semibold">
-                      {pendingPlayerTurnScore !== null ? pendingPlayerTurnScore : playerTurnScore}
+                      {playerTurnScore}
                     </span>
                   </div>
                 </div>
@@ -1210,12 +1168,12 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
               </div>
             </div>
             <h3 className="text-base font-semibold mb-1 text-slate-300">{playerName}</h3>
-            <div className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-              {pendingPlayerTurnScore !== null && pendingPlayerTurnScore > 0 ? playerScore + pendingPlayerTurnScore : playerScore}
-            </div>
+          <div className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+            {playerScore}
+          </div>
             <div className="text-xs text-slate-400 mt-1">
               Turn: <span className="text-yellow-400 font-semibold">
-                {pendingPlayerTurnScore !== null ? pendingPlayerTurnScore : playerTurnScore}
+              {playerTurnScore}
               </span>
             </div>
           </div>

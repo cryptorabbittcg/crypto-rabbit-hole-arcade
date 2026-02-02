@@ -99,6 +99,29 @@ export default function PvPGameBoard({
         return next
       }
 
+      // Accept updates if key gameplay fields change, even if turn_number is unchanged.
+      // This ensures score/turn resets render immediately on turn transitions (stack/bust/bearish fail),
+      // which improves UX without changing any game logic.
+      const prevGs = prev?.game_state
+      const nextGs = next?.game_state
+      if (prevGs && nextGs) {
+        const prevScores = JSON.stringify(prevGs.scores ?? null)
+        const nextScores = JSON.stringify(nextGs.scores ?? null)
+        const scoresChanged = prevScores !== nextScores
+        const turnSeatChanged = prevGs.current_turn_seat !== nextGs.current_turn_seat
+        const roundChanged = prevGs.round_number !== nextGs.round_number
+        const pendingChanged = JSON.stringify(prevGs.pending_card ?? null) !== JSON.stringify(nextGs.pending_card ?? null)
+        const lastRollChanged = JSON.stringify(prevGs.last_roll ?? null) !== JSON.stringify(nextGs.last_roll ?? null)
+        const lastDrawChanged = JSON.stringify(prevGs.last_draw ?? null) !== JSON.stringify(nextGs.last_draw ?? null)
+        if (scoresChanged || turnSeatChanged || roundChanged || pendingChanged || lastRollChanged || lastDrawChanged) {
+          const nt = nextGs?.turn_number
+          if (typeof nt === "number" && !Number.isNaN(nt)) {
+            lastTurnNumberRef.current = Math.max(lastTurnNumberRef.current, nt)
+          }
+          return next
+        }
+      }
+
       // Accept updates if phase changes (helps avoid "stuck" UI when turn_number doesn't advance as expected)
       const prevPhase = prev?.game_state?.phase
       const nextPhase = next?.game_state?.phase
@@ -178,7 +201,7 @@ export default function PvPGameBoard({
         return
       }
       run()
-    }, 1200)
+    }, 800)
     return () => {
       mounted = false
       clearInterval(t)
