@@ -119,6 +119,13 @@ export const gameAPI = {
     )
   },
 
+  // Execute bot turn (used after a player bust, so the roll response stays snappy)
+  executeBotTurn: async (gameId: string): Promise<{ botActions: BotAction[]; finalState: GameState }> => {
+    return apiCall<{ botActions: BotAction[]; finalState: GameState }>(`/game/${gameId}/bot-turn`, {
+      method: 'POST',
+    })
+  },
+
   // Stack (end turn) - returns GameState with botActions if bot turn occurs
   stackSats: async (gameId: string): Promise<GameState & { botActions?: BotAction[] }> => {
     return apiCall<GameState & { botActions?: BotAction[] }>(`/game/${gameId}/stack`, {

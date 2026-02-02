@@ -252,6 +252,8 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
 
     setIsRolling(true)
     setFloatingMessage(null)
+    // Clear last roll so we don't briefly show the previous value while waiting on the API
+    setLastRoll(null)
 
     try {
       const result = await gameAPI.rollDice(gameId)
@@ -325,9 +327,28 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
             if (result.botActions && result.botActions.length > 0) {
               await replayBotTurn(result.botActions)
             } else {
-              // Only refresh if no bot turn (shouldn't happen, but safety check)
-              setPendingPlayerTurnScore(null) // Clear after bot turn (or if no bot turn)
-              await refreshGameState(true) // Preserve opponent score
+              // New behavior: bot turn is executed via a follow-up call so the roll response is fast.
+              // If we're in a bot mode, fetch botActions and replay them; otherwise just refresh.
+              const mode = gameMode || ''
+              const isBotMode = mode !== 'pvp' && mode !== 'multiplayer' && mode !== 'tournament'
+              if (isBotMode) {
+                try {
+                  const botTurn = await gameAPI.executeBotTurn(gameId)
+                  if (botTurn.botActions?.length) {
+                    await replayBotTurn(botTurn.botActions)
+                  } else {
+                    setPendingPlayerTurnScore(null)
+                    await refreshGameState(true)
+                  }
+                } catch (e) {
+                  console.error('Failed to execute bot turn:', e)
+                  setPendingPlayerTurnScore(null)
+                  await refreshGameState(true)
+                }
+              } else {
+                setPendingPlayerTurnScore(null)
+                await refreshGameState(true)
+              }
             }
           }, 1500)
         }

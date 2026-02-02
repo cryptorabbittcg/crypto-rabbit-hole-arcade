@@ -68,19 +68,10 @@ export async function POST(
     // Roll dice using GameService (handles all game logic)
     const rollResult = await GameService.rollDiceAction(gameId, gameState.playerId, "balanced")
 
-    // If player busted, execute bot turn and return bot actions
-    let botActions: any[] | undefined = undefined
-    if (!rollResult.success && gameState.mode !== 'pvp' && gameState.mode !== 'multiplayer' && gameState.mode !== 'tournament') {
-      // Player busted - bot's turn
-      // Get updated state once (rollDiceAction already updated it)
-      const updatedState = await GameService.getGameData(gameId)
-      if (updatedState.gameStatus === 'playing') {
-        botActions = await GameService.executeBotTurn(gameId)
-      }
-    }
-
-    // Build response - only fetch final state if we need it (bot turn executed)
-    // Otherwise, rollDiceAction already updated the state, so we can use rollResult data
+    // NOTE:
+    // Historically we executed the bot turn synchronously on a bust and returned botActions.
+    // That makes "roll 1" feel laggy because it blocks on bot AI/turn execution.
+    // We now return quickly and let the client call /bot-turn to fetch/replay bot actions.
     const response: any = {
       value: rollResult.value,
       success: rollResult.success,
@@ -89,14 +80,7 @@ export async function POST(
       turnScore: rollResult.turnScore,
     }
 
-    if (botActions) {
-      response.botActions = botActions
-      // Only fetch final state if bot turn was executed (to get updated scores)
-      const finalState = await GameService.getGameData(gameId)
-      response.turnScore = finalState.playerTurnScore // Update turn score in case bot turn changed it
-    }
-
-    console.log('✅ Dice rolled:', rollResult.value, rollResult.success ? 'Success' : 'Failed', botActions ? `(Bot turn: ${botActions.length} actions)` : '')
+    console.log('✅ Dice rolled:', rollResult.value, rollResult.success ? 'Success' : 'Failed')
 
     return NextResponse.json(response)
   } catch (error: any) {

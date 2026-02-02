@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface DiceProps {
   value: number | null
@@ -47,42 +47,35 @@ const diceDots: Record<number, number[][]> = {
 }
 
 export default function Dice({ value, isRolling, onRollComplete, onClick, disabled = false }: DiceProps) {
-  const [displayValue, setDisplayValue] = useState(value || 1)
-  const [imageLoaded, setImageLoaded] = useState(false)
-
-  // Ensure image is preloaded on component mount
-  useEffect(() => {
-    preloadApeCoinImage()
-      .then(() => setImageLoaded(true))
-      .catch(() => setImageLoaded(true)) // Still allow rendering even if preload fails
-  }, [])
+  const [displayValue, setDisplayValue] = useState<number>(value ?? 1)
+  const rollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const prevIsRollingRef = useRef<boolean>(isRolling)
 
   useEffect(() => {
+    // When rolling, keep spinning until parent stops us.
     if (isRolling) {
-      const interval = setInterval(() => {
+      if (rollIntervalRef.current) clearInterval(rollIntervalRef.current)
+      rollIntervalRef.current = setInterval(() => {
         setDisplayValue(Math.floor(Math.random() * 6) + 1)
       }, 100)
-
-      const timeout = setTimeout(() => {
-        clearInterval(interval)
-        if (value) {
-          setDisplayValue(value)
-          onRollComplete?.()
-        } else {
-          setDisplayValue(1)
-        }
-      }, 1000)
-
       return () => {
-        clearInterval(interval)
-        clearTimeout(timeout)
+        if (rollIntervalRef.current) clearInterval(rollIntervalRef.current)
+        rollIntervalRef.current = null
       }
-    } else if (value) {
-      setDisplayValue(value)
-    } else {
-      setDisplayValue(1)
     }
-  }, [isRolling, value, onRollComplete])
+    // Not rolling: show the provided value (or default to 1)
+    if (rollIntervalRef.current) clearInterval(rollIntervalRef.current)
+    rollIntervalRef.current = null
+    setDisplayValue(value ?? 1)
+  }, [isRolling, value])
+
+  useEffect(() => {
+    // Fire onRollComplete only when rolling transitions true -> false
+    if (prevIsRollingRef.current && !isRolling) {
+      onRollComplete?.()
+    }
+    prevIsRollingRef.current = isRolling
+  }, [isRolling, onRollComplete])
 
   const isRekt = !isRolling && value === 1
 
