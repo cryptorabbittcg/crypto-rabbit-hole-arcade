@@ -367,8 +367,12 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
     // Store opponent's score at start of turn - preserve it during turn, only update at end
     // IMPORTANT: Capture score BEFORE any potential backend refresh updates it
     const opponentScoreAtTurnStart = opponentScore
-    // Explicitly set the score to the start value to prevent any premature updates
-    updateScore(playerScore, opponentScoreAtTurnStart)
+    // IMPORTANT:
+    // Player score may have just been updated server-side (e.g., seat1 stacked),
+    // but this component's `playerScore` prop may still be the pre-render value.
+    // Always use the store's latest value to avoid overwriting the updated total.
+    const playerScoreAtTurnStart = useGameStore.getState().playerScore
+    updateScore(playerScoreAtTurnStart, opponentScoreAtTurnStart)
     let botTurnEnded = false // Track if bot's turn has ended (stacked, busted, or bearish penalty)
     
     // Step 1: Announce bot's turn
@@ -445,7 +449,7 @@ export default function GameBoard({ gameId, playerName, opponentName, gameMode, 
             setFloatingMessage({text: `${opponentName}: ${message}`})
             await new Promise(resolve => setTimeout(resolve, 1800))
             // Explicitly preserve opponentScore at start value when bot busts
-            updateScore(playerScore, opponentScoreAtTurnStart)
+            updateScore(useGameStore.getState().playerScore, opponentScoreAtTurnStart)
             botTurnEnded = true
             break // Bot busted, end turn (opponentScore remains at opponentScoreAtTurnStart)
           }
