@@ -442,7 +442,13 @@ function MintSoonDialog() {
     }
 
     w.__csMintModalHasShown = true
-    setOpen(true)
+    const t = window.setTimeout(() => {
+      setOpen(true)
+    }, 15000)
+
+    return () => {
+      window.clearTimeout(t)
+    }
   }, [])
 
   if (!open) return null
