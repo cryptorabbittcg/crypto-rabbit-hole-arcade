@@ -395,6 +395,43 @@ export class GameService {
     const actions: BotAction[] = []
     let botTurnEndedByFailure = false
 
+    /**
+     * Human-feel v1 lead protection gates
+     * - Prevents bots from insta-banking tiny leads (e.g. 0–0 and ts=3/5/8)
+     * - Enables smarter lead protection mid/late game (score-gated)
+     */
+    const maybeLeadProtectBank = (opts: {
+      wouldBeAhead: boolean
+      ts: number
+      playerScore: number
+      minPlayerDefault: number
+      minTurnDefault: number
+      defaultMessage: string
+      softMessage: string
+    }): boolean => {
+      const enabled = riskCfg.leadProtectEnabled !== false
+      if (!enabled) return false
+      if (!opts.wouldBeAhead) return false
+
+      const minPlayer = riskCfg.leadProtectMinPlayerScore ?? opts.minPlayerDefault
+      const minTurn = riskCfg.leadProtectMinTurnScore ?? opts.minTurnDefault
+      const earlyChance = riskCfg.leadProtectChanceEarly ?? 0
+
+      // Hard gate: only protect lead once the game is "real" (score + turn sats thresholds)
+      if (opts.playerScore >= minPlayer && opts.ts >= minTurn) {
+        actions.push({ type: "decision", message: opts.defaultMessage })
+        return true
+      }
+
+      // Optional soft bank early: only if ts is meaningful
+      if (earlyChance > 0 && opts.ts >= minTurn && Math.random() < earlyChance) {
+        actions.push({ type: "decision", message: opts.softMessage })
+        return true
+      }
+
+      return false
+    }
+
     // AI draws and rolls with adaptive logic
     while (true) {
       // Draw card
@@ -518,10 +555,17 @@ export class GameService {
         const aidaBehindGap = riskCfg.behindGap || 30
         const aidaBehindPush = riskCfg.behindPush || 0.60
 
-        // If stacking now would put Aida ahead, always bank (play safe—we've caught up)
+        // Lead-protection gate (Human-feel v1): avoid insta-banking tiny early leads
         const wouldBeAhead = currentState.opponentScore + ts > currentState.playerScore
-        if (wouldBeAhead) {
-          actions.push({ type: "decision", message: "Aida banks—she's caught up and plays it safe." })
+        if (maybeLeadProtectBank({
+          wouldBeAhead,
+          ts,
+          playerScore: currentState.playerScore,
+          minPlayerDefault: 21,
+          minTurnDefault: 8,
+          defaultMessage: "Aida banks—protecting her lead.",
+          softMessage: "Aida banks early—soft lead protection.",
+        })) {
           break
         }
 
@@ -558,10 +602,17 @@ export class GameService {
         const stackAt = riskCfg.stackAt || 30
         const stackBias = riskCfg.stackBias || 0.70
 
-        // If stacking now would put Lana ahead, always bank (play safe—we've caught up)
+        // Lead-protection gate (Human-feel v1): avoid insta-banking tiny early leads
         const wouldBeAhead = currentState.opponentScore + ts > currentState.playerScore
-        if (wouldBeAhead) {
-          actions.push({ type: "decision", message: "Lana banks—she's caught up and plays it safe." })
+        if (maybeLeadProtectBank({
+          wouldBeAhead,
+          ts,
+          playerScore: currentState.playerScore,
+          minPlayerDefault: 21,
+          minTurnDefault: 8,
+          defaultMessage: "Lana banks—protecting her lead.",
+          softMessage: "Lana banks early—soft lead protection.",
+        })) {
           break
         }
 
@@ -591,15 +642,25 @@ export class GameService {
         const basePush = riskCfg.basePush || 0.75
 
         // If stacking now would put En-J1n 21+ sats beyond the player, bank (he pushes for a cushion)
+        // Human-feel v1: gate this so it doesn't trigger too early.
         const wouldBeAheadBy21 = currentState.opponentScore + ts > currentState.playerScore + 21
-        if (wouldBeAheadBy21) {
+        const lpMinPlayer = riskCfg.leadProtectMinPlayerScore ?? 34
+        const lpMinTurn = riskCfg.leadProtectMinTurnScore ?? 21
+        if (wouldBeAheadBy21 && ts >= lpMinTurn && currentState.playerScore >= lpMinPlayer) {
           actions.push({ type: "decision", message: "En-J1n banks—21 sats clear and plays it safe." })
           break
         }
 
         if (behindBy > enj1nBehindGap) {
-          actions.push({ type: "decision", message: "En-J1n stacks aggressively to catch up." })
-          break
+          // Human-feel v1: when behind, En-J1n should push more often (not auto-bank).
+          const raw = scalePush(basePush + 0.10 + opponentPushNudge, behindBy)
+          if (Math.random() < raw * chainDecay) {
+            actions.push({ type: "decision", message: "En-J1n keeps pressing to catch up." })
+            continue
+          } else {
+            actions.push({ type: "decision", message: "En-J1n banks—momentary reset." })
+            break
+          }
         } else if (ts >= stackAt) {
           actions.push({ type: "decision", message: `En-J1n stacks at ${stackAt}.` })
           break
@@ -620,10 +681,17 @@ export class GameService {
         const stackAt = riskCfg.stackAt || 50
         const behindGap = riskCfg.behindGap || 20
 
-        // If stacking now would put Nifty ahead, always bank (play safe—we've caught up)
+        // Lead-protection gate (Human-feel v1): avoid insta-banking tiny early leads
         const wouldBeAhead = currentState.opponentScore + ts > currentState.playerScore
-        if (wouldBeAhead) {
-          actions.push({ type: "decision", message: "Nifty banks—caught up and plays it safe." })
+        if (maybeLeadProtectBank({
+          wouldBeAhead,
+          ts,
+          playerScore: currentState.playerScore,
+          minPlayerDefault: 34,
+          minTurnDefault: 13,
+          defaultMessage: "Nifty banks—protecting her lead.",
+          softMessage: "Nifty banks early—soft lead protection.",
+        })) {
           break
         }
 

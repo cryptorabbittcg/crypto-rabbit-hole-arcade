@@ -10,6 +10,11 @@ export interface RiskConfig {
   highStack?: number
   stackAt?: number
   stackBias?: number
+  // Human-feel v1 lead protection gates (optional)
+  leadProtectMinPlayerScore?: number
+  leadProtectMinTurnScore?: number
+  leadProtectChanceEarly?: number   // 0..1 soft-bank chance early
+  leadProtectEnabled?: boolean      // if false, disables lead-protect entirely
 }
 
 export interface JitterConfig {
@@ -59,7 +64,17 @@ export const BOT_CONFIGS: Record<GameMode, BotConfig> = {
     price: 0.10,
     hasDailyFree: true,
     targetScores: [21, 26, 40],
-    risk: { midMin: 21, midMax: 39, midPush: 0.50, highStack: 40, behindGap: 30, behindPush: 0.60 },
+    risk: {
+      midMin: 21,
+      midMax: 39,
+      midPush: 0.50,
+      highStack: 40,
+      behindGap: 30,
+      behindPush: 0.60,
+      leadProtectMinPlayerScore: 21,
+      leadProtectMinTurnScore: 8,
+      leadProtectChanceEarly: 0.00,
+    },
     jitter: { enabled: true, pct: 0.10 },
     diceModes: ['aida', 'aida_aggressive']
   },
@@ -73,7 +88,13 @@ export const BOT_CONFIGS: Record<GameMode, BotConfig> = {
     price: 0.10,
     hasDailyFree: false,
     targetScores: [30],
-    risk: { stackAt: 30, stackBias: 0.70 },
+    risk: {
+      stackAt: 30,
+      stackBias: 0.70,
+      leadProtectMinPlayerScore: 21,
+      leadProtectMinTurnScore: 8,
+      leadProtectChanceEarly: 0.00,
+    },
     jitter: { enabled: true, pct: 0.10 },
     diceModes: ['lana', 'lana_aggressive']
   },
@@ -87,7 +108,14 @@ export const BOT_CONFIGS: Record<GameMode, BotConfig> = {
     price: 0.10,
     hasDailyFree: true,
     targetScores: [34, 42, 55],
-    risk: { behindGap: 20, stackAt: 50, basePush: 0.75 },
+    risk: {
+      behindGap: 20,
+      stackAt: 50,
+      basePush: 0.75,
+      leadProtectMinPlayerScore: 34,
+      leadProtectMinTurnScore: 21,
+      leadProtectChanceEarly: 0.00,
+    },
     jitter: { enabled: true, pct: 0.10 },
     diceModes: ['enj1n', 'enj1n_aggressive'],
     noRoundLimit: true
@@ -102,7 +130,13 @@ export const BOT_CONFIGS: Record<GameMode, BotConfig> = {
     price: 0.10,
     hasDailyFree: false,
     targetScores: [50],
-    risk: { stackAt: 50, behindGap: 20 },
+    risk: {
+      stackAt: 50,
+      behindGap: 20,
+      leadProtectMinPlayerScore: 34,
+      leadProtectMinTurnScore: 13,
+      leadProtectChanceEarly: 0.10,
+    },
     jitter: { enabled: true, pct: 0.10 },
     diceModes: ['nifty', 'nifty_aggressive'],
     noRoundLimit: true
