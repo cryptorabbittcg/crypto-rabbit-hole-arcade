@@ -13,6 +13,10 @@ export interface RiskConfig {
   // Human-feel v1 lead protection gates (optional)
   leadProtectMinPlayerScore?: number
   leadProtectMinTurnScore?: number
+  leadProtectMinLeadAfterBank?: number // only bank if post-bank lead >= this
+  leadProtectMinRolls?: number         // only bank after N successful rolls this turn
+  leadProtectBigTurnScore?: number     // danger zone: allow banking to protect sats
+  catchUpMinRolls?: number             // if started behind, require at least N successful rolls before banking
   leadProtectChanceEarly?: number   // 0..1 soft-bank chance early
   leadProtectEnabled?: boolean      // if false, disables lead-protect entirely
 }
@@ -73,6 +77,10 @@ export const BOT_CONFIGS: Record<GameMode, BotConfig> = {
       behindPush: 0.60,
       leadProtectMinPlayerScore: 21,
       leadProtectMinTurnScore: 8,
+      leadProtectMinLeadAfterBank: 12,
+      leadProtectMinRolls: 2,
+      leadProtectBigTurnScore: 20,
+      catchUpMinRolls: 2,
       leadProtectChanceEarly: 0.00,
     },
     jitter: { enabled: true, pct: 0.10 },
@@ -93,6 +101,10 @@ export const BOT_CONFIGS: Record<GameMode, BotConfig> = {
       stackBias: 0.70,
       leadProtectMinPlayerScore: 21,
       leadProtectMinTurnScore: 8,
+      leadProtectMinLeadAfterBank: 10,
+      leadProtectMinRolls: 2,
+      leadProtectBigTurnScore: 30,
+      catchUpMinRolls: 2,
       leadProtectChanceEarly: 0.00,
     },
     jitter: { enabled: true, pct: 0.10 },
@@ -115,6 +127,8 @@ export const BOT_CONFIGS: Record<GameMode, BotConfig> = {
       leadProtectMinPlayerScore: 34,
       leadProtectMinTurnScore: 21,
       leadProtectChanceEarly: 0.00,
+      leadProtectBigTurnScore: 55,
+      catchUpMinRolls: 1,
     },
     jitter: { enabled: true, pct: 0.10 },
     diceModes: ['enj1n', 'enj1n_aggressive'],
@@ -135,6 +149,10 @@ export const BOT_CONFIGS: Record<GameMode, BotConfig> = {
       behindGap: 20,
       leadProtectMinPlayerScore: 34,
       leadProtectMinTurnScore: 13,
+      leadProtectMinLeadAfterBank: 8,
+      leadProtectMinRolls: 1,
+      leadProtectBigTurnScore: 40,
+      catchUpMinRolls: 2,
       leadProtectChanceEarly: 0.10,
     },
     jitter: { enabled: true, pct: 0.10 },

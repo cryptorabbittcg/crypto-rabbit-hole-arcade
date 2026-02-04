@@ -360,6 +360,21 @@ export class GameService {
     // Compute rounds left
     const roundsLeft = noRoundLimit ? null : Math.max(0, gameState.maxRounds - gameState.roundCount)
 
+    // Catch-up realism (Human-feel v1.2):
+    // If the bot starts the turn meaningfully behind, force it to build momentum (N successful rolls)
+    // before allowing banking—unless it reaches the bot-specific "danger zone" turn sats threshold.
+    const behindByAtStart = gameState.playerScore - gameState.opponentScore
+    const behindGapAtStart = riskCfg.behindGap ?? 999
+    const wasBehindAtTurnStart = behindByAtStart >= behindGapAtStart
+    const catchUpMinRolls = riskCfg.catchUpMinRolls ?? 2
+    const bigTurnScoreGate = riskCfg.leadProtectBigTurnScore ?? 40
+
+    const shouldBlockBankForCatchUp = (ts: number, successfulRolls: number): boolean => {
+      if (!wasBehindAtTurnStart) return false
+      if (ts >= bigTurnScoreGate) return false
+      return successfulRolls < catchUpMinRolls
+    }
+
     // Per-match deterministic jitter factor based on game.id
     const getJittered = (value: number): number => {
       if (!value) return value
@@ -404,6 +419,8 @@ export class GameService {
       wouldBeAhead: boolean
       ts: number
       playerScore: number
+      opponentScore: number
+      successfulRollsThisTurn: number
       minPlayerDefault: number
       minTurnDefault: number
       defaultMessage: string
@@ -415,10 +432,25 @@ export class GameService {
 
       const minPlayer = riskCfg.leadProtectMinPlayerScore ?? opts.minPlayerDefault
       const minTurn = riskCfg.leadProtectMinTurnScore ?? opts.minTurnDefault
+      const minLead = riskCfg.leadProtectMinLeadAfterBank ?? 0
+      const minRolls = riskCfg.leadProtectMinRolls ?? 0
       const earlyChance = riskCfg.leadProtectChanceEarly ?? 0
+      const bigTurnScore = riskCfg.leadProtectBigTurnScore ?? (minTurn + 20)
+
+      const leadAfterBank = (opts.opponentScore + opts.ts) - opts.playerScore
 
       // Hard gate: only protect lead once the game is "real" (score + turn sats thresholds)
-      if (opts.playerScore >= minPlayer && opts.ts >= minTurn) {
+      if (
+        opts.playerScore >= minPlayer &&
+        opts.ts >= minTurn &&
+        // Human-feel: do not allow lead-protect banking until N successful rolls have happened
+        opts.successfulRollsThisTurn >= minRolls &&
+        (
+          leadAfterBank >= minLead ||
+          // Big turn sats should sometimes trigger protection even without a cushion (bot-specific)
+          opts.ts >= bigTurnScore
+        )
+      ) {
         actions.push({ type: "decision", message: opts.defaultMessage })
         return true
       }
@@ -561,6 +593,8 @@ export class GameService {
           wouldBeAhead,
           ts,
           playerScore: currentState.playerScore,
+          opponentScore: currentState.opponentScore,
+          successfulRollsThisTurn: successfulDrawsThisTurn,
           minPlayerDefault: 21,
           minTurnDefault: 8,
           defaultMessage: "Aida banks—protecting her lead.",
@@ -575,9 +609,17 @@ export class GameService {
             actions.push({ type: "decision", message: "Aida takes a calculated risk to catch up." })
             continue
           } else {
+            if (shouldBlockBankForCatchUp(ts, successfulDrawsThisTurn)) {
+              actions.push({ type: "decision", message: "Aida was behind—keeps pushing to complete the catch-up turn." })
+              continue
+            }
             break
           }
         } else if (ts >= highStack) {
+          if (shouldBlockBankForCatchUp(ts, successfulDrawsThisTurn)) {
+            actions.push({ type: "decision", message: "Aida was behind—keeps pushing to complete the catch-up turn." })
+            continue
+          }
           actions.push({ type: "decision", message: `Aida stacks at ${highStack}+.` })
           break
         } else if (midMin <= ts && ts <= midMax) {
@@ -586,10 +628,18 @@ export class GameService {
             actions.push({ type: "decision", message: "Aida pushes with a balanced risk." })
             continue
           } else {
+            if (shouldBlockBankForCatchUp(ts, successfulDrawsThisTurn)) {
+              actions.push({ type: "decision", message: "Aida was behind—keeps pushing to complete the catch-up turn." })
+              continue
+            }
             break
           }
         } else {
           if (successfulDrawsThisTurn >= CHAIN_THRESHOLD && Math.random() >= chainDecay) {
+            if (shouldBlockBankForCatchUp(ts, successfulDrawsThisTurn)) {
+              actions.push({ type: "decision", message: "Aida was behind—keeps pushing to complete the catch-up turn." })
+              continue
+            }
             actions.push({ type: "decision", message: "Aida banks—chain fatigue." })
             break
           }
@@ -608,6 +658,8 @@ export class GameService {
           wouldBeAhead,
           ts,
           playerScore: currentState.playerScore,
+          opponentScore: currentState.opponentScore,
+          successfulRollsThisTurn: successfulDrawsThisTurn,
           minPlayerDefault: 21,
           minTurnDefault: 8,
           defaultMessage: "Lana banks—protecting her lead.",
@@ -622,11 +674,19 @@ export class GameService {
           if (Math.random() < continueProb) {
             continue
           } else {
+            if (shouldBlockBankForCatchUp(ts, successfulDrawsThisTurn)) {
+              actions.push({ type: "decision", message: "Lana was behind—keeps the pressure on before banking." })
+              continue
+            }
             actions.push({ type: "decision", message: `Lana stacks at ${stackAt}.` })
             break
           }
         } else {
           if (successfulDrawsThisTurn >= CHAIN_THRESHOLD && Math.random() >= chainDecay) {
+            if (shouldBlockBankForCatchUp(ts, successfulDrawsThisTurn)) {
+              actions.push({ type: "decision", message: "Lana was behind—keeps the pressure on before banking." })
+              continue
+            }
             actions.push({ type: "decision", message: "Lana banks—chain fatigue." })
             break
           }
@@ -652,12 +712,16 @@ export class GameService {
         }
 
         if (behindBy > enj1nBehindGap) {
-          // Human-feel v1: when behind, En-J1n should push more often (not auto-bank).
+          // Human-feel v1.2: when behind, En-J1n pushes hard, but must complete catch-up momentum
           const raw = scalePush(basePush + 0.10 + opponentPushNudge, behindBy)
           if (Math.random() < raw * chainDecay) {
             actions.push({ type: "decision", message: "En-J1n keeps pressing to catch up." })
             continue
           } else {
+            if (shouldBlockBankForCatchUp(ts, successfulDrawsThisTurn)) {
+              actions.push({ type: "decision", message: "En-J1n was behind—keeps pressing to complete the catch-up turn." })
+              continue
+            }
             actions.push({ type: "decision", message: "En-J1n banks—momentary reset." })
             break
           }
@@ -687,6 +751,8 @@ export class GameService {
           wouldBeAhead,
           ts,
           playerScore: currentState.playerScore,
+          opponentScore: currentState.opponentScore,
+          successfulRollsThisTurn: successfulDrawsThisTurn,
           minPlayerDefault: 34,
           minTurnDefault: 13,
           defaultMessage: "Nifty banks—protecting her lead.",
@@ -698,17 +764,29 @@ export class GameService {
         if (ts >= stackAt) {
           if (behindBy >= behindGap) {
             if (successfulDrawsThisTurn >= CHAIN_THRESHOLD && Math.random() >= chainDecay) {
+              if (shouldBlockBankForCatchUp(ts, successfulDrawsThisTurn)) {
+                actions.push({ type: "decision", message: "Nifty was behind—rides the momentum a bit longer." })
+                continue
+              }
               actions.push({ type: "decision", message: "Nifty banks—chain fatigue." })
               break
             }
             actions.push({ type: "decision", message: "Nifty is behind—stays ultra aggressive over 50 sats." })
             continue
           } else {
+            if (shouldBlockBankForCatchUp(ts, successfulDrawsThisTurn)) {
+              actions.push({ type: "decision", message: "Nifty was behind—rides the momentum a bit longer." })
+              continue
+            }
             actions.push({ type: "decision", message: `Nifty stacks at ${stackAt}.` })
             break
           }
         } else {
           if (successfulDrawsThisTurn >= CHAIN_THRESHOLD && Math.random() >= chainDecay) {
+            if (shouldBlockBankForCatchUp(ts, successfulDrawsThisTurn)) {
+              actions.push({ type: "decision", message: "Nifty was behind—rides the momentum a bit longer." })
+              continue
+            }
             actions.push({ type: "decision", message: "Nifty banks—chain fatigue." })
             break
           }
