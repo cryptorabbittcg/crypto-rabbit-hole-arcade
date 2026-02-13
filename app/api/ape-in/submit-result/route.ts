@@ -4,10 +4,6 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { CURRENT_SEASON } from "@/lib/season"
 
 export async function POST(request: NextRequest) {
-  // Diagnostic: Log runtime and env vars
-  console.log("[ApeInSubmit] runtime", process.env.NEXT_RUNTIME, "node?", typeof process !== "undefined")
-  console.log("[ApeInSubmit] has service key", !!process.env.SUPABASE_SERVICE_ROLE_KEY)
-  
   try {
     const body = await request.json()
     const {
@@ -21,15 +17,6 @@ export async function POST(request: NextRequest) {
       runId,
       metadata,
     } = body
-
-    console.log("[ape-in submit-result] payload", {
-      playerAddress: playerAddress ? `${playerAddress.substring(0, 10)}...` : undefined,
-      mode,
-      score,
-      durationSeconds,
-      result,
-      runId,
-    })
 
     // Normalize mode and result server-side to prevent casing mismatches
     const normalizedMode = String(mode).toLowerCase()
@@ -77,12 +64,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Log profile info for diagnostics
-    console.log('[ApeInSubmit] profile', { 
-      id: profile.id, 
-      wallet: normalizedAddress 
-    })
-
     // Calculate points (MVP: points = score)
     const pointsEarned = score
 
@@ -90,17 +71,6 @@ export async function POST(request: NextRequest) {
     let adminClient
     try {
       adminClient = createAdminClient()
-      // Log Supabase URL hostname for diagnostics
-      console.log('[ApeInSubmit] supabase url', process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1] || 'not-set')
-      
-      // Diagnostic: Prove the API can read the leaderboard row (confirms same DB/env)
-      const { data: diagData, error: diagError } = await adminClient
-        .from('leaderboard')
-        .select('user_id, season, ape_in_high_score, updated_at')
-        .eq('user_id', profile.id)
-        .maybeSingle()
-      
-      console.log('[ApeInSubmit] diag leaderboard readback', { diagData, diagError })
     } catch (error) {
       console.error('[ApeInSubmit] Error creating admin client:', error)
       return NextResponse.json(
@@ -141,19 +111,20 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       // Check if error is due to unique constraint violation (duplicate run_id)
       if (insertError.code === '23505' || insertError.message?.includes('unique constraint') || insertError.message?.includes('duplicate key')) {
-        // Duplicate run_id - fetch existing session (idempotent response)
+        // Duplicate run_id - fetch existing session scoped to this user + game (idempotent response)
         const { data: existingSession, error: fetchError } = await adminClient
           .from('game_sessions')
-          .select('id')
+          .select('id, points_earned')
           .eq('run_id', runId)
-          .single()
+          .eq('user_id', profile.id)
+          .eq('game_type', 'ape_in')
+          .maybeSingle()
 
         if (fetchError || !existingSession) {
-          console.error('[ApeInSubmit] Error fetching existing session:', {
-            code: fetchError?.code,
-            message: fetchError?.message,
-          })
-          return NextResponse.json({ error: "Failed to process submission" }, { status: 500 })
+          return NextResponse.json(
+            { error: "Duplicate run_id for another user or game" },
+            { status: 409 }
+          )
         }
 
         sessionId = existingSession.id
@@ -174,100 +145,38 @@ export async function POST(request: NextRequest) {
       }
       sessionId = sessionData.id
       shouldAwardPoints = true // Award points for new submission
-      console.log("[ape-in submit-result] inserted run_id", runId)
     }
 
     // Award points only for ranked modes (all Ape In modes are ranked)
-    // Only award if this is a new submission (not duplicate)
-    if (shouldAwardPoints && pointsEarned > 0) {
-      const { error: balanceError } = await adminClient.rpc('update_user_balance', {
-        p_user_id: profile.id,
-        p_ape_change: 0,
-        p_tickets_change: 0,
-        p_points_change: pointsEarned,
-        p_transaction_type: 'game_reward',
-        p_description: `Reward from ape_in ${normalizedMode}`,
-      })
+    // NOTE:
+    // Points + transaction ledger + leaderboard are now handled by add_apein_result(run_id ties everything together).
+    // Do NOT also call update_user_balance here, or you'll create duplicate transaction rows.
 
-      if (balanceError) {
-        console.error('[ApeInSubmit] Error updating user balance:', {
-          code: balanceError.code,
-          message: balanceError.message,
-        })
-        // Continue even if balance update fails (session is already saved)
-      }
-    }
-
-    // Update leaderboard via RPC (SECURITY DEFINER bypasses RLS)
+    // Update leaderboard + ledger via RPC (SECURITY DEFINER bypasses RLS)
     // Only update for completed/won results (using normalized result to prevent casing issues)
     let highScoreUpdated = false
-    if (normalizedResult === 'won' || normalizedResult === 'completed') {
-      // 1) Mode-specific leaderboard (writes to public.ape_in_leaderboard)
-      // This populates the per-mode leaderboard that get_ape_in_leaderboard reads from
-      console.log('[ApeInSubmit] Calling add_apein_leaderboard_entry (mode) RPC', {
-        userId: profile.id,
-        mode: normalizedMode,
-        score,
-        season: CURRENT_SEASON,
-      })
-
-      const { data: modeData, error: modeError } = await adminClient.rpc(
-        'add_apein_leaderboard_entry',
+    if (shouldAwardPoints && (normalizedResult === 'won' || normalizedResult === 'completed')) {
+      const { data: rpcData, error: rpcError } = await adminClient.rpc(
+        'add_apein_result',
         {
+          p_run_id: runId,
           p_user_id: profile.id,
           p_mode: normalizedMode,
           p_season: CURRENT_SEASON,
-          p_score: score,
+          p_score: pointsEarned,
         }
       )
 
-      console.log('[ApeInSubmit] rpc add_apein_leaderboard_entry (mode)', { modeData, modeError })
-
-      if (modeError) {
-        console.error('[ApeInSubmit] mode leaderboard RPC failed:', {
-          code: modeError.code,
-          message: modeError.message,
-          details: (modeError as any).details,
-          hint: (modeError as any).hint,
-        })
-      }
-
-      // 2) Backward-compatible global high score (updates public.leaderboard.ape_in_high_score)
-      // This maintains the global high score field for any existing UI/stat dependencies
-      console.log('[ApeInSubmit] Calling add_apein_leaderboard_entry (global) RPC', {
-        userId: profile.id,
-        score,
-        season: CURRENT_SEASON,
-      })
-
-      const { data: rpcData, error: rpcError } = await adminClient.rpc(
-        'add_apein_leaderboard_entry',
-        {
-          p_user_id: profile.id,
-          p_score: score,
-          p_season: CURRENT_SEASON,
-        }
-      )
-
-      console.log('[ApeInSubmit] rpc add_apein_leaderboard_entry (global)', { rpcData, rpcError })
-
-      if (!rpcError && rpcData && rpcData.length > 0) {
-        // rpcData[0].ape_in_high_score is now the correct max value
-        const updatedHighScore = rpcData[0].ape_in_high_score
-        highScoreUpdated = updatedHighScore >= score // Score was updated (may have been same or higher)
-        console.log('[ApeInSubmit] Global high score updated via RPC', {
-          userId: profile.id,
-          score,
-          updatedHighScore,
-          highScoreUpdated,
-        })
-      } else if (rpcError) {
-        console.error('[ApeInSubmit] global leaderboard RPC failed:', {
+      if (rpcError) {
+        console.error('[ApeInSubmit] add_apein_result RPC failed:', {
           code: rpcError.code,
           message: rpcError.message,
           details: (rpcError as any).details,
           hint: (rpcError as any).hint,
         })
+      } else {
+        // add_apein_result returns (user_id, mode, season, best_score, last_played)
+        highScoreUpdated = true
       }
     }
 
